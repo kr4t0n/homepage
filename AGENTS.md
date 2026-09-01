@@ -119,8 +119,11 @@ They are not glTF nodes, so putting them in `HOTSPOTS` would break the raycast
 map and add phantom nav pills. Every such object must also be reachable some
 other way: a click target that exists only in the 3D scene cannot be tabbed to
 or announced by a screen reader, so it can decorate a route but never be the
-only one. The neon wordmark links to GitHub, which is also in the header and
-the 2D fallback.
+only one. The neon wordmark links to GitHub; the pointer-free route to the same
+place is Tab to the Contact hotspot, Enter, then Tab to the anchor inside the
+panel. There is no header, so that panel anchor and the 2D fallback are the only
+non-pointer routes left. `tools/verify-keyboard.mjs` guards them; run it before
+removing any anchor.
 
 **A clickable object needs a padded, separate hit mesh.** The visible neon plane
 is 0.88 x 0.223, which is a hard thing to hit across a room. Picking is handled

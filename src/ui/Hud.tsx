@@ -66,24 +66,10 @@ export function Hud() {
 
   return (
     <div ref={root} className="pointer-events-none fixed inset-0 z-20">
-      {/* No wordmark here: the neon sign on the back wall carries the name, and
-          repeating it in the corner reads as a duplicate rather than a header.
-          justify-end because the GitHub link is now the only child. */}
-      <header
-        data-fade
-        className="pointer-events-auto absolute left-0 right-0 top-0 flex h-16 items-center justify-end px-6 sm:px-10"
-      >
-        <a
-          data-intro
-          href={PROFILE.github}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="font-mono text-[11px] uppercase tracking-[0.18em] text-mute transition-colors hover:text-bright"
-        >
-          GitHub
-        </a>
-      </header>
-
+      {/* No chrome across the top. The wordmark moved to the neon sign on the
+          back wall, which is itself the GitHub link, and the Contact panel
+          carries the same link as real tab-reachable markup. A header holding
+          one duplicate link was costing the room its whole upper edge. */}
       <div
         data-fade
         className="absolute bottom-0 left-0 right-0 px-6 pb-8 sm:px-10 sm:pb-10"

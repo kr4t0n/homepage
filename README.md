@@ -104,10 +104,11 @@ node tools/verify-view-restore.mjs   # tuned view survives a hotspot visit
 node tools/sweep-highlight.mjs       # renders a hover-accent tuning sweep
 node tools/sweep-neon.mjs            # renders a neon brightness sweep
 node tools/verify-neon-link.mjs      # the neon wordmark behaves as a link
+node tools/verify-keyboard.mjs       # the room is usable without a pointer
 ```
 
-`verify-view-restore` and `verify-neon-link` exit non-zero on failure, so both
-are usable as gates.
+`verify-view-restore`, `verify-neon-link` and `verify-keyboard` exit non-zero
+on failure, so all three are usable as gates.
 
 All of the above need a one-time `npx playwright install chromium`.
 
@@ -173,6 +174,7 @@ tools/
   sweep-highlight.mjs   hover-accent tuning sweep
   sweep-neon.mjs        neon brightness tuning sweep
   verify-neon-link.mjs  neon wordmark link behaviour
+  verify-keyboard.mjs   keyboard-only reachability
   shoot.mjs             full walkthrough captures
 ```
 
