@@ -3,7 +3,7 @@ import { Canvas } from '@react-three/fiber'
 import { AdaptiveDpr, Preload } from '@react-three/drei'
 import * as THREE from 'three'
 import { Room } from './Room'
-import { Displays } from './Displays'
+import { Screens } from './Screens'
 import { NeonSign } from './NeonSign'
 import { CameraDirector } from './CameraDirector'
 import { HOME_CAMERA } from '../content'
@@ -30,7 +30,8 @@ function Lighting() {
 
 export function Scene() {
   const focus = useScene((s) => s.focus)
-  const setFocus = useScene((s) => s.setFocus)
+  const screen = useScene((s) => s.screen)
+  const clearFocus = useScene((s) => s.clearFocus)
   const setReady = useScene((s) => s.setReady)
 
   return (
@@ -45,19 +46,23 @@ export function Scene() {
         setReady(true)
       }}
       camera={{ position: HOME_CAMERA.position, fov: 34, near: 0.1, far: 200 }}
-      // Clicking past every hotspot returns to the home view.
-      onPointerMissed={() => setFocus(null)}
+      // Clicking past everything interactive returns to the home view.
+      onPointerMissed={() => clearFocus()}
     >
       <color attach="background" args={['#070a12']} />
       <fog attach="fog" args={['#070a12', 18, 40]} />
       <Lighting />
       <Suspense fallback={null}>
         <Room />
-        <Displays />
+        <Screens />
         <NeonSign />
         <Preload all />
       </Suspense>
-      <CameraDirector focus={focus} idle={focus === null} />
+      <CameraDirector
+        focus={focus}
+        screen={screen}
+        idle={focus === null && screen === null}
+      />
       <AdaptiveDpr pixelated />
     </Canvas>
   )

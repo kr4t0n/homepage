@@ -105,19 +105,24 @@ node tools/sweep-highlight.mjs       # renders a hover-accent tuning sweep
 node tools/sweep-neon.mjs            # renders a neon brightness sweep
 node tools/verify-neon-link.mjs      # the neon wordmark behaves as a link
 node tools/verify-keyboard.mjs       # the room is usable without a pointer
+node tools/verify-screens.mjs        # the two-stage monitor interaction
 ```
 
-`verify-view-restore`, `verify-neon-link` and `verify-keyboard` exit non-zero
-on failure, so all three are usable as gates.
+`verify-view-restore`, `verify-neon-link`, `verify-keyboard` and
+`verify-screens` exit non-zero on failure, so all four are usable as gates.
 
 All of the above need a one-time `npx playwright install chromium`.
 
 ## Putting an image on a monitor
 
-`src/three/Displays.tsx` lays a textured plane over a monitor panel. To add one,
-drop the image in `public/`, run `tools/.venv/bin/python tools/find_screens.py`
-to get the panel geometry, and add an entry. Negate the normal that script
-prints; see the note in AGENTS.md for why.
+The three panels are entries in `SCREENS` in `src/content.ts`. Give one an
+`image` and it renders; give it an `href` and `action` and a second click on the
+framed screen opens that URL. Geometry for all three is already measured; to
+re-derive it run `tools/.venv/bin/python tools/find_screens.py` and negate the
+normal it prints, for the reason in AGENTS.md.
+
+The centre and right panels are wired and empty, waiting on content. An Argus
+screenshot on the centre one is the obvious next addition.
 
 ## Putting something on a wall
 
@@ -153,7 +158,7 @@ src/
     CameraDirector.tsx  GSAP camera choreography, orbit, idle drift
     orbit.ts            drag/zoom/pinch input, limits, home-view stash
     highlight.ts        hover accent colour and strength
-    Displays.tsx        screenshots laid over the monitor panels
+    Screens.tsx         the three monitors, framed on click, link on second
     NeonSign.tsx        canvas-drawn neon wordmark on the back wall
   ui/
     Hud.tsx             hero, hotspot nav, hover readout
@@ -165,7 +170,7 @@ tools/
   export_glb.py         the asset pipeline
   inspect_blend.py      dependency-free .blend parser
   inspect_scene.py      bpy scene report + preview renders
-  find_screens.py       measures monitor panels for Displays.tsx
+  find_screens.py       measures the monitor panels for SCREENS
   find_walls.py         measures the wall planes
   wall_occupancy.py     lists wall decor and finds clear bands
   verify-hotspots.mjs   hover verification captures
@@ -175,6 +180,7 @@ tools/
   sweep-neon.mjs        neon brightness tuning sweep
   verify-neon-link.mjs  neon wordmark link behaviour
   verify-keyboard.mjs   keyboard-only reachability
+  verify-screens.mjs    two-stage monitor interaction
   shoot.mjs             full walkthrough captures
 ```
 

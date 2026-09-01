@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useGLTF } from '@react-three/drei'
 import { type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
-import { HOTSPOTS, ROOM_HOTSPOTS } from '../content'
+import { HOTSPOTS, PICKABLE_HOTSPOTS, ROOM_HOTSPOTS } from '../content'
 import { useScene } from '../store'
 import { HIGHLIGHT, highlight } from './highlight'
 import { orbit } from './orbit'
@@ -26,7 +26,8 @@ export function Room() {
   // Node -> hotspot id, so a raycast hit resolves to content in one lookup.
   const nodeToId = useMemo(() => {
     const m = new Map<string, string>()
-    ROOM_HOTSPOTS().forEach((h) => m.set(h.node, h.id))
+    // Only pickable ones: the monitors are handled by Screens.tsx.
+    PICKABLE_HOTSPOTS().forEach((h) => m.set(h.node, h.id))
     return m
   }, [])
 

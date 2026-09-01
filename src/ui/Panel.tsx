@@ -201,16 +201,6 @@ export function Panel() {
   const root = useRef<HTMLDivElement>(null)
   const spot = hotspotById(focus)
 
-  // Escape closes, matching the click-outside behaviour on the canvas.
-  useEffect(() => {
-    if (!focus) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setFocus(null)
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [focus, setFocus])
-
   // Panel arrives after the camera has committed to the move, so the two reads
   // as one gesture rather than two competing ones. Gated behind matchMedia:
   // gsap.from() applies its start state immediately, so under reduced motion an

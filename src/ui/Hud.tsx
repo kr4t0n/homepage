@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import gsap from 'gsap'
 import { useGSAP } from '@gsap/react'
-import { ROOM_HOTSPOTS, PROFILE, readoutFor } from '../content'
+import { ROOM_HOTSPOTS, PROFILE, readoutFor, screenById } from '../content'
 import { useScene } from '../store'
 import { resetOrbit } from '../three/orbit'
 
@@ -20,12 +20,15 @@ export function Hud() {
   const ready = useScene((s) => s.ready)
   const setFocus = useScene((s) => s.setFocus)
   const setHover = useScene((s) => s.setHover)
+  const screen = useScene((s) => s.screen)
+  const clearFocus = useScene((s) => s.clearFocus)
   const orbited = useScene((s) => s.orbited)
   const setOrbited = useScene((s) => s.setOrbited)
   const root = useRef<HTMLDivElement>(null)
 
-  const open = focus === null
-  const hovered = readoutFor(hover)
+  const open = focus === null && screen === null
+  const hovered = readoutFor(hover, screen)
+  const framed = screenById(screen)
 
   useGSAP(
     () => {
@@ -127,6 +130,32 @@ export function Hud() {
           </p>
         </div>
       </div>
+
+      {/* A framed screen has no panel, so this is the only thing telling the
+          visitor what the second click does and how to get back out. */}
+      {framed && (
+        <div className="pointer-events-auto absolute inset-x-0 bottom-10 flex flex-col items-center gap-3 px-6 text-center">
+          {/* The screen fills the frame at this distance, so the copy would
+              otherwise land on whatever the monitor is standing on. */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-56 bg-gradient-to-t from-void via-void/80 to-transparent"
+          />
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-acid">
+            {framed.label}
+          </p>
+          <p className="text-body">
+            {framed.href ? framed.action : framed.hint}
+          </p>
+          <button
+            type="button"
+            onClick={() => clearFocus()}
+            className="hairline rounded-full border px-3.5 py-1.5 text-sm text-mute transition-colors hover:text-bright active:scale-[0.98]"
+          >
+            Back to the room
+          </button>
+        </div>
+      )}
 
       {/* Reset appears only once the view has actually been moved. */}
       <button

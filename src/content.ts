@@ -43,10 +43,21 @@ export interface Hotspot {
    * prop; the panel is still reachable from the nav and the 2D fallback.
    */
   unverified?: boolean
+  /**
+   * In the nav but not clickable in the room, because the object it names has
+   * its own richer interaction. The monitors are the case: clicking one focuses
+   * that screen rather than opening a panel, but Work still needs a nav entry,
+   * since it is the only keyboard route to the Argus and nodex links.
+   */
+  navOnly?: boolean
 }
 
-/** Hotspots whose node is confirmed to be the right physical object. */
+/** Hotspots offered in the nav and the 2D fallback. */
 export const ROOM_HOTSPOTS = () => HOTSPOTS.filter((h) => !h.unverified)
+
+/** Hotspots a click in the 3D room can resolve to. */
+export const PICKABLE_HOTSPOTS = () =>
+  HOTSPOTS.filter((h) => !h.unverified && !h.navOnly)
 
 export const PROFILE = {
   handle: 'kr4t0n',
@@ -93,6 +104,10 @@ export const HOTSPOTS: Hotspot[] = [
     kind: 'projects',
     offset: [1.1, 1.5, 4.2],
     look: [0, 0.15, 0],
+    // The monitors have their own interaction, so a click in the room focuses a
+    // screen instead of opening this. Kept in the nav because it is the only
+    // keyboard-reachable route to the project links.
+    navOnly: true,
   },
   {
     id: 'music',
@@ -193,14 +208,101 @@ export const ROOM_LINKS: RoomLink[] = [
 export const roomLinkById = (id: string | null) =>
   id ? (ROOM_LINKS.find((l) => l.id === id) ?? null) : null
 
-/** Label and hint for the hover readout, for hotspots and links alike. */
-export const readoutFor = (id: string | null): { label: string; hint: string } | null => {
+/**
+ * Label and hint for the hover readout, across hotspots, links and screens.
+ *
+ * `focusedScreen` is passed in so a focused screen can advertise what a second
+ * click does. Without that the two-stage interaction is invisible: the first
+ * click looks like it did nothing but move the camera.
+ */
+export const readoutFor = (
+  id: string | null,
+  focusedScreen: string | null = null,
+): { label: string; hint: string } | null => {
   const h = hotspotById(id)
   if (h) return { label: h.label, hint: h.hint }
   const l = roomLinkById(id)
   if (l) return { label: l.label, hint: l.hint }
+  const s = screenById(id)
+  if (s) {
+    const armed = s.id === focusedScreen && s.href
+    return { label: s.label, hint: armed ? (s.action ?? 'Click to open') : s.hint }
+  }
   return null
 }
+
+/**
+ * The three monitor panels, as independently interactive surfaces.
+ *
+ * They are merged into `hot_screens` in the GLB, so none of them can be
+ * addressed as a node. Each is instead an independent plane placed over its
+ * panel using geometry measured by tools/find_screens.py.
+ *
+ * Interaction is two-stage: the first click flies the camera dead-on to the
+ * screen, and a second click opens `href` if there is one. Nothing here opens a
+ * panel. The staging exists because a single click that navigated off-site
+ * would be far too easy to trigger by accident while exploring a room.
+ *
+ * `normal` is negated from what find_screens.py reports; see AGENTS.md.
+ */
+export interface Screen {
+  /** Stable id, used in the URL and as a hover key. */
+  id: string
+  /** Source object in the .blend, for traceability back to find_screens.py. */
+  source: string
+  label: string
+  /** Shown under the label before the screen is focused. */
+  hint: string
+  /** Shown once focused, when there is somewhere to go. */
+  action?: string
+  image?: string
+  href?: string
+  centre: [number, number, number]
+  normal: [number, number, number]
+  width: number
+  height: number
+}
+
+export const SCREENS: Screen[] = [
+  {
+    // Leftmost from the default camera, confirmed by projecting each centre
+    // onto the camera's right vector.
+    id: 'nodex',
+    source: 'Plane.033',
+    label: 'nodex',
+    hint: 'Click to look closer',
+    action: 'Click again to open nodex.kubitnodes.com',
+    image: '/nodex-screenshot.png',
+    href: 'https://nodex.kubitnodes.com',
+    centre: [-0.1345, 1.302, -1.1292],
+    normal: [0.7371, 0, 0.6758],
+    width: 1.3661,
+    height: 0.5689,
+  },
+  {
+    id: 'centre',
+    source: 'Plane.024',
+    label: 'Centre display',
+    hint: 'Nothing on this one yet',
+    centre: [1.1017, 1.302, -1.5808],
+    normal: [0, 0, 1],
+    width: 1.3661,
+    height: 0.5689,
+  },
+  {
+    id: 'right',
+    source: 'Plane.031',
+    label: 'Right display',
+    hint: 'Nothing on this one yet',
+    centre: [2.3769, 1.302, -1.0929],
+    normal: [-0.7018, 0, 0.7123],
+    width: 1.3661,
+    height: 0.5689,
+  },
+]
+
+export const screenById = (id: string | null) =>
+  id ? (SCREENS.find((s) => s.id === id) ?? null) : null
 
 /** Default camera, framing the whole diorama. glTF space, Y up. */
 export const HOME_CAMERA = {

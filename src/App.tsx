@@ -4,7 +4,7 @@ import { Hud } from './ui/Hud'
 import { Panel } from './ui/Panel'
 import { Preloader } from './ui/Preloader'
 import { Fallback2D } from './ui/Fallback2D'
-import { bindCursor, bindHistory } from './store'
+import { bindCursor, bindEscape, bindHistory } from './store'
 
 /** One-shot capability probe. A failed context here means no canvas at all. */
 const hasWebGL = (): boolean => {
@@ -33,6 +33,8 @@ export default function App() {
 
   useEffect(() => bindHistory(), [])
   useEffect(() => bindCursor(), [])
+  // Escape leaves any focused mode, panel or framed screen alike.
+  useEffect(() => bindEscape(), [])
 
   useEffect(() => {
     const mq = window.matchMedia(`(min-width: ${MIN_3D_WIDTH}px)`)

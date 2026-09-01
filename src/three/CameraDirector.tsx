@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import gsap from 'gsap'
 import * as THREE from 'three'
 import manifest from '../scene-manifest.json'
-import { HOME_CAMERA, hotspotById, type Hotspot } from '../content'
+import { HOME_CAMERA, hotspotById, screenById, type Hotspot } from '../content'
 import { LIMITS, attachOrbit, homeView, orbit, rememberHomeView } from './orbit'
 import { useScene } from '../store'
 
@@ -49,15 +49,45 @@ const poseBetween = (
   }
 }
 
-const poseFor = (id: string | null): Pose => {
+const poseForHotspot = (id: string | null): Pose | null => {
   const h = hotspotById(id)
-  if (!h) return poseBetween(HOME_CAMERA.position, HOME_CAMERA.target)
+  if (!h) return null
   const c = entryFor(h)?.centre ?? [0, 1, 0]
   return poseBetween(
     [c[0] + h.offset[0], c[1] + h.offset[1], c[2] + h.offset[2]],
     [c[0] + h.look[0], c[1] + h.look[1], c[2] + h.look[2]],
   )
 }
+
+/** Leaves this much of the frame around a framed screen. */
+const SCREEN_MARGIN = 1.32
+
+/**
+ * Frames a screen square-on, at whatever distance actually fits it.
+ *
+ * Derived from the live camera rather than hard-coded, because the limiting
+ * dimension flips with the viewport: these panels are 2.4:1, so on a wide
+ * window height constrains and on a narrow one width does.
+ */
+const poseForScreen = (id: string | null, cam: THREE.Camera): Pose | null => {
+  const s = screenById(id)
+  if (!s) return null
+  const p = cam as THREE.PerspectiveCamera
+  const vFov = THREE.MathUtils.degToRad(p.fov ?? 34)
+  const hFov = 2 * Math.atan(Math.tan(vFov / 2) * (p.aspect || 1.6))
+  const dist =
+    Math.max(
+      s.width / 2 / Math.tan(hFov / 2),
+      s.height / 2 / Math.tan(vFov / 2),
+    ) * SCREEN_MARGIN
+
+  const n = new THREE.Vector3(...s.normal).normalize()
+  const centre = new THREE.Vector3(...s.centre)
+  const eye = centre.clone().addScaledVector(n, dist)
+  return poseBetween([eye.x, eye.y, eye.z], [centre.x, centre.y, centre.z])
+}
+
+const homePose = () => poseBetween(HOME_CAMERA.position, HOME_CAMERA.target)
 
 const prefersReduced = () =>
   typeof window !== 'undefined' &&
@@ -72,18 +102,21 @@ const prefersReduced = () =>
  */
 export function CameraDirector({
   focus,
+  screen,
   idle,
 }: {
   focus: string | null
+  screen: string | null
   idle: boolean
 }) {
   const camera = useThree((s) => s.camera)
   const domEl = useThree((s) => s.gl.domElement)
   const setOrbited = useScene((s) => s.setOrbited)
-  const pose = useRef<Pose>(poseFor(focus))
+  const pose = useRef<Pose>(homePose())
   const parallax = useRef(new THREE.Vector2())
-  // Previous focus, so the effect can tell 'leaving home' from 'hotspot to hotspot'.
-  const prevFocus = useRef<string | null>(focus)
+  // Previous target, so the effect can tell 'leaving home' from a move between
+  // two focused things.
+  const prevTarget = useRef<string | null>(focus ?? screen)
   const lookAt = useMemo(() => new THREE.Vector3(), [])
 
   useEffect(
@@ -113,13 +146,15 @@ export function CameraDirector({
   // authored framing; coming back out restores whatever view they had set up
   // before, rather than dumping them at the default angle.
   useEffect(() => {
-    const leavingHome = prevFocus.current === null && focus !== null
+    const target = focus ?? screen
+    const leavingHome = prevTarget.current === null && target !== null
     if (leavingHome) rememberHomeView()
-    prevFocus.current = focus
+    prevTarget.current = target
 
-    const next = poseFor(focus)
+    const next =
+      poseForHotspot(focus) ?? poseForScreen(screen, camera) ?? homePose()
     const orbitTo =
-      focus === null
+      target === null
         ? { dTheta: homeView.dTheta, dPhi: homeView.dPhi, zoom: homeView.zoom }
         : { dTheta: 0, dPhi: 0, zoom: 1 }
 
@@ -131,8 +166,8 @@ export function CameraDirector({
     const tweens = [
       gsap.to(pose.current, {
         ...next,
-        duration: focus ? 1.15 : 1.35,
-        ease: focus ? 'power3.inOut' : 'power2.out',
+        duration: target ? 1.15 : 1.35,
+        ease: target ? 'power3.inOut' : 'power2.out',
         overwrite: true,
       }),
       gsap.to(orbit, {
@@ -143,7 +178,7 @@ export function CameraDirector({
       }),
     ]
     return () => tweens.forEach((t) => t.kill())
-  }, [focus])
+  }, [focus, screen, camera])
 
   useFrame((_, dt) => {
     const p = pose.current

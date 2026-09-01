@@ -90,13 +90,34 @@ these faces as normal-into-the-back-wall, away from the chair. Using that
 verbatim to place an overlay plane buries it inside the monitor and backface
 culls it, so the screen just stays blank with no error anywhere. Negate them: a
 screen faces the room, which is +z in glTF here. `tools/find_screens.py` prints
-what Blender says, and `src/three/Displays.tsx` stores the negated value.
+what Blender says; `SCREENS` in `src/content.ts` stores the negated value.
 
-**Screen content is an overlay, not a re-texture.** The three panels are merged
-into `hot_screens`, so no individual screen can be addressed, and the source
-UVs did not survive the join. Displays are independent planes positioned over
-each panel from measured world geometry. They set `raycast={() => null}` so a
-click still resolves to `hot_screens` and opens the Work panel.
+**The monitors are overlays, not the glTF mesh.** All three panels are merged
+into `hot_screens`, so no individual screen can be addressed, and the source UVs
+did not survive the join. `src/three/Screens.tsx` places an independent plane
+over each panel from geometry measured by `tools/find_screens.py`: a transparent
+hit plane in front for picking, and a drawn plane behind it for the image, which
+sets `raycast={() => null}`. `hot_screens` itself is `navOnly` and therefore
+absent from the pick map, so a click on a monitor resolves to a screen and never
+to the Work hotspot.
+
+**Screens are a two-stage interaction, and panels are not.** First click frames
+the screen dead-on and opens nothing; a second click on the already-framed
+screen opens its link. A single click that navigated off-site would be far too
+easy to trigger while looking around. The framed state has no panel, so the HUD
+block in `Hud.tsx` is the only thing telling anyone what the second click does
+and how to leave; do not remove it without replacing the affordance.
+
+**`navOnly` keeps a hotspot in the nav but out of the room.** `work` uses it.
+Its panel holds the only keyboard-reachable Argus and nodex links, so it cannot
+simply be deleted when the monitors take over the 3D interaction. `ROOM_HOTSPOTS`
+feeds the nav and material cloning, `PICKABLE_HOTSPOTS` feeds the raycast map,
+and they are deliberately different sets.
+
+**Screen framing distance is computed, not authored.** The panels are 2.4:1, so
+the limiting dimension flips with the viewport: height constrains a wide window,
+width a narrow one. `poseForScreen` derives the distance from the live camera's
+fov and aspect rather than a constant.
 
 **Wall-mounted things need the wall's *inner* face.** The back wall is a slab
 with faces at z -2.10 and z -1.99, and its reported normals are inverted like
