@@ -115,6 +115,13 @@ drop the image in `public/`, run `tools/.venv/bin/python tools/find_screens.py`
 to get the panel geometry, and add an entry. Negate the normal that script
 prints; see the note in AGENTS.md for why.
 
+## Putting something on a wall
+
+`tools/find_walls.py` reports the wall planes and `tools/wall_occupancy.py`
+lists what is already mounted plus the clear bands between. Mount against the
+wall's inner face, not the outer one; see AGENTS.md for why that trips people
+up. `src/three/NeonSign.tsx` is a worked example.
+
 ## Adding or changing content
 
 Everything the page says lives in `src/content.ts`. Add a hotspot by adding an
@@ -143,6 +150,7 @@ src/
     orbit.ts            drag/zoom/pinch input, limits, home-view stash
     highlight.ts        hover accent colour and strength
     Displays.tsx        screenshots laid over the monitor panels
+    NeonSign.tsx        canvas-drawn neon wordmark on the back wall
   ui/
     Hud.tsx             hero, hotspot nav, hover readout
     Panel.tsx           focused content panels
@@ -154,6 +162,8 @@ tools/
   inspect_blend.py      dependency-free .blend parser
   inspect_scene.py      bpy scene report + preview renders
   find_screens.py       measures monitor panels for Displays.tsx
+  find_walls.py         measures the wall planes
+  wall_occupancy.py     lists wall decor and finds clear bands
   verify-hotspots.mjs   hover verification captures
   verify-orbit.mjs      orbit, zoom, drag-vs-click checks
   verify-view-restore.mjs  camera restore regression test

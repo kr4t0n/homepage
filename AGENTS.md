@@ -98,6 +98,16 @@ UVs did not survive the join. Displays are independent planes positioned over
 each panel from measured world geometry. They set `raycast={() => null}` so a
 click still resolves to `hot_screens` and opens the Work panel.
 
+**Wall-mounted things need the wall's *inner* face.** The back wall is a slab
+with faces at z -2.10 and z -1.99, and its reported normals are inverted like
+the monitors', so the surface facing the room is the one at z -1.99. Mounting
+against -2.10 puts the object inside the wall, where it vanishes with nothing
+logged. `tools/find_walls.py` measures the planes; `tools/wall_occupancy.py`
+lists what is already mounted and prints the clear bands, which is the only
+reliable way to avoid landing a new object on top of existing decor. The
+pale-disc panel `Circle.022` covers x -0.66 to 3.41 all the way up, so the only
+free space high on that wall is to its right.
+
 **Coordinate spaces differ.** Blender is Z-up; glTF is Y-up. The exporter
 converts manifest coordinates with `(x, y, z) -> (x, z, -y)`. Camera offsets in
 `content.ts` are in glTF space.

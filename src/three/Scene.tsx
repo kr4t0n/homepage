@@ -4,6 +4,7 @@ import { AdaptiveDpr, Preload } from '@react-three/drei'
 import * as THREE from 'three'
 import { Room } from './Room'
 import { Displays } from './Displays'
+import { NeonSign } from './NeonSign'
 import { CameraDirector } from './CameraDirector'
 import { HOME_CAMERA } from '../content'
 import { useScene } from '../store'
@@ -53,6 +54,7 @@ export function Scene() {
       <Suspense fallback={null}>
         <Room />
         <Displays />
+        <NeonSign />
         <Preload all />
       </Suspense>
       <CameraDirector focus={focus} idle={focus === null} />
