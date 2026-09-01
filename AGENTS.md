@@ -105,8 +105,14 @@ against -2.10 puts the object inside the wall, where it vanishes with nothing
 logged. `tools/find_walls.py` measures the planes; `tools/wall_occupancy.py`
 lists what is already mounted and prints the clear bands, which is the only
 reliable way to avoid landing a new object on top of existing decor. The
-pale-disc panel `Circle.022` covers x -0.66 to 3.41 all the way up, so the only
-free space high on that wall is to its right.
+pale-disc panel `Circle.022` covers x -0.66 to 3.41 all the way up, and the
+framed picture `Plane.006` covers x 3.48 to 4.73 up to y 1.98, so the only free
+space on that wall is the strip above the frame.
+
+Note that `wall_occupancy.py` only reports objects close to the wall plane.
+`Plane.006` stands 1.2m proud of it and was missed by an early depth filter,
+which is how the wordmark ended up clipping its corner. When checking for
+obstructions, search by the x and y span you care about and leave depth open.
 
 **Coordinate spaces differ.** Blender is Z-up; glTF is Y-up. The exporter
 converts manifest coordinates with `(x, y, z) -> (x, z, -y)`. Camera offsets in

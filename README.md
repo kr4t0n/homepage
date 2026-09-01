@@ -102,6 +102,7 @@ npm run dev                          # in one shell
 node tools/verify-orbit.mjs          # orbit, zoom, drag-vs-click
 node tools/verify-view-restore.mjs   # tuned view survives a hotspot visit
 node tools/sweep-highlight.mjs       # renders a hover-accent tuning sweep
+node tools/sweep-neon.mjs            # renders a neon brightness sweep
 ```
 
 `verify-view-restore` exits non-zero on failure, so it is usable as a gate.
@@ -168,6 +169,7 @@ tools/
   verify-orbit.mjs      orbit, zoom, drag-vs-click checks
   verify-view-restore.mjs  camera restore regression test
   sweep-highlight.mjs   hover-accent tuning sweep
+  sweep-neon.mjs        neon brightness tuning sweep
   shoot.mjs             full walkthrough captures
 ```
 

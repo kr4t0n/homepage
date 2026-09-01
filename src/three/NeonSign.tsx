@@ -21,15 +21,30 @@ const TEXT = 'kr4t0n'
 /** Accent, matching --color-acid and the hover highlight. */
 const NEON = '#9ef01a'
 
+/**
+ * Brightness controls.
+ *
+ * `opacity` scales the whole additive contribution, which is the honest knob
+ * for "dimmer": the canvas bakes a fixed glow and this attenuates all of it at
+ * once. `light` is the spill onto the surrounding wall. Tune with
+ * tools/sweep-neon.mjs rather than by guessing; additive blending on a dark
+ * wall saturates much faster than it looks like it should.
+ */
+const neon = { opacity: 0.48, light: 0.4 }
+
+if (import.meta.env.DEV) {
+  ;(window as unknown as Record<string, unknown>).__neon = neon
+}
+
 const PLACEMENT = {
-  // Upper right of the back wall.
+  // Upper right of the back wall, in the gap above the framed picture.
   //
-  // The wall carries exactly one large decoration, Circle.022, the pale-disc
-  // panel that runs from x -0.66 to 3.41 and up past the ceiling line. Right of
-  // it the wall is completely bare out to its edge at x 4.49, confirmed by
-  // querying every mesh near the wall plane. The sign sits in that gap with a
-  // small margin at each side.
-  centre: [3.97, 2.04, -1.976] as [number, number, number],
+  // Two obstructions bound this. Circle.022, the pale-disc panel, runs from
+  // x -0.66 to 3.41 and past the ceiling line, so the sign has to sit right of
+  // it. Plane.006, the framed picture, occupies x 3.48 to 4.73 up to y 1.98,
+  // so the sign has to sit above that. The clear band is y 1.98 to the wall top
+  // at 2.61, and this is centred in it.
+  centre: [3.97, 2.30, -1.976] as [number, number, number],
   width: 0.88,
   height: 0.223,
 }
@@ -75,10 +90,10 @@ function useNeonTexture(text: string, color: string) {
       // Outer halo through to inner glow.
       ctx.shadowColor = color
       for (const [blur, alpha, lw] of [
-        [58, 0.30, 15],
-        [34, 0.45, 12],
-        [18, 0.75, 9],
-        [9, 0.95, 6],
+        [46, 0.16, 13],
+        [28, 0.24, 10],
+        [15, 0.38, 7],
+        [8, 0.55, 4.5],
       ] as const) {
         ctx.shadowBlur = blur
         ctx.globalAlpha = alpha
@@ -88,13 +103,14 @@ function useNeonTexture(text: string, color: string) {
       }
 
       // Hot core.
-      ctx.globalAlpha = 1
-      ctx.shadowBlur = 12
-      ctx.strokeStyle = '#eaffd0'
-      ctx.lineWidth = 3
+      ctx.globalAlpha = 0.9
+      ctx.shadowBlur = 8
+      ctx.strokeStyle = '#d8f7a8'
+      ctx.lineWidth = 2
       ctx.strokeText(text, cx, cy)
       ctx.shadowBlur = 0
-      ctx.fillStyle = '#f7ffe9'
+      ctx.globalAlpha = 1
+      ctx.fillStyle = '#edffd4'
       ctx.fillText(text, cx, cy)
 
       if (cancelled) return
@@ -118,6 +134,7 @@ function useNeonTexture(text: string, color: string) {
 export function NeonSign() {
   const texture = useNeonTexture(TEXT, NEON)
   const light = useRef<THREE.PointLight>(null)
+  const material = useRef<THREE.MeshBasicMaterial>(null)
 
   const { position, quaternion } = useMemo(() => {
     // The wall's normal is +z, so the sign faces straight out into the room and
@@ -137,10 +154,15 @@ export function NeonSign() {
   // spill light only, not a broken-sign stutter, and it is off under reduced
   // motion. The sign texture itself never changes.
   useFrame(() => {
-    if (!light.current || reduce) return
+    if (material.current) material.current.opacity = neon.opacity
+    if (!light.current) return
+    if (reduce) {
+      light.current.intensity = neon.light
+      return
+    }
     const t = performance.now() / 1000
     const wobble = 0.92 + Math.sin(t * 2.3) * 0.05 + Math.sin(t * 7.1) * 0.03
-    light.current.intensity = 0.85 * wobble
+    light.current.intensity = neon.light * wobble
   })
 
   if (!texture) return null
@@ -157,8 +179,10 @@ export function NeonSign() {
         {/* Additive so the halo builds on the wall behind instead of masking
             it with a dark rectangle. depthWrite off for the same reason. */}
         <meshBasicMaterial
+          ref={material}
           map={texture}
           transparent
+          opacity={neon.opacity}
           toneMapped={false}
           blending={THREE.AdditiveBlending}
           depthWrite={false}
@@ -174,8 +198,8 @@ export function NeonSign() {
           PLACEMENT.centre[2] + 0.30,
         ]}
         color={NEON}
-        intensity={0.85}
-        distance={2.3}
+        intensity={neon.light}
+        distance={2.1}
         decay={2}
       />
     </group>
