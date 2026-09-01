@@ -30,23 +30,33 @@ export function Hud() {
   useGSAP(
     () => {
       if (!ready) return
-      gsap.from('[data-intro]', {
-        opacity: 0,
-        y: 20,
-        duration: 0.8,
-        stagger: 0.09,
-        delay: 0.25,
-        ease: 'power3.out',
+      // gsap.from() writes its start state immediately, so gating it behind
+      // matchMedia matters for correctness and not just for taste: under
+      // reduced motion the tween must never be created, otherwise the hero and
+      // nav are left parked at opacity 0 and the page reads as empty.
+      const mm = gsap.matchMedia()
+      mm.add('(prefers-reduced-motion: no-preference)', () => {
+        gsap.from('[data-intro]', {
+          opacity: 0,
+          y: 20,
+          duration: 0.8,
+          stagger: 0.09,
+          delay: 0.25,
+          ease: 'power3.out',
+        })
       })
+      return () => mm.revert()
     },
     { dependencies: [ready], scope: root },
   )
 
   useGSAP(
     () => {
+      // A state change, so it still happens under reduced motion, just instantly.
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
       gsap.to('[data-fade]', {
         opacity: open ? 1 : 0,
-        duration: 0.35,
+        duration: reduce ? 0 : 0.35,
         ease: 'power2.out',
         pointerEvents: open ? 'auto' : 'none',
       })

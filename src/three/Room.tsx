@@ -4,12 +4,11 @@ import { type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
 import { HOTSPOTS, ROOM_HOTSPOTS } from '../content'
 import { useScene } from '../store'
+import { HIGHLIGHT, highlight } from './highlight'
 import { orbit } from './orbit'
 
 const GLB = '/room.glb'
 
-/** Accent used for the hover wash. Matches --color-acid in the stylesheet. */
-const HIGHLIGHT = new THREE.Color('#9ef01a')
 
 /**
  * Loads the converted diorama and wires the interactive nodes.
@@ -100,10 +99,11 @@ export function Room() {
           const base = baseline.current.get(m)
           if (!base) return
           if (on) {
-            // Wash the object in the accent. A subtle emissive bump is
-            // invisible on the dark props, and this scene is mostly dark props.
-            m.emissive.set(HIGHLIGHT)
-            m.emissiveIntensity = 0.85
+            // Blend the accent into the material's own emissive instead of
+            // overwriting it. Overwriting flattened every hovered prop into a
+            // solid green silhouette and killed the glow on the screens.
+            m.emissive.copy(base.color).lerp(HIGHLIGHT, highlight.mix)
+            m.emissiveIntensity = Math.max(base.intensity, highlight.intensity)
           } else {
             m.emissive.copy(base.color)
             m.emissiveIntensity = base.intensity

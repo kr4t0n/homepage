@@ -212,17 +212,23 @@ export function Panel() {
   }, [focus, setFocus])
 
   // Panel arrives after the camera has committed to the move, so the two reads
-  // as one gesture rather than two competing ones.
+  // as one gesture rather than two competing ones. Gated behind matchMedia:
+  // gsap.from() applies its start state immediately, so under reduced motion an
+  // ungated tween would leave the panel stuck at opacity 0.
   useGSAP(
     () => {
       if (!spot) return
-      gsap.from(root.current, {
-        opacity: 0,
-        y: 18,
-        duration: 0.5,
-        delay: 0.45,
-        ease: 'power3.out',
+      const mm = gsap.matchMedia()
+      mm.add('(prefers-reduced-motion: no-preference)', () => {
+        gsap.from(root.current, {
+          opacity: 0,
+          y: 18,
+          duration: 0.5,
+          delay: 0.45,
+          ease: 'power3.out',
+        })
       })
+      return () => mm.revert()
     },
     { dependencies: [focus], scope: root },
   )

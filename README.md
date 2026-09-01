@@ -101,6 +101,7 @@ These drive a running dev server instead, because they assert on the dev-only
 npm run dev                          # in one shell
 node tools/verify-orbit.mjs          # orbit, zoom, drag-vs-click
 node tools/verify-view-restore.mjs   # tuned view survives a hotspot visit
+node tools/sweep-highlight.mjs       # renders a hover-accent tuning sweep
 ```
 
 `verify-view-restore` exits non-zero on failure, so it is usable as a gate.
@@ -133,6 +134,7 @@ src/
     Room.tsx            GLB load, raycasting, hover highlight
     CameraDirector.tsx  GSAP camera choreography, orbit, idle drift
     orbit.ts            drag/zoom/pinch input, limits, home-view stash
+    highlight.ts        hover accent colour and strength
   ui/
     Hud.tsx             hero, hotspot nav, hover readout
     Panel.tsx           focused content panels
@@ -146,6 +148,7 @@ tools/
   verify-hotspots.mjs   hover verification captures
   verify-orbit.mjs      orbit, zoom, drag-vs-click checks
   verify-view-restore.mjs  camera restore regression test
+  sweep-highlight.mjs   hover-accent tuning sweep
   shoot.mjs             full walkthrough captures
 ```
 

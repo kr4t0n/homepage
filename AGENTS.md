@@ -103,9 +103,34 @@ non-interactive geometry and blur the active element first, or the diff is
 dominated by the hover wash and a focus ring.
 
 **Prefer asserting on state over pixels.** `src/three/orbit.ts` exposes
-`window.__orbit` under `import.meta.env.DEV`, so the verification scripts can
-read the camera offsets directly. The branch and the hook are both stripped from
-production builds; there is a check for that in the commit history.
+`window.__orbit` and `src/three/highlight.ts` exposes `window.__highlight`, both
+behind `import.meta.env.DEV`, so verification scripts can read camera offsets
+and tune the accent directly instead of inferring them from a render. Both are
+stripped from production; confirm after a build with
+`grep -o "__orbit\|__highlight" dist/assets/*.js`.
+
+**`gsap.from()` under reduced motion will hide your UI.** `from()` writes its
+start state to the element immediately and animates away from it. If the tween
+is skipped or never runs, the element is left parked at that start state, so an
+ungated `gsap.from({opacity: 0})` renders the whole hero and nav invisible for
+anyone with `prefers-reduced-motion: reduce`. The CSS reduced-motion block does
+not help; it only caps CSS animations and transitions, and GSAP writes inline
+styles. Wrap every `from()` in `gsap.matchMedia()` keyed on
+`(prefers-reduced-motion: no-preference)` so the tween is never created. For
+`to()` tweens that express a state change, keep the tween and set
+`duration: 0` instead, so the state still lands.
+
+**Hover highlight blends, it does not replace.** Setting `emissive` to the
+accent flattens a hovered prop into a solid silhouette and destroys the glow on
+the emissive ones. `src/three/highlight.ts` lerps the accent into the material's
+existing emissive and takes `Math.max` of the intensities. Tune it with
+`tools/sweep-highlight.mjs`, which renders a sweep against the three cases that
+fail differently: a light prop, a dark prop, and an emissive prop.
+
+**Hovering a nav pill does not reliably drive the 3D hover state in tests.**
+The canvas-to-HTML pointer handoff races. Verification scripts should move the
+pointer over the object in the canvas instead, which is also what a visitor
+does.
 
 ## Conventions
 
