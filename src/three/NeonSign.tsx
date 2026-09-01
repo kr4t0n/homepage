@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
+import { ROOM_LINKS } from '../content'
+import { useScene } from '../store'
+import { orbit } from './orbit'
 
 /**
  * Neon wordmark on the wall behind the monitors.
@@ -31,6 +34,21 @@ const NEON = '#9ef01a'
  * wall saturates much faster than it looks like it should.
  */
 const neon = { opacity: 0.48, light: 0.4 }
+
+/** The sign is a link. Hovering lifts it toward this multiple of the base. */
+const HOVER_GAIN = 1.7
+
+/**
+ * Padded, invisible click target.
+ *
+ * The visible plane is 0.88 x 0.223, which is a small thing to hit on a wall
+ * across the room. This gives the pointer somewhere to land without making the
+ * glow any bigger. Sized to stay inside the wall (x ends 4.49, y ends 2.61) so
+ * it never catches clicks aimed past the room.
+ */
+const HIT = { width: 0.94, height: 0.36 }
+
+const LINK = ROOM_LINKS.find((l) => l.id === 'neon')!
 
 if (import.meta.env.DEV) {
   ;(window as unknown as Record<string, unknown>).__neon = neon
@@ -139,6 +157,11 @@ export function NeonSign() {
   const texture = useNeonTexture(TEXT, NEON)
   const light = useRef<THREE.PointLight>(null)
   const material = useRef<THREE.MeshBasicMaterial>(null)
+  const hover = useScene((s) => s.hover)
+  const setHover = useScene((s) => s.setHover)
+  const hovered = hover === LINK.id
+  /** Eased 0..1 hover amount, so the lift is not a hard switch. */
+  const lift = useRef(0)
 
   const { position, quaternion } = useMemo(() => {
     // The wall's normal is +z, so the sign faces straight out into the room and
@@ -157,26 +180,66 @@ export function NeonSign() {
   // Gas tubes are never perfectly steady. This is a slow, shallow wobble on the
   // spill light only, not a broken-sign stutter, and it is off under reduced
   // motion. The sign texture itself never changes.
-  useFrame(() => {
-    if (material.current) material.current.opacity = neon.opacity
+  useFrame((_, dt) => {
+    // Ease toward the hover state rather than snapping, so brushing past the
+    // sign does not strobe it. Frame-rate independent.
+    const want = hovered ? 1 : 0
+    lift.current = THREE.MathUtils.lerp(
+      lift.current,
+      want,
+      reduce ? 1 : 1 - Math.pow(0.002, dt),
+    )
+    const gain = 1 + (HOVER_GAIN - 1) * lift.current
+
+    if (material.current) {
+      material.current.opacity = Math.min(1, neon.opacity * gain)
+    }
     if (!light.current) return
     if (reduce) {
-      light.current.intensity = neon.light
+      light.current.intensity = neon.light * gain
       return
     }
     const t = performance.now() / 1000
     const wobble = 0.92 + Math.sin(t * 2.3) * 0.05 + Math.sin(t * 7.1) * 0.03
-    light.current.intensity = neon.light * wobble
+    light.current.intensity = neon.light * gain * wobble
   })
 
   if (!texture) return null
 
   return (
     <group>
+      {/* Click target. Separate from the glow so the hit area can be padded
+          without enlarging what is drawn. */}
+      <mesh
+        position={[
+          PLACEMENT.centre[0],
+          PLACEMENT.centre[1],
+          PLACEMENT.centre[2] + 0.004,
+        ]}
+        quaternion={quaternion}
+        onPointerMove={(e) => {
+          // Stops the room's own move handler, which sits behind this and would
+          // otherwise resolve the wall and immediately clear the hover.
+          e.stopPropagation()
+          setHover(LINK.id)
+        }}
+        onPointerOut={() => setHover(null)}
+        onClick={(e: ThreeEvent<MouseEvent>) => {
+          e.stopPropagation()
+          // Ending an orbit drag on the sign must not navigate away. Losing the
+          // page is a worse accident than opening the wrong panel.
+          if (orbit.suppressClick) return
+          window.open(LINK.href, '_blank', 'noopener,noreferrer')
+        }}
+      >
+        <planeGeometry args={[HIT.width, HIT.height]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+
       <mesh
         position={position}
         quaternion={quaternion}
-        // Decor, not a hotspot: stay out of the picking path entirely.
+        // The padded mesh above owns picking; this one just draws.
         raycast={() => null}
       >
         <planeGeometry args={[PLACEMENT.width, PLACEMENT.height]} />

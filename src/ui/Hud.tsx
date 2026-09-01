@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import gsap from 'gsap'
 import { useGSAP } from '@gsap/react'
-import { ROOM_HOTSPOTS, PROFILE, hotspotById } from '../content'
+import { ROOM_HOTSPOTS, PROFILE, readoutFor } from '../content'
 import { useScene } from '../store'
 import { resetOrbit } from '../three/orbit'
 
@@ -25,7 +25,7 @@ export function Hud() {
   const root = useRef<HTMLDivElement>(null)
 
   const open = focus === null
-  const hovered = hotspotById(hover)
+  const hovered = readoutFor(hover)
 
   useGSAP(
     () => {

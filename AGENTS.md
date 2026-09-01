@@ -114,6 +114,26 @@ Note that `wall_occupancy.py` only reports objects close to the wall plane.
 which is how the wordmark ended up clipping its corner. When checking for
 obstructions, search by the x and y span you care about and leave depth open.
 
+**Objects in the room that open URLs live in `ROOM_LINKS`, not `HOTSPOTS`.**
+They are not glTF nodes, so putting them in `HOTSPOTS` would break the raycast
+map and add phantom nav pills. Every such object must also be reachable some
+other way: a click target that exists only in the 3D scene cannot be tabbed to
+or announced by a screen reader, so it can decorate a route but never be the
+only one. The neon wordmark links to GitHub, which is also in the header and
+the 2D fallback.
+
+**A clickable object needs a padded, separate hit mesh.** The visible neon plane
+is 0.88 x 0.223, which is a hard thing to hit across a room. Picking is handled
+by a larger transparent mesh in front of it, and the drawn plane sets
+`raycast={() => null}`. The hit mesh also has to `stopPropagation` on
+`onPointerMove`: the room's own move handler sits behind it, resolves the wall,
+and would otherwise clear the hover every frame.
+
+**Anything clickable must honour `orbit.suppressClick`.** Ending an orbit drag
+on a link would otherwise navigate away from the page, which is a much worse
+accident than opening the wrong panel. Covered by
+`tools/verify-neon-link.mjs`.
+
 **Coordinate spaces differ.** Blender is Z-up; glTF is Y-up. The exporter
 converts manifest coordinates with `(x, y, z) -> (x, z, -y)`. Camera offsets in
 `content.ts` are in glTF space.

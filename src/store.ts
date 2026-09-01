@@ -41,6 +41,23 @@ export const useScene = create<SceneState>((set) => ({
   setOrbited: (v) => set({ orbited: v }),
 }))
 
+/**
+ * One owner for the pointer cursor.
+ *
+ * Both room hotspots and the wall links write `hover`, so a single rule covers
+ * them. Managing it inside each of those components instead meant two effects
+ * racing to set and clear it on the same state change.
+ */
+export const bindCursor = () => {
+  const unsub = useScene.subscribe((s) => {
+    document.body.style.cursor = s.hover ? 'pointer' : 'auto'
+  })
+  return () => {
+    unsub()
+    document.body.style.cursor = 'auto'
+  }
+}
+
 /** Keep browser back/forward in sync with the focused hotspot. */
 export const bindHistory = () => {
   const sync = () => useScene.setState({ focus: readHash() })

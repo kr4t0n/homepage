@@ -103,9 +103,11 @@ node tools/verify-orbit.mjs          # orbit, zoom, drag-vs-click
 node tools/verify-view-restore.mjs   # tuned view survives a hotspot visit
 node tools/sweep-highlight.mjs       # renders a hover-accent tuning sweep
 node tools/sweep-neon.mjs            # renders a neon brightness sweep
+node tools/verify-neon-link.mjs      # the neon wordmark behaves as a link
 ```
 
-`verify-view-restore` exits non-zero on failure, so it is usable as a gate.
+`verify-view-restore` and `verify-neon-link` exit non-zero on failure, so both
+are usable as gates.
 
 All of the above need a one-time `npx playwright install chromium`.
 
@@ -170,6 +172,7 @@ tools/
   verify-view-restore.mjs  camera restore regression test
   sweep-highlight.mjs   hover-accent tuning sweep
   sweep-neon.mjs        neon brightness tuning sweep
+  verify-neon-link.mjs  neon wordmark link behaviour
   shoot.mjs             full walkthrough captures
 ```
 

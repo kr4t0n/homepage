@@ -163,6 +163,45 @@ export const HOTSPOTS: Hotspot[] = [
   },
 ]
 
+/**
+ * Things in the room that open an external URL instead of a panel.
+ *
+ * Kept separate from HOTSPOTS because these are not glTF nodes and must never
+ * reach the raycast map or the nav. Every one of these has to be reachable some
+ * other way as well: a click target that exists only in the 3D scene cannot be
+ * tabbed to or read by a screen reader, so it can decorate a route, never be
+ * the route.
+ */
+export interface RoomLink {
+  id: string
+  label: string
+  hint: string
+  href: string
+}
+
+export const ROOM_LINKS: RoomLink[] = [
+  {
+    // The neon wordmark on the back wall. Also in the header and the 2D
+    // fallback, both of which are keyboard reachable.
+    id: 'neon',
+    label: 'GitHub',
+    hint: 'github.com/kr4t0n',
+    href: PROFILE.github,
+  },
+]
+
+export const roomLinkById = (id: string | null) =>
+  id ? (ROOM_LINKS.find((l) => l.id === id) ?? null) : null
+
+/** Label and hint for the hover readout, for hotspots and links alike. */
+export const readoutFor = (id: string | null): { label: string; hint: string } | null => {
+  const h = hotspotById(id)
+  if (h) return { label: h.label, hint: h.hint }
+  const l = roomLinkById(id)
+  if (l) return { label: l.label, hint: l.hint }
+  return null
+}
+
 /** Default camera, framing the whole diorama. glTF space, Y up. */
 export const HOME_CAMERA = {
   position: [10.5, 7.4, 10.6] as [number, number, number],

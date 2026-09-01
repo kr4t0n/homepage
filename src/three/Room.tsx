@@ -118,11 +118,6 @@ export function Room() {
       const node = cloned.getObjectByName(hovered.node)
       if (node) paint(node, true)
     }
-
-    document.body.style.cursor = hovered ? 'pointer' : 'auto'
-    return () => {
-      document.body.style.cursor = 'auto'
-    }
   }, [hover, cloned])
 
   const pick = (e: ThreeEvent<PointerEvent>): string | null => {
