@@ -57,14 +57,16 @@ triangles once the cable curves are tessellated.
    why it looks deliberate rather than broken.
 2. Drops curve resolution before converting cables to mesh. At authoring
    resolution they alone produce 3.5M triangles.
-3. Decimates anything over a per-group triangle budget. The sofa shipped at
-   158k triangles.
+3. Bakes modifiers, then decimates to a per-group triangle budget. Baking has
+   to happen before the join, because joining drops the modifiers of every
+   non-active object and several props here are defined by theirs. Subsurf is
+   dropped rather than baked; it only smooths and the decimate undoes it.
 4. Tags every object into a semantic group by world-space AABB region and joins
    each group into one mesh named `hot_<group>` or `static_<group>`.
 5. Exports GLB with Draco compression and writes `src/scene-manifest.json`,
    which carries each group's bounding box in glTF space for camera framing.
 
-Result: **1.6 GB to 3.6 MB, 159,662 triangles.**
+Result: **1.6 GB to 1.15 MB, 178,410 triangles.**
 
 ### Re-running it
 
@@ -172,6 +174,7 @@ tools/
   inspect_scene.py      bpy scene report + preview renders
   find_screens.py       measures the monitor panels for SCREENS
   find_walls.py         measures the wall planes
+  compare_view.py       source vs export from any camera
   diagnose_keys.py      source vs export vs flat-material render
   diagnose_lighting.py  material colours, neutral vs site light rig
   wall_occupancy.py     lists wall decor and finds clear bands

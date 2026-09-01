@@ -140,6 +140,36 @@ if curves:
 bpy.ops.object.select_all(action="DESELECT")
 print(f"converted {len(curves)} curves to mesh at low resolution")
 
+# ------------------------------------- 3b. bake modifiers before joining --
+# bpy.ops.object.join() keeps only the ACTIVE object's modifier stack and
+# silently discards everyone else's. Several props here are defined by their
+# modifiers rather than by their base mesh, so joining without baking first
+# deletes real geometry with no warning: the synth's white keybed is one key
+# with an ARRAY of 22, and joining left exactly one key behind.
+#
+# Subsurf is dropped rather than applied. It only smooths, every one of these
+# objects is decimated afterwards anyway, and applying it first is expensive
+# for nothing: three props in this scene go from 858 to 167,552 triangles.
+# Everything else is baked, because ARRAY, MIRROR and SOLIDIFY change which
+# geometry exists at all.
+dropped = 0
+baked = 0
+for o in [x for x in scene.objects if x.type == "MESH" and x.modifiers]:
+    for m in list(o.modifiers):
+        if m.type == "SUBSURF":
+            o.modifiers.remove(m)
+            dropped += 1
+    if not o.modifiers:
+        continue
+    view.objects.active = o
+    for m in list(o.modifiers):
+        try:
+            bpy.ops.object.modifier_apply(modifier=m.name)
+            baked += 1
+        except Exception as e:
+            print(f"  could not bake {m.type} on {o.name}: {e}")
+print(f"baked {baked} modifiers, dropped {dropped} subsurf")
+
 before = sum(tris(o) for o in scene.objects if o.type == "MESH")
 heavy = sorted(((tris(o), o.name) for o in scene.objects if o.type == "MESH"),
                reverse=True)[:8]

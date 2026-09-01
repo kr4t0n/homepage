@@ -88,6 +88,22 @@ material across unrelated props, so mutating a material for hover highlighting
 lights up objects on the other side of the room. Interactive nodes get their
 materials cloned explicitly in `Room.tsx`.
 
+**`bpy.ops.object.join()` silently discards every non-active object's
+modifiers.** In this asset that deletes real geometry, because several props are
+defined by their modifier stack rather than their base mesh: the synth's white
+keybed is a single key with an ARRAY of 22, so joining left exactly one key
+behind, at the far left. Three more objects use MIRROR and six use SOLIDIFY,
+all of which change what geometry exists. `export_glb.py` bakes modifiers
+before joining for this reason. Subsurf is dropped instead of baked, since it
+only smooths and everything is decimated afterwards anyway.
+
+**`export_apply=True` applies modifiers at export, after any counting you do.**
+This made the exporter's own triangle report wrong by 6.5x: it announced
+159,662 while shipping 1,033,356, because surviving subsurf stacks were
+inflated during export and never counted. Bake and count in the same pass, and
+sanity-check the shipped total by reading the accessors out of the GLB rather
+than trusting the log.
+
 **Blender's `convert(target='MESH')` acts on the whole selection.** Iterating
 objects and converting one at a time will convert everything on the first call,
 leaving later iterations holding already-converted objects. Set curve resolution
