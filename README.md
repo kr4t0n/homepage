@@ -92,7 +92,20 @@ node tools/shoot.mjs             # full walkthrough, writes tools/shots/
 Both serve `dist/` from an in-process static server and drive headless Chromium
 with a software WebGL context, so they need no display and no detached server.
 
-Requires a one-time `npx playwright install chromium`.
+## Camera behaviour tests
+
+These drive a running dev server instead, because they assert on the dev-only
+`window.__orbit` hook rather than on pixels alone:
+
+```bash
+npm run dev                          # in one shell
+node tools/verify-orbit.mjs          # orbit, zoom, drag-vs-click
+node tools/verify-view-restore.mjs   # tuned view survives a hotspot visit
+```
+
+`verify-view-restore` exits non-zero on failure, so it is usable as a gate.
+
+All of the above need a one-time `npx playwright install chromium`.
 
 ## Adding or changing content
 
@@ -118,7 +131,8 @@ src/
   three/
     Scene.tsx           canvas, lighting, tone mapping
     Room.tsx            GLB load, raycasting, hover highlight
-    CameraDirector.tsx  GSAP camera choreography + idle drift
+    CameraDirector.tsx  GSAP camera choreography, orbit, idle drift
+    orbit.ts            drag/zoom/pinch input, limits, home-view stash
   ui/
     Hud.tsx             hero, hotspot nav, hover readout
     Panel.tsx           focused content panels
@@ -130,6 +144,8 @@ tools/
   inspect_blend.py      dependency-free .blend parser
   inspect_scene.py      bpy scene report + preview renders
   verify-hotspots.mjs   hover verification captures
+  verify-orbit.mjs      orbit, zoom, drag-vs-click checks
+  verify-view-restore.mjs  camera restore regression test
   shoot.mjs             full walkthrough captures
 ```
 

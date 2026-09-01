@@ -4,7 +4,7 @@ import gsap from 'gsap'
 import * as THREE from 'three'
 import manifest from '../scene-manifest.json'
 import { HOME_CAMERA, hotspotById, type Hotspot } from '../content'
-import { LIMITS, attachOrbit, orbit, resetOrbit } from './orbit'
+import { LIMITS, attachOrbit, homeView, orbit, rememberHomeView } from './orbit'
 import { useScene } from '../store'
 
 type ManifestEntry = { node: string; centre: number[]; min: number[]; max: number[] }
@@ -82,6 +82,8 @@ export function CameraDirector({
   const setOrbited = useScene((s) => s.setOrbited)
   const pose = useRef<Pose>(poseFor(focus))
   const parallax = useRef(new THREE.Vector2())
+  // Previous focus, so the effect can tell 'leaving home' from 'hotspot to hotspot'.
+  const prevFocus = useRef<string | null>(focus)
   const lookAt = useMemo(() => new THREE.Vector3(), [])
 
   useEffect(
@@ -105,13 +107,25 @@ export function CameraDirector({
     return () => window.removeEventListener('pointermove', onMove)
   }, [])
 
-  // Fly to the new pose whenever focus changes, and hand the view back to the
-  // authored framing by easing any manual orbit out at the same time.
+  // Fly to the new pose whenever focus changes.
+  //
+  // Going into a hotspot eases the user's orbit out so the panel gets its
+  // authored framing; coming back out restores whatever view they had set up
+  // before, rather than dumping them at the default angle.
   useEffect(() => {
+    const leavingHome = prevFocus.current === null && focus !== null
+    if (leavingHome) rememberHomeView()
+    prevFocus.current = focus
+
     const next = poseFor(focus)
+    const orbitTo =
+      focus === null
+        ? { dTheta: homeView.dTheta, dPhi: homeView.dPhi, zoom: homeView.zoom }
+        : { dTheta: 0, dPhi: 0, zoom: 1 }
+
     if (prefersReduced()) {
       Object.assign(pose.current, next)
-      resetOrbit()
+      Object.assign(orbit, orbitTo)
       return
     }
     const tweens = [
@@ -122,9 +136,7 @@ export function CameraDirector({
         overwrite: true,
       }),
       gsap.to(orbit, {
-        dTheta: 0,
-        dPhi: 0,
-        zoom: 1,
+        ...orbitTo,
         duration: 0.9,
         ease: 'power2.out',
         overwrite: true,

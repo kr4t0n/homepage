@@ -44,6 +44,32 @@ export const resetOrbit = () => {
   orbit.dTheta = 0
   orbit.dPhi = 0
   orbit.zoom = 1
+  homeView.dTheta = 0
+  homeView.dPhi = 0
+  homeView.zoom = 1
+}
+
+/**
+ * The user's orbit on the home view, remembered across a hotspot visit.
+ *
+ * Focused hotspots are always framed by their authored pose, so the user's
+ * orbit is eased out on the way in. Without stashing it first, closing the
+ * panel would drop them back at the default angle and silently discard the
+ * view they had set up.
+ */
+export const homeView = { dTheta: 0, dPhi: 0, zoom: 1 }
+
+export const rememberHomeView = () => {
+  homeView.dTheta = orbit.dTheta
+  homeView.dPhi = orbit.dPhi
+  homeView.zoom = orbit.zoom
+}
+
+// Dev-only handle so the verification scripts can assert on camera state
+// directly instead of inferring it from pixels. Stripped from production
+// builds by the bundler along with the branch.
+if (import.meta.env.DEV) {
+  ;(window as unknown as Record<string, unknown>).__orbit = { orbit, homeView }
 }
 
 /**

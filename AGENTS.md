@@ -44,10 +44,20 @@ adding bright lights: the flat base colours blow out to pale grey immediately,
 which is exactly what the first implementation got wrong.
 
 **One owner for the camera.** `CameraDirector` holds a single authored pose that
-GSAP tweens on focus change. Idle drift and pointer parallax are applied per
-frame as a bounded offset on top of that pose. Nothing else writes
-`camera.position`. An earlier version had drift accumulating into the position
-and the camera slowly flew away.
+GSAP tweens on focus change. Idle drift, pointer parallax, and the user's own
+orbit and zoom are applied per frame as bounded offsets on top of that pose.
+Nothing else writes `camera.position`. An earlier version had drift accumulating
+into the position and the camera slowly flew away.
+
+**The camera is spherical, not Cartesian.** Drag and zoom manipulate the same
+`theta`/`phi`/`radius` that GSAP tweens for hotspot flights, so manual control
+and scripted moves compose instead of fighting. Bolting an `OrbitControls` on
+top of a position lerp would have had both writing `camera.position` every frame.
+
+**The user's home view is stashed, not discarded.** Focusing a hotspot eases the
+user's orbit to zero so the panel gets its authored framing, but `homeView`
+records their offsets first and the return flight restores them. Closing a panel
+must not silently throw away the view someone set up.
 
 **Hotspot geometry is grouped, not per-object.** The exporter joins objects into
 one mesh per semantic group so raycasting touches ~13 meshes instead of 193.
@@ -82,6 +92,20 @@ converts manifest coordinates with `(x, y, z) -> (x, z, -y)`. Camera offsets in
 **Backgrounded processes get killed in some sandboxes.** The capture scripts run
 their own in-process static server for this reason. Do not rewrite them to
 assume a separately-started dev server.
+
+**Screenshot comparison needs reduced motion, or it measures noise.** Idle drift
+is a time-based sine, so two frames captured seconds apart never match, and the
+mismatch grows with zoom because the same angular drift covers more pixels. A
+camera-restore test that ignored this reported a 6.26 mean pixel difference on
+a view that was in fact restored exactly. Launch the page with
+`reducedMotion: 'reduce'` for any pixel assertion. Also park the pointer over
+non-interactive geometry and blur the active element first, or the diff is
+dominated by the hover wash and a focus ring.
+
+**Prefer asserting on state over pixels.** `src/three/orbit.ts` exposes
+`window.__orbit` under `import.meta.env.DEV`, so the verification scripts can
+read the camera offsets directly. The branch and the hook are both stripped from
+production builds; there is a check for that in the commit history.
 
 ## Conventions
 
