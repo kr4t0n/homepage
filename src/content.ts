@@ -208,26 +208,16 @@ export const ROOM_LINKS: RoomLink[] = [
 export const roomLinkById = (id: string | null) =>
   id ? (ROOM_LINKS.find((l) => l.id === id) ?? null) : null
 
-/**
- * Label and hint for the hover readout, across hotspots, links and screens.
- *
- * `focusedScreen` is passed in so a focused screen can advertise what a second
- * click does. Without that the two-stage interaction is invisible: the first
- * click looks like it did nothing but move the camera.
- */
+/** Label and hint for the hover readout, across hotspots, links and screens. */
 export const readoutFor = (
   id: string | null,
-  focusedScreen: string | null = null,
 ): { label: string; hint: string } | null => {
   const h = hotspotById(id)
   if (h) return { label: h.label, hint: h.hint }
   const l = roomLinkById(id)
   if (l) return { label: l.label, hint: l.hint }
   const s = screenById(id)
-  if (s) {
-    const armed = s.id === focusedScreen && s.href
-    return { label: s.label, hint: armed ? (s.action ?? 'Click to open') : s.hint }
-  }
+  if (s) return { label: s.label, hint: s.hint }
   return null
 }
 
@@ -251,10 +241,8 @@ export interface Screen {
   /** Source object in the .blend, for traceability back to find_screens.py. */
   source: string
   label: string
-  /** Shown under the label before the screen is focused. */
+  /** Shown under the label on hover. */
   hint: string
-  /** Shown once focused, when there is somewhere to go. */
-  action?: string
   image?: string
   href?: string
   centre: [number, number, number]
@@ -270,8 +258,7 @@ export const SCREENS: Screen[] = [
     id: 'nodex',
     source: 'Plane.033',
     label: 'nodex',
-    hint: 'Click to look closer',
-    action: 'Click again to open nodex.kubitnodes.com',
+    hint: 'Click to look closer, again to open',
     image: '/nodex-screenshot.png',
     href: 'https://nodex.kubitnodes.com',
     centre: [-0.1345, 1.302, -1.1292],

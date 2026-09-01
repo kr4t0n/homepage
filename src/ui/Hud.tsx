@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import gsap from 'gsap'
 import { useGSAP } from '@gsap/react'
-import { ROOM_HOTSPOTS, PROFILE, readoutFor, screenById } from '../content'
+import { ROOM_HOTSPOTS, PROFILE, readoutFor } from '../content'
 import { useScene } from '../store'
 import { resetOrbit } from '../three/orbit'
 
@@ -27,8 +27,7 @@ export function Hud() {
   const root = useRef<HTMLDivElement>(null)
 
   const open = focus === null && screen === null
-  const hovered = readoutFor(hover, screen)
-  const framed = screenById(screen)
+  const hovered = readoutFor(hover)
 
   useGSAP(
     () => {
@@ -131,22 +130,17 @@ export function Hud() {
         </div>
       </div>
 
-      {/* A framed screen has no panel, so this is the only thing telling the
-          visitor what the second click does and how to get back out. */}
-      {framed && (
-        <div className="pointer-events-auto absolute inset-x-0 bottom-10 flex flex-col items-center gap-3 px-6 text-center">
-          {/* The screen fills the frame at this distance, so the copy would
-              otherwise land on whatever the monitor is standing on. */}
+      {/* A framed screen has no panel. The only chrome is the way out; the
+          screen itself is the content. Discoverability of the second click
+          rests on the pointer cursor over the screen. */}
+      {screen !== null && (
+        <div className="pointer-events-auto absolute inset-x-0 bottom-10 flex justify-center px-6">
+          {/* The screen fills the frame at this distance, so the button would
+              otherwise sit on whatever the monitor is standing on. */}
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-56 bg-gradient-to-t from-void via-void/80 to-transparent"
+            className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-40 bg-gradient-to-t from-void via-void/75 to-transparent"
           />
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-acid">
-            {framed.label}
-          </p>
-          <p className="text-body">
-            {framed.href ? framed.action : framed.hint}
-          </p>
           <button
             type="button"
             onClick={() => clearFocus()}

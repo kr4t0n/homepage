@@ -104,9 +104,14 @@ to the Work hotspot.
 **Screens are a two-stage interaction, and panels are not.** First click frames
 the screen dead-on and opens nothing; a second click on the already-framed
 screen opens its link. A single click that navigated off-site would be far too
-easy to trigger while looking around. The framed state has no panel, so the HUD
-block in `Hud.tsx` is the only thing telling anyone what the second click does
-and how to leave; do not remove it without replacing the affordance.
+easy to trigger while looking around.
+
+The framed view is deliberately bare: the screen is the content, and the only
+chrome is a "Back to the room" button. That is a considered trade. Nothing
+states that a second click opens the link, so discoverability rests on the
+pointer cursor over the screen plus the hover readout in the unframed room. If
+the two-stage interaction ever needs to be more obvious, restore a hint rather
+than collapsing it to a single click.
 
 **`navOnly` keeps a hotspot in the nav but out of the room.** `work` uses it.
 Its panel holds the only keyboard-reachable Argus and nodex links, so it cannot
