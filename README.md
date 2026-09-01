@@ -108,6 +108,13 @@ node tools/sweep-highlight.mjs       # renders a hover-accent tuning sweep
 
 All of the above need a one-time `npx playwright install chromium`.
 
+## Putting an image on a monitor
+
+`src/three/Displays.tsx` lays a textured plane over a monitor panel. To add one,
+drop the image in `public/`, run `tools/.venv/bin/python tools/find_screens.py`
+to get the panel geometry, and add an entry. Negate the normal that script
+prints; see the note in AGENTS.md for why.
+
 ## Adding or changing content
 
 Everything the page says lives in `src/content.ts`. Add a hotspot by adding an
@@ -135,6 +142,7 @@ src/
     CameraDirector.tsx  GSAP camera choreography, orbit, idle drift
     orbit.ts            drag/zoom/pinch input, limits, home-view stash
     highlight.ts        hover accent colour and strength
+    Displays.tsx        screenshots laid over the monitor panels
   ui/
     Hud.tsx             hero, hotspot nav, hover readout
     Panel.tsx           focused content panels
@@ -145,6 +153,7 @@ tools/
   export_glb.py         the asset pipeline
   inspect_blend.py      dependency-free .blend parser
   inspect_scene.py      bpy scene report + preview renders
+  find_screens.py       measures monitor panels for Displays.tsx
   verify-hotspots.mjs   hover verification captures
   verify-orbit.mjs      orbit, zoom, drag-vs-click checks
   verify-view-restore.mjs  camera restore regression test

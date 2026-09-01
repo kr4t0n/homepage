@@ -85,6 +85,19 @@ AABB catches whatever is inside it. Two hotspots shipped pointing at the wrong
 object before anyone looked. `node tools/verify-hotspots.mjs` hovers each
 hotspot and captures what actually lights up. Run it after any region change.
 
+**The monitor panels' polygon normals point the wrong way.** Blender reports
+these faces as normal-into-the-back-wall, away from the chair. Using that
+verbatim to place an overlay plane buries it inside the monitor and backface
+culls it, so the screen just stays blank with no error anywhere. Negate them: a
+screen faces the room, which is +z in glTF here. `tools/find_screens.py` prints
+what Blender says, and `src/three/Displays.tsx` stores the negated value.
+
+**Screen content is an overlay, not a re-texture.** The three panels are merged
+into `hot_screens`, so no individual screen can be addressed, and the source
+UVs did not survive the join. Displays are independent planes positioned over
+each panel from measured world geometry. They set `raycast={() => null}` so a
+click still resolves to `hot_screens` and opens the Work panel.
+
 **Coordinate spaces differ.** Blender is Z-up; glTF is Y-up. The exporter
 converts manifest coordinates with `(x, y, z) -> (x, z, -y)`. Camera offsets in
 `content.ts` are in glTF space.

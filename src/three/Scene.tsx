@@ -3,6 +3,7 @@ import { Canvas } from '@react-three/fiber'
 import { AdaptiveDpr, Preload } from '@react-three/drei'
 import * as THREE from 'three'
 import { Room } from './Room'
+import { Displays } from './Displays'
 import { CameraDirector } from './CameraDirector'
 import { HOME_CAMERA } from '../content'
 import { useScene } from '../store'
@@ -51,6 +52,7 @@ export function Scene() {
       <Lighting />
       <Suspense fallback={null}>
         <Room />
+        <Displays />
         <Preload all />
       </Suspense>
       <CameraDirector focus={focus} idle={focus === null} />
