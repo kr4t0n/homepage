@@ -89,8 +89,8 @@ export const PROJECTS: Project[] = [
 
 /**
  * Object -> content map. The room is a music studio, so the mapping leans on
- * what is physically there: the DJ controller becomes the metrics console, the
- * shelves become writing, the framed art becomes the bio.
+ * what is physically there: the synth carries the playable keys, the shelves
+ * become writing, the framed art becomes the bio.
  *
  * Offsets are tuned to keep the object filling roughly the upper half of the
  * frame, since the content panel occupies the lower half.
@@ -111,24 +111,26 @@ export const HOTSPOTS: Hotspot[] = [
   },
   {
     id: 'music',
-    // Verified by hover capture: this node is the DJ controller on its stand.
-    // The upright piano ended up inside the merged static mesh; splitting it
-    // out is a region-tuning pass in tools/export_glb.py, not a code change.
-    node: 'hot_midikeys',
+    // The synth, not the DJ controller. Both region names in the exporter used
+    // to be wrong, which put this hotspot on the wrong instrument; they now
+    // describe what they actually enclose. The DJ controller still exports as
+    // `hot_djcontroller` and is currently not wired to anything.
+    node: 'hot_synth',
     label: 'Music',
     hint: 'Playable. Bring headphones.',
     kind: 'music',
-    offset: [1.9, 2.4, 3.4],
-    look: [0, 0.1, 0],
+    // Target sits below the synth's centre so the keybed rides above the
+    // panel rather than behind it.
+    offset: [-1.6, 1.05, 2.25],
+    look: [0, -0.26, 0],
   },
   {
     id: 'signals',
-    // TODO(export): no verified node yet. The `hot_hexpanels` region turned out
-    // to enclose a small wall fixture rather than the light panels, and
-    // `hot_djdeck` encloses a mic stand. Re-point this once the regions in
-    // tools/export_glb.py isolate the hex panels. Verify with
-    // `node tools/verify-hotspots.mjs`, which hovers each hotspot and captures
-    // what actually lights up.
+    // TODO(export): no verified node yet. `hot_hexpanels` turned out to enclose
+    // a small wall fixture rather than the light panels. `hot_djcontroller` is
+    // now free and a mixing desk would suit a levels board, which is the
+    // obvious candidate. Verify with `node tools/verify-hotspots.mjs`, which
+    // hovers each hotspot and captures what actually lights up.
     node: 'hot_hexpanels',
     label: 'Signals',
     hint: 'Agent activity and GitHub',

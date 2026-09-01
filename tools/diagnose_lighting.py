@@ -28,7 +28,7 @@ bpy.ops.import_scene.gltf(filepath=GLB)
 sc = bpy.context.scene
 
 # ---- what colour is it, really? -------------------------------------------
-deck = next((o for o in sc.objects if o.name.startswith("hot_midikeys")), None)
+deck = next((o for o in sc.objects if o.name.startswith("hot_djcontroller")), None)
 print(f"object: {deck.name if deck else 'NOT FOUND'}")
 if deck:
     seen = []

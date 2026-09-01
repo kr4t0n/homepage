@@ -34,9 +34,13 @@ REGIONS = [
     ("shelves",   (-2.30,-1.55, -4.20,-0.20,  1.70, 3.10), True),
     ("sofa",      (-2.10,-0.55, -3.00,-0.10, -0.05, 1.20), True),
     ("table",     (-0.55, 0.75, -2.10,-0.75, -0.05, 0.80), False),
-    ("djdeck",    (-0.90, 1.10, -4.80,-3.10, -0.05, 1.30), True),
-    ("midikeys",  ( 1.20, 3.30, -4.80,-2.90, -0.05, 1.20), True),
-    ("guitar",    ( 3.30, 4.90, -3.40,-1.40, -0.05, 1.80), True),
+    # Names below describe what these boxes ACTUALLY enclose, verified by
+    # hover capture and by listing their contents. The first two were
+    # originally guessed from position and were both wrong, which is why the
+    # Music hotspot spent a while attached to the DJ controller.
+    ("micstand",     (-0.90, 1.10, -4.80,-3.10, -0.05, 1.30), False),
+    ("djcontroller", ( 1.20, 3.30, -4.80,-2.90, -0.05, 1.20), True),
+    ("synth",        ( 3.30, 4.90, -3.40,-1.40, -0.05, 1.80), True),
     ("plants",    ( 3.30, 4.90, -1.20, 2.10, -0.05, 1.90), False),
 ]
 

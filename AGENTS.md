@@ -117,10 +117,15 @@ with a non-zero emissive factor, which crushed the DJ controller's LEDs
 object read as broken. If emissive needs adjusting, scale the authored value,
 do not replace it.
 
-**Region tagging is approximate and must be verified visually.** A world-space
-AABB catches whatever is inside it. Two hotspots shipped pointing at the wrong
-object before anyone looked. `node tools/verify-hotspots.mjs` hovers each
-hotspot and captures what actually lights up. Run it after any region change.
+**Region tagging is approximate and must be verified visually, and the region
+NAME is not evidence.** A world-space AABB catches whatever is inside it, and
+several boxes here were named from a guess about position that turned out
+wrong. `midikeys` enclosed the DJ controller and `guitar` enclosed the synth,
+so the Music hotspot sat on the wrong instrument for a while and the real
+keyboard was never addressable. They are now named for what they actually
+contain. `node tools/verify-hotspots.mjs` hovers each hotspot and captures what
+lights up; run it after any region change, and rename a region the moment its
+name stops matching its contents.
 
 **The monitor panels' polygon normals point the wrong way.** Blender reports
 these faces as normal-into-the-back-wall, away from the chair. Using that
