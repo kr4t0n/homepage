@@ -39,12 +39,16 @@ if (import.meta.env.DEV) {
 const PLACEMENT = {
   // Upper right of the back wall, in the gap above the framed picture.
   //
-  // Two obstructions bound this. Circle.022, the pale-disc panel, runs from
-  // x -0.66 to 3.41 and past the ceiling line, so the sign has to sit right of
-  // it. Plane.006, the framed picture, occupies x 3.48 to 4.73 up to y 1.98,
-  // so the sign has to sit above that. The clear band is y 1.98 to the wall top
-  // at 2.61, and this is centred in it.
-  centre: [3.97, 2.30, -1.976] as [number, number, number],
+  // Three things bound this. Circle.022, the pale-disc panel, runs from x -0.66
+  // to 3.41 and past the ceiling line, so the sign sits right of it.
+  // Plane.006, the framed picture, occupies x 3.48 to 4.73 up to y 1.98, so the
+  // sign sits above it. The wall itself ends at x 4.49 and y 2.61.
+  //
+  // With half-extents of 0.44 and 0.112 that leaves very little slack: the
+  // right edge lands 0.03 short of the wall edge and the top edge 0.07 short of
+  // the ceiling line. Pushed into that corner deliberately, so the wordmark
+  // reads as high and to the right without overhanging anything.
+  centre: [4.02, 2.42, -1.976] as [number, number, number],
   width: 0.88,
   height: 0.223,
 }
