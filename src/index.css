@@ -1,0 +1,84 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
+
+/*
+ * Palette is sampled from the room asset itself so the UI and the 3D scene
+ * read as one object: deep navy walls, acid-green emissive panels, the
+ * lavender of the chair. One accent (acid), locked across every surface.
+ */
+@theme {
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
+
+  --color-void: #070a12;
+  --color-ink: #0d1220;
+  --color-ink-2: #141b2d;
+  --color-hair: #23304d;
+
+  --color-acid: #9ef01a;
+  --color-acid-dim: #6aa60f;
+  --color-lav: #b9a7f0;
+
+  --color-mute: #7b88a8;
+  --color-body: #b6c0d6;
+  --color-bright: #eef2fb;
+
+  --radius-panel: 14px;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-void);
+    color: var(--color-body);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior: none;
+  }
+
+  /* One visible focus treatment across the whole page. */
+  :focus-visible {
+    outline: 2px solid var(--color-acid);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+
+  canvas {
+    display: block;
+    touch-action: none;
+  }
+}
+
+@layer utilities {
+  /* Small caps label. Rationed: the skill allows one per three sections. */
+  .label {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--color-mute);
+  }
+
+  .hairline {
+    border-color: var(--color-hair);
+  }
+}
+
+/* Everything that moves collapses to instant under reduced motion.
+   GSAP timelines check this too; this covers the CSS-only transitions. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

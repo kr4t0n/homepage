@@ -1,0 +1,19 @@
+# Purchased source asset. Deliberately not committed: this repo is public, and
+# publishing the .blend redistributes the asset rather than using it. The
+# derived public/room.glb is committed so the site builds without it.
+# Keep the original backed up outside git; see README for where to put it.
+*.blend
+*.blend1
+
+node_modules/
+dist/
+tools/.venv/
+tools/shots/
+tools/preview/
+tools/clusters.json
+tools/regions.json
+*.local
+.DS_Store
+.env
+.env.*
+!.env.example
