@@ -66,13 +66,13 @@ export function Hud() {
 
   return (
     <div ref={root} className="pointer-events-none fixed inset-0 z-20">
+      {/* No wordmark here: the neon sign on the back wall carries the name, and
+          repeating it in the corner reads as a duplicate rather than a header.
+          justify-end because the GitHub link is now the only child. */}
       <header
         data-fade
-        className="pointer-events-auto absolute left-0 right-0 top-0 flex h-16 items-center justify-between px-6 sm:px-10"
+        className="pointer-events-auto absolute left-0 right-0 top-0 flex h-16 items-center justify-end px-6 sm:px-10"
       >
-        <span data-intro className="font-mono text-sm tracking-tight text-bright">
-          {PROFILE.handle}
-        </span>
         <a
           data-intro
           href={PROFILE.github}
