@@ -8,22 +8,44 @@ import { NeonSign } from './NeonSign'
 import { CameraDirector } from './CameraDirector'
 import { HOME_CAMERA } from '../content'
 import { useScene } from '../store'
+import {
+  ACCENT_COLOUR,
+  FILL_COLOUR,
+  GROUND,
+  KEY_COLOUR,
+  SKY,
+  lighting,
+} from './lighting'
 
 /**
  * The asset ships with no baked lighting and no textures, so the scene is lit
- * cheaply and deliberately.
+ * cheaply and deliberately. Values live in ./lighting, with the reasoning.
  *
- * Kept deliberately dim: the flat base colours blow out to pale grey under
- * anything brighter, which loses the navy the room is built around. The
- * emissive hex panels and monitors carry the accent light instead, which is
- * free and matches how the room was authored.
+ * Still dim overall: the flat base colours blow out to pale grey under a
+ * brighter key, which loses the navy the room is built around. The extra light
+ * here is fill rather than key, which is what three.js is missing relative to
+ * the offline renders.
  */
 function Lighting() {
   return (
     <>
-      <ambientLight intensity={0.18} color="#7c92cc" />
-      <directionalLight position={[7, 10, 7]} intensity={0.75} color="#cdd9ff" />
-      <directionalLight position={[-6, 3, -2]} intensity={0.12} color="#9ef01a" />
+      <ambientLight intensity={lighting.ambient} color={SKY} />
+      <hemisphereLight args={[SKY, GROUND, lighting.hemi]} />
+      <directionalLight
+        position={[7, 10, 7]}
+        intensity={lighting.key}
+        color={KEY_COLOUR}
+      />
+      <directionalLight
+        position={[-5, 4, 8]}
+        intensity={lighting.fill}
+        color={FILL_COLOUR}
+      />
+      <directionalLight
+        position={[-6, 3, -2]}
+        intensity={lighting.accent}
+        color={ACCENT_COLOUR}
+      />
     </>
   )
 }
@@ -42,7 +64,7 @@ export function Scene() {
       gl={{ antialias: true, powerPreference: 'high-performance' }}
       onCreated={({ gl }) => {
         gl.toneMapping = THREE.ACESFilmicToneMapping
-        gl.toneMappingExposure = 0.72
+        gl.toneMappingExposure = lighting.exposure
         setReady(true)
       }}
       camera={{ position: HOME_CAMERA.position, fov: 34, near: 0.1, far: 200 }}

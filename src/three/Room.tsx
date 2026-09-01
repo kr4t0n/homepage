@@ -63,12 +63,13 @@ export function Room() {
         // rougher, and it keeps the emissive panels doing the visual work.
         m.roughness = Math.min(1, m.roughness + 0.15)
 
-        // The hex panels, monitors and LED strips were authored as emissive
-        // materials. Under tone mapping they need a real intensity to read as
-        // light sources rather than as flat pale shapes.
-        if (m.emissive.r + m.emissive.g + m.emissive.b > 0.05) {
-          m.emissiveIntensity = 2.6
-        }
+        // Emissive intensity is deliberately left alone. Every glowing
+        // material in this asset carries an authored KHR_materials_emissive_
+        // strength between 1 and 10, which three.js already applies, so forcing
+        // a single value here flattened the artist's lighting: the DJ
+        // controller's LEDs (authored 5 and 10) were crushed while its dim
+        // indicators (authored 1) were boosted, leaving a black slab with a few
+        // glowing dots on it.
 
         // Walls and floor are the largest surfaces by far, so they set the
         // overall key. Pulled down to keep the room reading as night.

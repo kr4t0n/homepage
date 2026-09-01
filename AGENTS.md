@@ -38,10 +38,23 @@ room, check `tools/export_glb.py` before touching `src/three/`.
 **Flat shading is a decision, not a fallback.** Every texture path in the source
 points at the seller's machine and is unrecoverable. Rather than sourcing
 replacements, the export drops texture nodes and keeps each material's flat
-colour. Combined with ACES tone mapping at low exposure and a very dim light
-rig, this reads as a deliberate stylised night scene. Do not "fix" this by
-adding bright lights: the flat base colours blow out to pale grey immediately,
-which is exactly what the first implementation got wrong.
+colour. Combined with ACES tone mapping at low exposure and a dim rig, this
+reads as a deliberate stylised night scene. Do not "fix" it by raising the key:
+the flat base colours blow out to pale grey immediately, which is exactly what
+the first implementation got wrong. Add fill instead, and see the note on
+global illumination below.
+
+**three.js has no global illumination, so this asset needs explicit fill.** The
+offline renders look right partly because Cycles bounces light off the large
+pale floor. three.js gives you only the lights you place, so with a single key
+plus a flat ambient, everything not facing that key crushes to black. A
+light-grey object like the DJ controller rendered as a black slab with a few
+glowing dots. `src/three/lighting.ts` carries a hemisphere term standing in for
+sky-and-floor plus a weak opposite-side bounce. When something in the room
+looks wrong, compare against an offline render of the same GLB before changing
+the model: `tools/diagnose_keys.py` renders source, export and export-with-flat-
+material side by side, and `tools/diagnose_lighting.py` renders the GLB under
+both a neutral rig and a copy of the site's.
 
 **One owner for the camera.** `CameraDirector` holds a single authored pose that
 GSAP tweens on focus change. Idle drift, pointer parallax, and the user's own
@@ -79,6 +92,14 @@ materials cloned explicitly in `Room.tsx`.
 objects and converting one at a time will convert everything on the first call,
 leaving later iterations holding already-converted objects. Set curve resolution
 on all curves before converting any of them.
+
+**Never overwrite an authored `emissiveIntensity`.** Every glowing material in
+this asset ships a `KHR_materials_emissive_strength` between 1 and 10, and
+three.js applies it on load. Code here once forced a single value on anything
+with a non-zero emissive factor, which crushed the DJ controller's LEDs
+(authored 5 and 10) while boosting its dim indicators (authored 1), so the whole
+object read as broken. If emissive needs adjusting, scale the authored value,
+do not replace it.
 
 **Region tagging is approximate and must be verified visually.** A world-space
 AABB catches whatever is inside it. Two hotspots shipped pointing at the wrong
@@ -228,7 +249,8 @@ does.
   light panels and the upright piano are both stuck inside `static_static`;
   isolating them means tightening the regions in `export_glb.py`.
 - The sofa is still 42k of the 160k triangles after decimation.
-- No `<Environment>` map, so metals read flat. Adding a small HDRI would help
-  the monitors and the guitar without much cost.
+- No `<Environment>` map. The hemisphere fill in `lighting.ts` approximates one,
+  but real image-based lighting would seat the metals and the guitar better, and
+  would close the remaining gap against the offline renders.
 - Argus is linked, not embedded. The GitHub Pages host sends no
   `X-Frame-Options`, so a live iframe is possible if that is ever wanted.

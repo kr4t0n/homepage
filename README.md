@@ -172,6 +172,8 @@ tools/
   inspect_scene.py      bpy scene report + preview renders
   find_screens.py       measures the monitor panels for SCREENS
   find_walls.py         measures the wall planes
+  diagnose_keys.py      source vs export vs flat-material render
+  diagnose_lighting.py  material colours, neutral vs site light rig
   wall_occupancy.py     lists wall decor and finds clear bands
   verify-hotspots.mjs   hover verification captures
   verify-orbit.mjs      orbit, zoom, drag-vs-click checks
