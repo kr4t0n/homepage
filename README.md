@@ -118,13 +118,18 @@ All of the above need a one-time `npx playwright install chromium`.
 ## Putting an image on a monitor
 
 The three panels are entries in `SCREENS` in `src/content.ts`. Give one an
-`image` and it renders; give it an `href` and `action` and a second click on the
-framed screen opens that URL. Geometry for all three is already measured; to
-re-derive it run `tools/.venv/bin/python tools/find_screens.py` and negate the
-normal it prints, for the reason in AGENTS.md.
+`image` and it renders; give it an `href` and a second click on the framed
+screen opens that URL. Geometry for all three is already measured; to re-derive
+it run `tools/.venv/bin/python tools/find_screens.py` and negate the normal it
+prints, for the reason in AGENTS.md.
 
-The centre and right panels are wired and empty, waiting on content. An Argus
-screenshot on the centre one is the obvious next addition.
+Images are cover-fitted, never stretched: the panels are 2.4:1 and screenshots
+rarely are, so something gets cropped. Set `anchor: 'top'` for a page
+screenshot, where the nav and hero carry the identity and a centred crop would
+cut the nav off.
+
+The left panel shows nodex and the centre shows Argus. The right one is wired
+and empty.
 
 ## Putting something on a wall
 
@@ -163,7 +168,7 @@ src/
     Screens.tsx         the three monitors, framed on click, link on second
     NeonSign.tsx        canvas-drawn neon wordmark on the back wall
   ui/
-    Hud.tsx             hero, hotspot nav, hover readout
+    Hud.tsx             hero, hotspot nav, framed-screen exit
     Panel.tsx           focused content panels
     Preloader.tsx       real GLB load progress
     Fallback2D.tsx      no-WebGL / small-screen page

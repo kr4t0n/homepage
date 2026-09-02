@@ -143,6 +143,18 @@ sets `raycast={() => null}`. `hot_screens` itself is `navOnly` and therefore
 absent from the pick map, so a click on a monitor resolves to a screen and never
 to the Work hotspot.
 
+**Screen images are cover-fitted from the decoded image, not stretched.** The
+panels are 2.4:1 and a page screenshot rarely is; the Argus one is 1.68:1, which
+filling by scale would stretch 43%. `Screens.tsx` reads `texture.image` for the
+real dimensions and crops through the UV window, so replacing an image with a
+differently shaped one needs no other change. `anchor: 'top'` keeps the top of a
+page screenshot, because a centred crop cut the Argus nav bar off.
+
+**Popups are rate-limited per page, which will break a test before it breaks the
+app.** `verify-screens.mjs` proves a real popup once, then asserts on recorded
+`window.open` calls for the rest. Three real popups in one page run had the
+third silently blocked, which looked exactly like a broken link.
+
 **Screens are a two-stage interaction, and panels are not.** First click frames
 the screen dead-on and opens nothing; a second click on the already-framed
 screen opens its link. A single click that navigated off-site would be far too

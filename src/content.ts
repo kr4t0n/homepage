@@ -232,6 +232,13 @@ export interface Screen {
   hint: string
   image?: string
   href?: string
+  /**
+   * Which part of the image to keep when its aspect does not match the panel.
+   * Images are cover-fitted, never stretched, so something has to be cropped.
+   * 'top' for a page screenshot, where the nav and hero carry the identity and
+   * a centred crop would cut the nav off. Defaults to 'centre'.
+   */
+  anchor?: 'top' | 'centre'
   centre: [number, number, number]
   normal: [number, number, number]
   width: number
@@ -256,8 +263,15 @@ export const SCREENS: Screen[] = [
   {
     id: 'centre',
     source: 'Plane.024',
-    label: 'Centre display',
-    hint: 'Nothing on this one yet',
+    label: 'Argus',
+    hint: 'Click to look closer, again to open',
+    image: '/argus-screenshot.jpg',
+    href: 'https://kr4t0n.github.io/argus',
+    // The screenshot is 1.68:1 against a 2.4:1 panel, so 30% of its height is
+    // cropped. Anchored to the top: that keeps the nav, the hero line and the
+    // install CTA, and loses the bottom of the dashboard mockup. A centred crop
+    // would have cut the nav off.
+    anchor: 'top',
     centre: [1.1017, 1.302, -1.5808],
     normal: [0, 0, 1],
     width: 1.3661,

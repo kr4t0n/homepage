@@ -45,8 +45,32 @@ function ScreenImage({ screen }: { screen: ScreenDef }) {
   useMemo(() => {
     texture.colorSpace = THREE.SRGBColorSpace
     texture.anisotropy = 8
+
+    // Cover-fit rather than stretch. The panels are 2.4:1 and a page screenshot
+    // rarely is, so filling by scaling would distort noticeably: the Argus shot
+    // is 1.68:1, a 43% horizontal stretch. Crop instead, via the UV window.
+    //
+    // Dimensions come from the decoded image, not a hardcoded aspect, so this
+    // stays correct if an image is ever replaced with a differently shaped one.
+    const img = texture.image as { width: number; height: number } | undefined
+    if (img?.width && img.height) {
+      const imageAspect = img.width / img.height
+      const panelAspect = screen.width / screen.height
+      if (imageAspect < panelAspect) {
+        // Taller than the panel: match width, crop height.
+        const r = imageAspect / panelAspect
+        texture.repeat.set(1, r)
+        // flipY is on by default, so v=1 is the top of the image.
+        texture.offset.set(0, screen.anchor === 'top' ? 1 - r : (1 - r) / 2)
+      } else {
+        // Wider than the panel: match height, crop width, always centred.
+        const r = panelAspect / imageAspect
+        texture.repeat.set(r, 1)
+        texture.offset.set((1 - r) / 2, 0)
+      }
+    }
     texture.needsUpdate = true
-  }, [texture])
+  }, [texture, screen])
 
   return (
     <mesh

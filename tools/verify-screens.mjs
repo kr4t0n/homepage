@@ -118,6 +118,54 @@ await page.mouse.up()
 await page.waitForTimeout(1200)
 check(page.url() === before, 'a drag ending on a screen does not frame it')
 
+// Every screen that carries a link must open it from the framed state. Reached
+// by deep link rather than by hunting for coordinates: framing is what the
+// block above already covers, and this keeps the link assertion deterministic.
+const LINKED = [
+  ['nodex', 'https://nodex.kubitnodes.com'],
+  ['centre', 'https://kr4t0n.github.io/argus'],
+]
+for (const [id, href] of LINKED) {
+  await page.goto(`${BASE}/#/screen/${id}`, { waitUntil: 'networkidle' })
+
+  // Wait for the condition, not for a duration. A fixed sleep was enough for
+  // the first screen and not the second, because the flight between two screens
+  // is longer than the flight in from the home view, so the click landed while
+  // the camera was still moving and missed.
+  let settled = false
+  for (let i = 0; i < 40 && !settled; i++) {
+    await page.mouse.move(705, 445)
+    await page.waitForTimeout(150)
+    settled = (await hovered()) === id
+  }
+  check(settled, `${id} is under the pointer once framed`)
+
+  // Record the window.open call rather than wait for a real popup. Chromium
+  // rate-limits popups per page, and two real ones have already fired above, so
+  // a third would be blocked for reasons that say nothing about our code. The
+  // genuine end-to-end popup is covered once, earlier in this file.
+  await page.evaluate(() => {
+    window.__opened = []
+    window.open = (url) => {
+      window.__opened.push(String(url))
+      return null
+    }
+  })
+  await page.mouse.move(1420, 880)
+  await page.waitForTimeout(200)
+  await page.mouse.click(705, 445)
+  await page.waitForTimeout(400)
+  const opened = await page.evaluate(() => window.__opened ?? [])
+  check(
+    opened.some((u) => u.startsWith(href)),
+    `${id} opens ${opened.length ? opened.join(', ') : 'nothing'}`,
+  )
+}
+
+// Back to the room for the remaining checks.
+await page.goto(BASE, { waitUntil: 'networkidle' })
+await page.waitForTimeout(2400)
+
 // The Work panel must still be reachable from the nav.
 await page.click('nav[aria-label="Places in the room"] button:nth-child(1)')
 await page.waitForTimeout(1800)
