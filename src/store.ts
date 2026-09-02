@@ -119,6 +119,14 @@ export const bindHistory = () => {
   return () => window.removeEventListener('popstate', sync)
 }
 
+// Dev-only handle for the verification scripts. They used to locate objects by
+// scraping the hover readout out of the DOM; with that gone, they read the
+// state directly. Stripped from production builds.
+if (import.meta.env.DEV) {
+  ;(window as unknown as Record<string, unknown>).__hover = () =>
+    useScene.getState().hover
+}
+
 /** Escape leaves any focused mode, from anywhere on the page. */
 export const bindEscape = () => {
   const onKey = (e: KeyboardEvent) => {

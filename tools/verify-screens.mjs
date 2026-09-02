@@ -38,25 +38,25 @@ const check = (ok, msg) => {
   if (!ok) failures++
 }
 
-const readout = () =>
-  page.evaluate(() => {
-    const el = document.querySelector('.font-mono.uppercase.text-acid')
-    return el?.textContent?.trim() ?? ''
-  })
+/**
+ * Hovered id, straight from the store. Previously scraped from a hover readout
+ * in the DOM, which no longer exists.
+ */
+const hovered = () => page.evaluate(() => window.__hover?.() ?? null)
 
 const away = async () => {
   await page.mouse.move(250, 220)
   await page.waitForTimeout(250)
 }
 
-/** Sweep the desk area for a screen announcing the given label. */
-const find = async (label) => {
+/** Sweep the desk area for the screen with the given id. */
+const find = async (id) => {
   for (let x = 620; x <= 1180; x += 14) {
     for (let y = 250; y <= 350; y += 12) {
       await away()
       await page.mouse.move(x, y)
       await page.waitForTimeout(110)
-      if ((await readout()) === label) return [x, y]
+      if ((await hovered()) === id) return [x, y]
     }
   }
   return null
@@ -69,7 +69,7 @@ if (!nodex) {
   process.exit(1)
 }
 
-const centre = await find('Centre display')
+const centre = await find('centre')
 check(centre !== null, `centre monitor is independently pickable ${centre ?? ''}`)
 
 // First click frames it, and opens no panel.

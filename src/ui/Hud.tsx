@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import gsap from 'gsap'
 import { useGSAP } from '@gsap/react'
-import { ROOM_HOTSPOTS, PROFILE, readoutFor } from '../content'
+import { ROOM_HOTSPOTS, PROFILE } from '../content'
 import { useScene } from '../store'
 import { resetOrbit } from '../three/orbit'
 
@@ -13,6 +13,10 @@ gsap.registerPlugin(useGSAP)
  * Both fade out once a hotspot is focused so the room and the panel own the
  * frame. The index doubles as the keyboard path into the scene: every hotspot
  * is a real button, tab-reachable, so the page is navigable without a pointer.
+ *
+ * There is no hover readout. Hovering is communicated in the scene itself, by
+ * the accent wash on the object and the pointer cursor, which is enough and
+ * keeps the room free of floating labels.
  */
 export function Hud() {
   const focus = useScene((s) => s.focus)
@@ -27,7 +31,6 @@ export function Hud() {
   const root = useRef<HTMLDivElement>(null)
 
   const open = focus === null && screen === null
-  const hovered = readoutFor(hover)
 
   useGSAP(
     () => {
@@ -165,19 +168,6 @@ export function Hud() {
         Reset view
       </button>
 
-      {/* Hover readout. Fixed position rather than following the cursor, which
-          keeps it legible and avoids a custom-cursor pattern. */}
-      <div
-        aria-hidden
-        className={`absolute right-6 top-1/2 -translate-y-1/2 text-right transition-opacity duration-200 sm:right-10 ${
-          hovered && open ? 'opacity-100' : 'opacity-0'
-        }`}
-      >
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-acid">
-          {hovered?.label}
-        </p>
-        <p className="mt-1 max-w-[18ch] text-sm text-mute">{hovered?.hint}</p>
-      </div>
     </div>
   )
 }

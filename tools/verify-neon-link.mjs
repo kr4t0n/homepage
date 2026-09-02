@@ -34,12 +34,14 @@ const check = (ok, msg) => {
   if (!ok) failures++
 }
 
-/** The right-hand readout renders the label of whatever is hovered. */
-const readout = () =>
-  page.evaluate(() => {
-    const el = document.querySelector('.font-mono.uppercase.text-acid')
-    return el?.textContent?.trim() ?? ''
-  })
+/**
+ * Hovered id, straight from the store.
+ *
+ * This used to scrape a hover readout out of the DOM. That readout has been
+ * removed from the design, so the check now reads state through the dev-only
+ * __hover handle instead of depending on visible chrome.
+ */
+const hovered = () => page.evaluate(() => window.__hover?.() ?? null)
 
 const away = async () => {
   await page.mouse.move(300, 250)
@@ -53,7 +55,7 @@ for (let x = 1060; x <= 1200 && !target; x += 12) {
     await away()
     await page.mouse.move(x, y)
     await page.waitForTimeout(140)
-    if ((await readout()) === 'GitHub') {
+    if ((await hovered()) === 'neon') {
       target = [x, y]
       break
     }
@@ -66,7 +68,7 @@ if (!target) {
   process.exit(1)
 }
 console.log(`found sign at ${target[0]},${target[1]}`)
-check(true, 'hovering the sign announces GitHub')
+check(true, 'hovering the sign resolves to the GitHub link')
 
 await page.mouse.move(target[0], target[1])
 await page.waitForTimeout(700)

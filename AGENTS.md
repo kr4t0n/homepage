@@ -222,12 +222,22 @@ a view that was in fact restored exactly. Launch the page with
 non-interactive geometry and blur the active element first, or the diff is
 dominated by the hover wash and a focus ring.
 
-**Prefer asserting on state over pixels.** `src/three/orbit.ts` exposes
-`window.__orbit` and `src/three/highlight.ts` exposes `window.__highlight`, both
-behind `import.meta.env.DEV`, so verification scripts can read camera offsets
-and tune the accent directly instead of inferring them from a render. Both are
-stripped from production; confirm after a build with
-`grep -o "__orbit\|__highlight" dist/assets/*.js`.
+**Prefer asserting on state over pixels, and never on chrome.** The dev-only
+handles are `window.__orbit` (camera offsets), `window.__highlight` and
+`window.__neon` (accent tuning) and `window.__hover` (hovered id), all behind
+`import.meta.env.DEV`. Confirm they are stripped after a build with
+`grep -o "__orbit\|__highlight\|__neon\|__hover" dist/assets/*.js`.
+
+`__hover` exists because two verification scripts used to locate objects by
+scraping the hover readout out of the DOM. When that readout was removed from
+the design the scripts broke, for a reason that had nothing to do with what they
+were testing. Tests should not depend on visible chrome surviving a design
+decision.
+
+**Hover feedback lives in the scene, not in a label.** There is no hover
+readout. A hovered object gets the accent wash from `highlight.ts`, the cursor
+becomes a pointer via `bindCursor`, and the matching nav pill lights up. That is
+three channels without putting floating text over the room.
 
 **`gsap.from()` under reduced motion will hide your UI.** `from()` writes its
 start state to the element immediately and animates away from it. If the tween

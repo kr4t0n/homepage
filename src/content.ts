@@ -207,21 +207,6 @@ export const ROOM_LINKS: RoomLink[] = [
   },
 ]
 
-export const roomLinkById = (id: string | null) =>
-  id ? (ROOM_LINKS.find((l) => l.id === id) ?? null) : null
-
-/** Label and hint for the hover readout, across hotspots, links and screens. */
-export const readoutFor = (
-  id: string | null,
-): { label: string; hint: string } | null => {
-  const h = hotspotById(id)
-  if (h) return { label: h.label, hint: h.hint }
-  const l = roomLinkById(id)
-  if (l) return { label: l.label, hint: l.hint }
-  const s = screenById(id)
-  if (s) return { label: s.label, hint: s.hint }
-  return null
-}
 
 /**
  * The three monitor panels, as independently interactive surfaces.
