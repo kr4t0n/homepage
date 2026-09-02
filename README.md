@@ -196,11 +196,21 @@ tools/
 
 ## Known gaps
 
-- The `signals` hotspot has no verified node yet and is hidden from the room.
-  The hex light panels and the upright piano are both still inside the merged
-  static mesh; isolating them is a region-tuning pass in `export_glb.py`.
+- The DJ controller is deliberately unassigned. It exports as its own node,
+  `hot_djcontroller`, but nothing references it, so it is inert: no hover, no
+  click. Giving it something is one entry in `HOTSPOTS`, and the geometry is
+  already isolated, so nothing needs re-exporting. Left open until there is
+  content that actually suits a mixing desk.
+- The `signals` hotspot has no verified node and is hidden from the room and the
+  nav. `hot_hexpanels` turned out to enclose a small wall fixture rather than
+  the light panels; isolating those is a region-tuning pass in `export_glb.py`.
+  `hot_djcontroller` is the other candidate.
+- The right-hand monitor is wired and empty. Adding an `image` and `href` to the
+  `right` entry in `SCREENS` is all it needs.
 - Writing, CV and the stats board are marked placeholders in the UI rather than
   filled with invented content.
+- The About copy is inferred from the GitHub bio and the two projects, not
+  written by its subject.
 - The source `.blend` shipped with a `minion.jpg` texture reference among
   others. All missing textures are stripped at export, so nothing
   rights-encumbered ships, but the asset's provenance is not clean.
