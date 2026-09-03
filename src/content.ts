@@ -81,10 +81,11 @@ export const PROFILE = {
 export const TRACK = {
   src: '/track.mp3',
   /**
-   * Cover art, 128px square — enough for a ~44px thumbnail at 3x DPR. Extracted
+   * Cover art, 192px square. It fills the transport button rather than sitting
+   * beside it, so it needs to hold up at 3x DPR on a 56px control. Extracted
    * from the file's own ID3 tag, which held it as a 1400x1400 PNG: 1.59 MB for a
-   * thumbnail, versus 2.4 KB once resized to WebP. Uncommitted, like the track.
-   * Leave it undefined and the player simply renders no artwork.
+   * thumbnail, versus 4.9 KB once resized to WebP. Uncommitted, like the track.
+   * Leave it undefined and the button falls back to a solid accent fill.
    */
   cover: '/cover.webp' as string | undefined,
   title: 'A Moment Apart',

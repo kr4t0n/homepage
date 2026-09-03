@@ -111,32 +111,52 @@ function Player() {
   // the mini-player's container. Drawing one here too was a box inside a box,
   // which only read as deliberate while there was a sibling paragraph to group
   // against.
-  return (
-    <div className="flex min-w-0 flex-1 items-center gap-3.5">
-      {TRACK.cover && !noArt && (
-        /* alt is empty on purpose: the title and artist sit right next to it as
-           real text, so announcing the artwork too is pure duplication. */
-        <img
-          src={TRACK.cover}
-          alt=""
-          width={48}
-          height={48}
-          onError={() => setNoArt(true)}
-          className="hairline size-12 shrink-0 rounded-[8px] border object-cover"
-        />
-      )}
+  const art = Boolean(TRACK.cover) && !noArt
 
-      {/* Follows `playing`, not the stored intent, for the reason in Hud.tsx:
-          a transport that shows Pause while silent invites the one click that
-          turns the music off for good. Pressing this is itself a gesture, so
-          it starts playback even on a cold visit where autoplay was refused. */}
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-4">
+      {/* The artwork *is* the transport: the cover fills the circle and the
+          glyph sits on top of it, rather than sitting beside it as a second
+          element. Follows `playing`, not the stored intent, for the reason in
+          Hud.tsx: a transport that shows Pause while silent invites the one
+          click that turns the music off for good. Pressing this is itself a
+          gesture, so it starts playback even on a cold visit where autoplay was
+          refused. */}
       <button
         type="button"
         onClick={() => setOn(!playing)}
         aria-label={playing ? `Pause ${TRACK.title}` : `Play ${TRACK.title}`}
-        className="grid size-11 shrink-0 place-items-center rounded-full bg-acid text-void transition-transform active:scale-[0.96]"
+        className={`group relative grid size-14 shrink-0 place-items-center overflow-hidden rounded-full transition-transform active:scale-[0.96] ${
+          art ? 'hairline border' : 'bg-acid text-void'
+        }`}
       >
-        {playing ? <Pause size={17} weight="fill" /> : <Play size={17} weight="fill" />}
+        {art && (
+          <>
+            {/* alt is empty on purpose: the title and artist sit beside this as
+                real text, so announcing the artwork too is duplication. */}
+            <img
+              src={TRACK.cover}
+              alt=""
+              width={192}
+              height={192}
+              onError={() => setNoArt(true)}
+              className="absolute inset-0 size-full object-cover"
+            />
+            {/* Album art is arbitrary and this one peaks at 230/255 luminance
+                exactly where the glyph lands, so the glyph needs help rather
+                than trusting any given cover to be dark. Most of that help comes
+                from the drop shadow below, not the scrim: a scrim heavy enough
+                to guarantee contrast on its own turned the cover into a dark
+                disc, which defeats showing it at all. Without art the button
+                falls back to the solid accent fill. */}
+            <span className="absolute inset-0 bg-void/25 transition-colors group-hover:bg-void/10" />
+          </>
+        )}
+        <span
+          className={`relative ${art ? 'text-bright drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)]' : ''}`}
+        >
+          {playing ? <Pause size={18} weight="fill" /> : <Play size={18} weight="fill" />}
+        </span>
       </button>
 
       <div className="min-w-0 flex-1">
@@ -353,7 +373,7 @@ export function Panel() {
         role="dialog"
         aria-modal="false"
         aria-label={spot.label}
-        className="pointer-events-auto fixed inset-x-0 bottom-6 z-30 mx-auto flex w-[calc(100%-3rem)] max-w-[600px] items-center gap-4 rounded-[14px] border border-hair bg-void/92 p-4 backdrop-blur-xl"
+        className="pointer-events-auto fixed inset-x-0 bottom-6 z-30 mx-auto flex w-[calc(100%-3rem)] max-w-[540px] items-center gap-4 rounded-[14px] border border-hair bg-void/92 p-4 backdrop-blur-xl"
       >
         <Body />
         <button

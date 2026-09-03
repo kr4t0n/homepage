@@ -139,23 +139,29 @@ put audio back:
 
 1. Drop a file in as `public/track.mp3`.
 2. Update `TRACK` in `src/content.ts` — `title`, `artist` and `seconds`.
-3. Optionally add cover art as `public/cover.webp`, 128px square. Leave
-   `TRACK.cover` undefined, or omit the file, and the bar renders without
-   artwork — that is the fresh-clone default and it is a supported state, not a
-   broken one.
+3. Optionally add cover art as `public/cover.webp`, 192px square. It fills the
+   transport button, so it needs to hold up at 3x DPR on a 56px control. Leave
+   `TRACK.cover` undefined, or omit the file, and the button falls back to a
+   solid accent fill — that is the fresh-clone default and a supported state,
+   not a broken one.
 
 `artist` is the attribution and the panel always renders it, so a track that is
 not yours stays credited. There is no longer a longer disclaimer below the card.
 
 Cover art is usually already inside the file, as an ID3v2 `APIC` frame, at a size
-made for a media library rather than a 44px thumbnail — the track supplied here
-carried a 1400x1400 PNG. Extract it, resize it, and the 1.59 MB becomes 2.4 KB:
+made for a media library rather than a 56px control — the track supplied here
+carried a 1400x1400 PNG. Extract it, resize it, and the 1.59 MB becomes 4.9 KB:
 
 ```python
 from PIL import Image
-Image.open('cover.png').convert('RGB').resize((128, 128), Image.LANCZOS) \
+Image.open('cover.png').convert('RGB').resize((192, 192), Image.LANCZOS) \
      .save('public/cover.webp', 'WEBP', quality=88, method=6)
 ```
+
+The glyph sits on top of the artwork, so contrast is not guaranteed by anything.
+A light scrim plus a hard drop shadow carries it; a scrim heavy enough to
+guarantee contrast alone turns the cover into a dark disc and defeats the point.
+Check a bright cover by eye rather than trusting it.
 
 `public/cover.webp` is gitignored for the same reason as the track: art pulled
 out of a commercial release is exactly as rights-encumbered as the recording. If
