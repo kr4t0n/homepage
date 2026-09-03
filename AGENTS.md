@@ -163,6 +163,15 @@ so visible half-width is only ~0.49x the standoff distance. The DJ controller is
 the camera sideways while still aiming at the node's centre swings the far end of
 a wide object out of frame, so keep the x offset near zero for wide props.
 
+**Aiming at a node's bounding-box centre does not centre it on screen.** The DJ
+controller renders ~320px left of frame centre at 1440x900 with `look.x = 0`,
+which is why the `player` hotspot carries `look.x = -0.55`. Pointer parallax is
+*not* the explanation — it is eased to zero once a hotspot is focused, and the
+framing is byte-identical with the pointer parked anywhere, which is worth
+knowing before chasing it. Suspect the bbox centre not matching the visual mass,
+since these nodes are joined groups that include stands and legs. Either way,
+framing offsets are empirical here: change one, screenshot it, look at it.
+
 **glTF nodes with multiple primitives load as a Group, not a Mesh.** Children get
 suffixed names (`hot_desk_0`, `hot_desk_1`, ...). Matching `mesh.name === node`
 silently never fires. Use `getObjectByName(node)` then traverse its subtree.

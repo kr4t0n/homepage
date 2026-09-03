@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowUpRight, MusicNote, Pause, Play, X } from '@phosphor-icons/react'
 import gsap from 'gsap'
 import { useGSAP } from '@gsap/react'
-import { PROFILE, PROJECTS, TRACK, hotspotById } from '../content'
+import { PROFILE, PROJECTS, TRACK, hotspotById, type PanelKind } from '../content'
 import { useScene } from '../store'
 import { NOTES, playNote, unlockAudio } from '../audio/synth'
 import { duckTrack, usePlayer } from '../audio/player'
@@ -96,12 +96,20 @@ function Player() {
 
   if (!available) {
     return (
-      <Pending what="No track is being served. The audio file is not committed to this repo, so a fresh clone runs the room in silence — drop one in as public/track.mp3." />
+      <p className="text-sm leading-relaxed text-mute">
+        No track is being served. The audio file is not committed to this repo,
+        so a fresh clone runs the room in silence — drop one in as
+        <span className="text-body"> public/track.mp3</span>.
+      </p>
     )
   }
 
+  // No border, padding or background here: in compact mode the panel itself is
+  // the mini-player's container. Drawing one here too was a box inside a box,
+  // which only read as deliberate while there was a sibling paragraph to group
+  // against.
   return (
-    <div className="hairline flex items-center gap-5 rounded-[14px] border p-5 sm:p-6">
+    <div className="flex min-w-0 flex-1 items-center gap-4">
       {/* Follows `playing`, not the stored intent, for the reason in Hud.tsx:
           a transport that shows Pause while silent invites the one click that
           turns the music off for good. Pressing this is itself a gesture, so
@@ -110,21 +118,21 @@ function Player() {
         type="button"
         onClick={() => setOn(!playing)}
         aria-label={playing ? `Pause ${TRACK.title}` : `Play ${TRACK.title}`}
-        className="grid size-12 shrink-0 place-items-center rounded-full bg-acid text-void transition-transform active:scale-[0.96]"
+        className="grid size-11 shrink-0 place-items-center rounded-full bg-acid text-void transition-transform active:scale-[0.96]"
       >
-        {playing ? <Pause size={19} weight="fill" /> : <Play size={19} weight="fill" />}
+        {playing ? <Pause size={17} weight="fill" /> : <Play size={17} weight="fill" />}
       </button>
 
       <div className="min-w-0 flex-1">
-        <p className="truncate text-lg tracking-tight text-bright">{TRACK.title}</p>
+        <p className="truncate tracking-tight text-bright">{TRACK.title}</p>
         {/* The artist line is the attribution. It is not decoration: the track
             is somebody else's record, so this credit stays even though the
             longer disclaimer that used to sit below the card is gone. */}
-        <p className="truncate font-mono text-[11px] uppercase tracking-[0.18em] text-mute">
+        <p className="truncate font-mono text-[10.5px] uppercase tracking-[0.18em] text-mute">
           {TRACK.artist}
         </p>
 
-        <div className="mt-3 flex items-center gap-3">
+        <div className="mt-2.5 flex items-center gap-3">
           <input
             type="range"
             min={0}
@@ -136,7 +144,7 @@ function Player() {
           />
           <span
             data-elapsed
-            className="shrink-0 font-mono text-[11px] tabular-nums text-mute"
+            className="shrink-0 font-mono text-[10.5px] tabular-nums text-mute"
           >
             {mmss(time)} / {mmss(duration)}
           </span>
@@ -278,6 +286,16 @@ const BODY: Record<string, () => React.ReactElement> = {
   cv: () => <Pending what="The formal one-page version, as a PDF." />,
 }
 
+/**
+ * Kinds that render as a compact bar rather than a full content panel.
+ *
+ * The decks are a transport, not a piece of writing: a 820px sheet with a
+ * heading over one row of controls read as a big empty box with a small box
+ * inside it. This lives here rather than in content.ts because it is a
+ * presentation decision, and content.ts is the contract for what the page says.
+ */
+const COMPACT = new Set<PanelKind>(['player'])
+
 export function Panel() {
   const focus = useScene((s) => s.focus)
   const setFocus = useScene((s) => s.setFocus)
@@ -308,6 +326,31 @@ export function Panel() {
 
   if (!spot) return null
   const Body = BODY[spot.kind] ?? (() => null)
+  const compact = COMPACT.has(spot.kind)
+
+  // The visible heading is dropped in compact mode, so the dialog's accessible
+  // name comes from aria-label alone — which it already did.
+  if (compact) {
+    return (
+      <div
+        ref={root}
+        role="dialog"
+        aria-modal="false"
+        aria-label={spot.label}
+        className="pointer-events-auto fixed inset-x-0 bottom-6 z-30 mx-auto flex w-[calc(100%-3rem)] max-w-[540px] items-center gap-4 rounded-[14px] border border-hair bg-void/92 p-4 backdrop-blur-xl"
+      >
+        <Body />
+        <button
+          type="button"
+          onClick={() => setFocus(null)}
+          aria-label="Close and return to the room"
+          className="hairline shrink-0 self-start rounded-full border p-1.5 text-mute transition-colors hover:text-bright"
+        >
+          <X size={14} weight="bold" />
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div

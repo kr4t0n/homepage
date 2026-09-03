@@ -152,12 +152,21 @@ export const HOTSPOTS: Hotspot[] = [
     hint: 'What the room is listening to',
     kind: 'player',
     // The deck is 2.53 units wide, the widest hotspot in the room, against a
-    // 34-degree lens: visible half-width is 0.49x distance, so it needs ~3.7
-    // units of standoff to sit at two thirds of the frame. The x offset stays
-    // near zero because pushing the camera sideways while still aiming at the
-    // centre swings the far end of a wide object straight out of frame.
-    offset: [0.15, 1.5, 3.4],
-    look: [0, -0.3, 0],
+    // 34-degree lens: visible half-width is 0.49x distance, so it needs ~3.5
+    // units of standoff to sit at three quarters of the frame. The x offset
+    // stays near zero because pushing the camera sideways while still aiming at
+    // the centre swings the far end of a wide object straight out of frame.
+    //
+    // `look` is measurably left of the node's centre. Aiming dead at the centre
+    // renders the deck ~320px left of frame centre at 1440x900, close enough to
+    // the left edge to clip at other aspect ratios; aiming left of it pushes the
+    // object right. Pointer parallax is not the cause — it is eased to zero when
+    // a hotspot is focused, and the framing is identical with the pointer parked
+    // anywhere. `look` barely lifts the object, unlike the other hotspots, whose
+    // offsets clear a full-height content panel: the decks render as a compact
+    // bar, so the same lift left a third of the frame as empty floor.
+    offset: [0.15, 1.35, 3.3],
+    look: [-0.55, -0.08, 0],
   },
   {
     id: 'signals',
