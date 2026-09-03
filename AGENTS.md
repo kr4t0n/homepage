@@ -116,6 +116,26 @@ works on the very first press of a cold visit. `verify-player.mjs` guards this
 with a fresh browser context; a reload will not reproduce it, because navigating
 the same tab keeps its user activation and the track just keeps playing.
 
+**A looping tween must be built once and paused, never rebuilt per state change.**
+The spinning cover is one `paused: true` tween that `play()`/`pause()` toggle. The
+tempting shape — recreate `gsap.to(el, {rotation: 360})` whenever `playing`
+changes — is subtly broken: it tweens from the *current* angle to 360, so
+resuming at 350° crawls the last ten degrees over the full duration, while
+resuming near 0° looks correct by luck. Constructing it in `useGSAP` and toggling
+it from a separate `useEffect` is deliberate: same-effect toggling would put
+`playing` in the dependency array and rebuild the tween. `verify-player.mjs`
+distinguishes the two by pausing mid-turn and checking the resumed angle advances
+*from* where it stopped rather than from zero.
+
+**A square exactly inscribing a circular mask is tangent, not safely covered.**
+Rotation preserves a square's perpendicular distance to its own edges, so a
+square sized to its container is tangent to the container's inscribed circle at
+four points at every angle — covered in theory, one anti-aliased pixel from
+flashing background four times per revolution. The cover image carries a 1px
+bleed for this. It is sized with box properties (`-inset-px` plus a `calc` size)
+rather than a scale transform, because GSAP owns that element's transform and
+would overwrite a Tailwind `scale-*` class.
+
 **Never let audibility depend on a volume ramp: WebKit pauses media that becomes
 audible without a gesture.** This is the one bug in this feature that Chromium
 cannot catch, and it was shipped and reported from Safari. The first version set

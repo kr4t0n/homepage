@@ -96,6 +96,47 @@ function Player() {
   // The cover is gitignored, so a fresh clone 404s it. Track that and drop the
   // element rather than leaving a broken-image frame in the bar.
   const [noArt, setNoArt] = useState(false)
+  const artEl = useRef<HTMLImageElement>(null)
+  const spin = useRef<gsap.core.Tween | null>(null)
+
+  const art = Boolean(TRACK.cover) && !noArt
+
+  // Built once and then played/paused, never recreated. A tween rebuilt per
+  // state change would tween from the current angle to 360, so resuming at 350
+  // degrees would crawl the last ten and resuming at 0 would look right by luck.
+  // Holding one paused tween means pausing keeps the angle and resuming carries
+  // on from it, which is the whole point of the gesture.
+  useGSAP(
+    () => {
+      if (!art) return
+      const mm = gsap.matchMedia()
+      mm.add('(prefers-reduced-motion: no-preference)', () => {
+        spin.current = gsap.to(artEl.current, {
+          rotation: 360,
+          duration: 9,
+          ease: 'none',
+          repeat: -1,
+          paused: true,
+        })
+        return () => {
+          spin.current?.kill()
+          spin.current = null
+        }
+      })
+      return () => mm.revert()
+    },
+    { dependencies: [art] },
+  )
+
+  // Separate from the tween's construction so that play/pause does not rebuild
+  // it. useGSAP runs in a layout effect and this in a passive one, so the tween
+  // exists by the time this first runs. Under reduced motion `spin` stays null
+  // and this is a no-op, which is the intended silence rather than a bug.
+  useEffect(() => {
+    if (!spin.current) return
+    if (playing) spin.current.play()
+    else spin.current.pause()
+  }, [playing])
 
   if (!available) {
     return (
@@ -111,8 +152,6 @@ function Player() {
   // the mini-player's container. Drawing one here too was a box inside a box,
   // which only read as deliberate while there was a sibling paragraph to group
   // against.
-  const art = Boolean(TRACK.cover) && !noArt
-
   return (
     <div className="flex min-w-0 flex-1 items-center gap-4">
       {/* The artwork *is* the transport: the cover fills the circle and the
@@ -133,14 +172,24 @@ function Player() {
         {art && (
           <>
             {/* alt is empty on purpose: the title and artist sit beside this as
-                real text, so announcing the artwork too is duplication. */}
+                real text, so announcing the artwork too is duplication.
+
+                The 1px bleed is what keeps the spin clean. A square's
+                perpendicular distance to its own edge is invariant under
+                rotation, so a square exactly inscribing the circular mask is
+                tangent to it at four points for every angle — mathematically
+                covered, but one anti-aliased pixel away from flashing a hairline
+                of background four times per turn. Sized in box properties rather
+                than a scale transform, because GSAP owns this element's
+                transform and would overwrite a Tailwind scale class. */}
             <img
+              ref={artEl}
               src={TRACK.cover}
               alt=""
               width={192}
               height={192}
               onError={() => setNoArt(true)}
-              className="absolute inset-0 size-full object-cover"
+              className="absolute -inset-px size-[calc(100%+2px)] object-cover"
             />
             {/* Album art is arbitrary and this one peaks at 230/255 luminance
                 exactly where the glyph lands, so the glyph needs help rather

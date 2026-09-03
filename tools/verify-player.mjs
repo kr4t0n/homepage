@@ -169,6 +169,73 @@ await page.waitForTimeout(2200)
 const t2 = await elapsed()
 check('playback progresses', t2 > t1, `${t1}s -> ${t2}s`)
 
+// --- 4b. The artwork spins, holds its angle when paused, and resumes from it -
+// The angle-holding is the load-bearing part. A tween rebuilt on each state
+// change would restart from 0, so this distinguishes "continues" from "resets
+// and happens to be moving".
+const angle = () =>
+  page.evaluate(() => {
+    const img = document.querySelector('[role="dialog"] img')
+    if (!img) return null
+    const t = getComputedStyle(img).transform
+    if (!t || t === 'none') return 0
+    const m = new DOMMatrixReadOnly(t)
+    return Math.round(((Math.atan2(m.b, m.a) * 180) / Math.PI + 360) % 360)
+  })
+
+const s1 = await angle()
+await page.waitForTimeout(1600)
+const s2 = await angle()
+check('the artwork spins while playing', s1 !== s2, `${s1}deg -> ${s2}deg`)
+
+await page.click('button[aria-label^="Pause"]')
+// Past the 1.6s fade-out, so `playing` has actually flipped false.
+await page.waitForTimeout(2400)
+const h1 = await angle()
+await page.waitForTimeout(1300)
+const h2 = await angle()
+check('the artwork holds its angle when paused', h1 === h2, `held at ${h1}deg`)
+check('it paused mid-turn rather than snapping back', h1 > 0, `${h1}deg`)
+
+await page.click('button[aria-label^="Play"]')
+await page.waitForTimeout(1300)
+const r1 = await angle()
+// Continuing advances a little from where it stopped. Restarting would jump to
+// roughly 52deg (1.3s of a 9s turn) regardless of where it had been.
+const advance = (r1 - h1 + 360) % 360
+check(
+  'it resumes from the held angle, not from zero',
+  advance > 5 && advance < 150,
+  `${h1}deg -> ${r1}deg (advanced ${advance}deg)`,
+)
+
+// --- 4c. Reduced motion means no spin at all --------------------------------
+const rmCtx = await browser.newContext({
+  viewport: { width: 1440, height: 900 },
+  reducedMotion: 'reduce',
+})
+const rm = await rmCtx.newPage()
+await rm.goto(`${BASE}/#/player`, { waitUntil: 'networkidle', timeout: 120_000 })
+await rm
+  .waitForFunction(() => !document.querySelector('[role="status"]'), { timeout: 120_000 })
+  .catch(() => {})
+await rm.keyboard.press('Space')
+await rm.waitForTimeout(2200)
+const rmAngle = async () =>
+  rm.evaluate(() => {
+    const img = document.querySelector('[role="dialog"] img')
+    const t = img ? getComputedStyle(img).transform : 'none'
+    if (!t || t === 'none') return 0
+    const m = new DOMMatrixReadOnly(t)
+    return Math.round(((Math.atan2(m.b, m.a) * 180) / Math.PI + 360) % 360)
+  })
+const rm1 = await rmAngle()
+await rm.waitForTimeout(1600)
+const rm2 = await rmAngle()
+check('reduced motion: the artwork does not spin', rm1 === 0 && rm2 === 0, `${rm1}deg/${rm2}deg`)
+check('reduced motion: the track still plays', (await elapsedOn(rm)) > 0)
+await rmCtx.close()
+
 // --- 5. Turning it off stops it, and the choice survives a reload -----------
 await page.click('button[aria-label="Turn the music off"]')
 // Longer than the 1.6s fade, so the pause has definitely landed.
