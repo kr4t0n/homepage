@@ -5,6 +5,7 @@ import { Panel } from './ui/Panel'
 import { Preloader } from './ui/Preloader'
 import { Fallback2D } from './ui/Fallback2D'
 import { bindCursor, bindEscape, bindHistory } from './store'
+import { bindTrack } from './audio/player'
 
 /** One-shot capability probe. A failed context here means no canvas at all. */
 const hasWebGL = (): boolean => {
@@ -35,6 +36,15 @@ export default function App() {
   useEffect(() => bindCursor(), [])
   // Escape leaves any focused mode, panel or framed screen alike.
   useEffect(() => bindEscape(), [])
+
+  // Only the 3D room gets a soundtrack. The 2D fallback is what phones and
+  // WebGL-less browsers see, and unprompted audio on a phone is worse than
+  // silence: it is likely to be in public, and the fallback has no player to
+  // turn it off from. The hook runs either way to keep hook order stable.
+  useEffect(() => {
+    if (!gl || !wide) return
+    return bindTrack()
+  }, [gl, wide])
 
   useEffect(() => {
     const mq = window.matchMedia(`(min-width: ${MIN_3D_WIDTH}px)`)

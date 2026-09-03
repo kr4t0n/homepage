@@ -6,7 +6,7 @@
  * pointing it at a node that exists in `scene-manifest.json`.
  */
 
-export type PanelKind = 'projects' | 'music' | 'stats' | 'writing' | 'about' | 'cv' | 'contact'
+export type PanelKind = 'projects' | 'music' | 'player' | 'stats' | 'writing' | 'about' | 'cv' | 'contact'
 
 export interface Project {
   name: string
@@ -67,6 +67,26 @@ export const PROFILE = {
   github: 'https://github.com/kr4t0n',
 } as const
 
+/**
+ * The backing track the room plays.
+ *
+ * `src` is deliberately not committed — see the .mp3 rule in .gitignore. The
+ * player treats a missing file as a supported state, so this metadata is what
+ * the mini-player shows and the file is what it streams; replacing the track
+ * means dropping in a new public/track.mp3 and editing the three fields here.
+ *
+ * `seconds` is only a first paint value, used before loadedmetadata lands so
+ * the progress bar does not jump. The element's real duration wins after that.
+ */
+export const TRACK = {
+  src: '/track.mp3',
+  title: 'A Moment Apart',
+  artist: 'ODESZA',
+  seconds: 234,
+  /** Shown in the player: this is scaffolding, not a claim of authorship. */
+  placeholder: true,
+} as const
+
 export const PROJECTS: Project[] = [
   {
     name: 'Argus',
@@ -113,8 +133,8 @@ export const HOTSPOTS: Hotspot[] = [
     id: 'music',
     // The synth, not the DJ controller. Both region names in the exporter used
     // to be wrong, which put this hotspot on the wrong instrument; they now
-    // describe what they actually enclose. The DJ controller still exports as
-    // `hot_djcontroller` and is currently not wired to anything.
+    // describe what they actually enclose. The DJ controller is the `player`
+    // hotspot below.
     node: 'hot_synth',
     label: 'Music',
     hint: 'Playable. Bring headphones.',
@@ -125,12 +145,29 @@ export const HOTSPOTS: Hotspot[] = [
     look: [0, -0.26, 0],
   },
   {
+    // The decks carry the transport for whatever the room is playing. Chosen
+    // over the synth because the synth is the instrument you play and this is
+    // the deck you cue a record on, which is the distinction the panel makes.
+    id: 'player',
+    node: 'hot_djcontroller',
+    label: 'Now playing',
+    hint: 'What the room is listening to',
+    kind: 'player',
+    // The deck is 2.53 units wide, the widest hotspot in the room, against a
+    // 34-degree lens: visible half-width is 0.49x distance, so it needs ~3.7
+    // units of standoff to sit at two thirds of the frame. The x offset stays
+    // near zero because pushing the camera sideways while still aiming at the
+    // centre swings the far end of a wide object straight out of frame.
+    offset: [0.15, 1.5, 3.4],
+    look: [0, -0.3, 0],
+  },
+  {
     id: 'signals',
     // TODO(export): no verified node yet. `hot_hexpanels` turned out to enclose
-    // a small wall fixture rather than the light panels. `hot_djcontroller` is
-    // now free and a mixing desk would suit a levels board, which is the
-    // obvious candidate. Verify with `node tools/verify-hotspots.mjs`, which
-    // hovers each hotspot and captures what actually lights up.
+    // a small wall fixture rather than the light panels. The DJ controller was
+    // the obvious candidate for a levels board, but it now carries the player,
+    // so this needs a different node. Verify with `node tools/verify-hotspots.mjs`,
+    // which hovers each hotspot and captures what actually lights up.
     node: 'hot_hexpanels',
     label: 'Signals',
     hint: 'Agent activity and GitHub',

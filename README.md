@@ -113,7 +113,51 @@ node tools/verify-screens.mjs        # the two-stage monitor interaction
 `verify-view-restore`, `verify-neon-link`, `verify-keyboard` and
 `verify-screens` exit non-zero on failure, so all four are usable as gates.
 
+One more runs against a production build rather than the dev server, because it
+asserts on media loading and needs real MIME types and range requests:
+
+```bash
+npm run build
+node tools/verify-player.mjs          # autoplay policy, transport, persistence
+```
+
+It also exits non-zero on failure. `verify-hotspots.mjs` likewise serves
+`dist/` itself.
+
 All of the above need a one-time `npx playwright install chromium`.
+
+## The backing track
+
+The room plays a track on loop. **The audio file is not in this repository** —
+`*.mp3` is gitignored for the same reason the `.blend` is: the current track is
+a commercial release, and this repo is public, so committing it would
+redistribute the recording rather than play it.
+
+A fresh clone therefore runs silent, on purpose. `usePlayer.available` goes
+false when the file 404s and the decks panel says so instead of pretending. To
+put audio back:
+
+1. Drop a file in as `public/track.mp3`.
+2. Update `TRACK` in `src/content.ts` — `title`, `artist` and `seconds`.
+3. Set `placeholder: false` once it is actually your own music. That flag is
+   what renders the "not my work" disclaimer in the panel.
+
+Two behaviours worth knowing before changing any of this:
+
+- **It cannot autoplay with sound on a cold visit, and does not try to cheat.**
+  Chrome and Safari require a user gesture, and the preloader dismisses itself
+  rather than asking for a click. So playback is attempted at load (which
+  succeeds for a returning visitor with media engagement) and otherwise armed
+  to start on the first `pointerdown`, `keydown`, `wheel` or `touchstart`.
+  Exploring the room is the gesture, which is why there is no "enable sound"
+  prompt.
+- **There is one piece of user state, `on`, not a mute flag plus a paused
+  flag.** Two flags let the HUD speaker and the panel transport disagree about
+  the same track. The choice persists to `localStorage` under `kr4t0n:music`.
+
+Strip embedded cover art before serving a file. The track supplied for this
+build carried 1.6 MB of ID3v2 album art — 22% of the download — that the page
+never renders.
 
 ## Putting an image on a monitor
 
@@ -168,11 +212,13 @@ src/
     Screens.tsx         the three monitors, framed on click, link on second
     NeonSign.tsx        canvas-drawn neon wordmark on the back wall
   ui/
-    Hud.tsx             hero, hotspot nav, framed-screen exit
+    Hud.tsx             hero, hotspot nav, framed-screen exit, sound toggle
     Panel.tsx           focused content panels
     Preloader.tsx       real GLB load progress
     Fallback2D.tsx      no-WebGL / small-screen page
-  audio/synth.ts        Web Audio synth for the music hotspot
+  audio/
+    synth.ts            Web Audio synth for the music hotspot
+    player.ts           backing-track playback, autoplay policy, ducking
 tools/
   export_glb.py         the asset pipeline
   inspect_blend.py      dependency-free .blend parser
@@ -196,15 +242,14 @@ tools/
 
 ## Known gaps
 
-- The DJ controller is deliberately unassigned. It exports as its own node,
-  `hot_djcontroller`, but nothing references it, so it is inert: no hover, no
-  click. Giving it something is one entry in `HOTSPOTS`, and the geometry is
-  already isolated, so nothing needs re-exporting. Left open until there is
-  content that actually suits a mixing desk.
+- The DJ controller carries the player. It was deliberately unassigned until
+  there was content that suited a mixing desk; the backing track is that
+  content, so `hot_djcontroller` is now the `player` hotspot.
 - The `signals` hotspot has no verified node and is hidden from the room and the
   nav. `hot_hexpanels` turned out to enclose a small wall fixture rather than
   the light panels; isolating those is a region-tuning pass in `export_glb.py`.
-  `hot_djcontroller` is the other candidate.
+  The DJ controller was the other candidate, but it is taken now, so this needs
+  a node of its own.
 - The right-hand monitor is wired and empty. Adding an `image` and `href` to the
   `right` entry in `SCREENS` is all it needs.
 - Writing, CV and the stats board are marked placeholders in the UI rather than
@@ -214,3 +259,6 @@ tools/
 - The source `.blend` shipped with a `minion.jpg` texture reference among
   others. All missing textures are stripped at export, so nothing
   rights-encumbered ships, but the asset's provenance is not clean.
+- The track currently wired up is a commercial release used as scaffolding. It
+  is kept out of the repo and labelled as not the author's work in the panel,
+  but it should be replaced with an original mixdown rather than shipped as-is.

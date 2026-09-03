@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowUpRight, MusicNote, X } from '@phosphor-icons/react'
+import { ArrowUpRight, MusicNote, Pause, Play, X } from '@phosphor-icons/react'
 import gsap from 'gsap'
 import { useGSAP } from '@gsap/react'
-import { PROFILE, PROJECTS, hotspotById } from '../content'
+import { PROFILE, PROJECTS, TRACK, hotspotById } from '../content'
 import { useScene } from '../store'
 import { NOTES, playNote, unlockAudio } from '../audio/synth'
+import { duckTrack, usePlayer } from '../audio/player'
 
 gsap.registerPlugin(useGSAP)
 
@@ -71,9 +72,100 @@ function Projects() {
   )
 }
 
+const mmss = (s: number) => {
+  if (!Number.isFinite(s) || s < 0) return '0:00'
+  const m = Math.floor(s / 60)
+  return `${m}:${String(Math.floor(s % 60)).padStart(2, '0')}`
+}
+
+/**
+ * The decks: transport for the room's backing track.
+ *
+ * Deliberately small. It reports what is playing and lets you stop it, and
+ * nothing else — a queue or a library would be inventing a feature the room
+ * does not have. The seek control is a real range input rather than a styled
+ * div so that dragging, arrow keys and screen readers all work for free.
+ */
+function Player() {
+  const available = usePlayer((s) => s.available)
+  const on = usePlayer((s) => s.on)
+  const playing = usePlayer((s) => s.playing)
+  const time = usePlayer((s) => s.time)
+  const duration = usePlayer((s) => s.duration)
+  const setOn = usePlayer((s) => s.setOn)
+  const seek = usePlayer((s) => s.seek)
+
+  if (!available) {
+    return (
+      <Pending what="No track is being served. The audio file is not committed to this repo, so a fresh clone runs the room in silence — drop one in as public/track.mp3." />
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="hairline flex items-center gap-5 rounded-[14px] border p-5 sm:p-6">
+        <button
+          type="button"
+          onClick={() => setOn(!on)}
+          aria-label={on ? `Pause ${TRACK.title}` : `Play ${TRACK.title}`}
+          className="grid size-12 shrink-0 place-items-center rounded-full bg-acid text-void transition-transform active:scale-[0.96]"
+        >
+          {on ? <Pause size={19} weight="fill" /> : <Play size={19} weight="fill" />}
+        </button>
+
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-lg tracking-tight text-bright">{TRACK.title}</p>
+          <p className="truncate font-mono text-[11px] uppercase tracking-[0.18em] text-mute">
+            {TRACK.artist}
+            {/* Intent without sound yet: the browser is still waiting for a
+                gesture, and saying so beats looking broken. */}
+            {on && !playing && <span className="ml-2 text-acid">— press any key</span>}
+          </p>
+
+          <div className="mt-3 flex items-center gap-3">
+            <input
+              type="range"
+              min={0}
+              max={Math.max(1, Math.floor(duration))}
+              value={Math.min(time, duration)}
+              onChange={(e) => seek(Number(e.target.value))}
+              aria-label="Seek"
+              className="h-1 w-full min-w-0 cursor-pointer accent-acid"
+            />
+            <span
+              data-elapsed
+              className="shrink-0 font-mono text-[11px] tabular-nums text-mute"
+            >
+              {mmss(time)} / {mmss(duration)}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {TRACK.placeholder && (
+        <p className="max-w-[56ch] text-sm leading-relaxed text-mute">
+          Placeholder, and not my work — {TRACK.artist} wrote it. It stands in
+          until my own mixdowns are ready, which is also why the audio file is
+          kept out of the repository rather than shipped with it. The synth on
+          the {' '}
+          <span className="text-body">Music</span> panel is the instrument;
+          this is just the record playing.
+        </p>
+      )}
+    </div>
+  )
+}
+
 function Keys() {
   const [armed, setArmed] = useState(false)
   const [lit, setLit] = useState<number | null>(null)
+
+  // Drop the backing track down while the keys are open, so the instrument is
+  // audible over it. Restored when the panel closes.
+  useEffect(() => {
+    duckTrack(true)
+    return () => duckTrack(false)
+  }, [])
 
   const hit = useCallback((midi: number) => {
     playNote(midi)
@@ -184,6 +276,7 @@ function About() {
 const BODY: Record<string, () => React.ReactElement> = {
   projects: Projects,
   music: Keys,
+  player: Player,
   contact: Contact,
   about: About,
   stats: () => (

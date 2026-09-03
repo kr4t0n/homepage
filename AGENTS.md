@@ -75,7 +75,56 @@ must not silently throw away the view someone set up.
 **Hotspot geometry is grouped, not per-object.** The exporter joins objects into
 one mesh per semantic group so raycasting touches ~13 meshes instead of 193.
 
+**Audio is licensing-aware by construction, not by discipline.** The room needs a
+soundtrack and the only track to hand is a commercial release, so the design
+makes shipping it impossible by default rather than relying on someone
+remembering not to: `*.mp3` is gitignored, `TRACK.src` is fetched at runtime, and
+a 404 is a first-class state that the decks panel reports honestly. The same
+reasoning already applied to the purchased `.blend`. A missing track must never
+be an error path, because for anyone cloning this repo it is the normal one.
+
+**The player models intent, not mechanism.** `usePlayer` carries a single `on`
+flag rather than separate mute and paused flags. With two, the HUD speaker and
+the panel transport could disagree about one track — pausing at the decks left
+the speaker still claiming sound was on. `playing` exists alongside `on` but is
+derived from the element's own events and is read-only to the UI: between page
+load and the first gesture, intent is yes and the browser's answer is still no,
+and the panel says "press any key" instead of looking broken.
+
 ## Non-obvious behaviours
+
+**Autoplay with sound is impossible on a cold visit and the page does not fight
+it.** Chrome and Safari need a user activation, and `Preloader.tsx` dismisses
+itself rather than gating on a click, so there is no gesture at load. `bindTrack`
+attempts playback immediately — a returning visitor with media engagement is
+allowed it — and otherwise leaves listeners armed on `pointerdown`, `keydown`,
+`wheel` and `touchstart`. Anyone "fixing" this by muting the element to force
+autoplay is trading the feature for silence.
+
+**`play()` resolves after the click that authorised it.** If the authorising
+gesture *is* the click that turns sound off, the promise still resolves and would
+start a track the visitor just declined. `start()` re-reads `on` inside `.then()`
+and bails; volume is still 0 at that point, so the abort is silent rather than a
+blip. Removing that re-check reintroduces a bug that only shows up when the first
+thing a visitor touches is the speaker button.
+
+**Chromium serves media over range requests.** A test server that answers `200`
+to every request stalls the element forever, and one that sends
+`application/octet-stream` makes Chromium refuse to decode. Both cost real
+debugging time; `tools/verify-player.mjs` handles `Range` and sets `audio/mpeg`,
+and the harness MIME maps now cover `.mp3` and `.jpg`.
+
+**Headless Chromium's default autoplay policy is more permissive than a real
+browser's.** `verify-player.mjs` passes
+`--autoplay-policy=document-user-activation-required` on purpose: under the
+default, the "silent until the visitor interacts" assertion passes even when the
+gesture arming is broken, which makes the suite worse than no suite.
+
+**Camera framing is FOV-sensitive and the FOV is narrow.** `Scene.tsx` uses 34°,
+so visible half-width is only ~0.49x the standoff distance. The DJ controller is
+2.53 units wide and the first offset put it half out of frame. Also: offsetting
+the camera sideways while still aiming at the node's centre swings the far end of
+a wide object out of frame, so keep the x offset near zero for wide props.
 
 **glTF nodes with multiple primitives load as a Group, not a Mesh.** Children get
 suffixed names (`hot_desk_0`, `hot_desk_1`, ...). Matching `mesh.name === node`
@@ -297,3 +346,11 @@ does.
   would close the remaining gap against the offline renders.
 - Argus is linked, not embedded. The GitHub Pages host sends no
   `X-Frame-Options`, so a live iframe is possible if that is ever wanted.
+- The backing track is a commercial placeholder. It is uncommitted and labelled
+  as not the author's work, but the intended end state is an original mixdown,
+  at which point `TRACK.placeholder` goes false and the disclaimer disappears.
+- The synth and the player own separate audio graphs — an `AudioContext` and an
+  `HTMLAudioElement`. They only coordinate through `duckTrack()`, which is a
+  volume ramp and not a real bus. If the keys ever need to be recorded over the
+  track, or the two need a shared master, route the element through the same
+  context via `createMediaElementSource`.

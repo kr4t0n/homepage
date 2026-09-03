@@ -25,6 +25,12 @@ const TYPES = {
   '.woff2': 'font/woff2',
   '.json': 'application/json',
   '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  // Chromium refuses to decode audio served as octet-stream, so the track has
+  // to carry a real type here or every audio assertion fails for the wrong
+  // reason.
+  '.mp3': 'audio/mpeg',
   '.svg': 'image/svg+xml',
 }
 

@@ -5,8 +5,17 @@
 *.blend
 *.blend1
 
+# Audio, for the same reason as the .blend above and more so: the track in use
+# is a commercial release, and this repo is public. Committing it would
+# redistribute the recording rather than play it. The player streams
+# public/track.mp3 at runtime and degrades to silence when it is absent, so the
+# committed site still builds and runs for anyone who clones this.
+# Drop your own mixdown in as public/track.mp3 and set TRACK in src/content.ts.
+*.mp3
+
 node_modules/
 dist/
+tsconfig.tsbuildinfo
 tools/.venv/
 tools/shots/
 tools/preview/

@@ -1,8 +1,10 @@
 import { useRef } from 'react'
+import { SpeakerSimpleHigh, SpeakerSimpleSlash } from '@phosphor-icons/react'
 import gsap from 'gsap'
 import { useGSAP } from '@gsap/react'
 import { ROOM_HOTSPOTS, PROFILE } from '../content'
 import { useScene } from '../store'
+import { usePlayer } from '../audio/player'
 import { resetOrbit } from '../three/orbit'
 
 gsap.registerPlugin(useGSAP)
@@ -28,6 +30,9 @@ export function Hud() {
   const clearFocus = useScene((s) => s.clearFocus)
   const orbited = useScene((s) => s.orbited)
   const setOrbited = useScene((s) => s.setOrbited)
+  const audio = usePlayer((s) => s.available)
+  const on = usePlayer((s) => s.on)
+  const setOn = usePlayer((s) => s.setOn)
   const root = useRef<HTMLDivElement>(null)
 
   const open = focus === null && screen === null
@@ -154,18 +159,41 @@ export function Hud() {
         </div>
       )}
 
-      {/* Reset appears only once the view has actually been moved. */}
+      {/* Bottom-right controls. Reset appears only once the view has moved. */}
+      <div className="absolute bottom-8 right-6 flex items-center gap-2 sm:right-10">
+        <button
+          type="button"
+          onClick={() => {
+            resetOrbit()
+            setOrbited(false)
+          }}
+          className={`hairline pointer-events-auto rounded-full border px-3.5 py-1.5 text-sm text-mute transition-all hover:text-bright active:scale-[0.98] ${
+            orbited && open ? 'opacity-100' : 'pointer-events-none opacity-0'
+          }`}
+        >
+          Reset view
+        </button>
+      </div>
+
+      {/* Sound, top-right.
+          The room starts playing on its own, so stopping it must not depend on
+          first finding the decks. That makes this the one required control on
+          the page rather than decoration, which is why it sits apart from the
+          rest of the chrome that was stripped from this edge: it is not a
+          duplicate link, and hiding it costs accessibility.
+          Top rather than bottom because it stays reachable while a panel owns
+          the lower half — muting while reading About is exactly when you want
+          it. Hidden only for a framed screen, which fills the whole frame. */}
       <button
         type="button"
-        onClick={() => {
-          resetOrbit()
-          setOrbited(false)
-        }}
-        className={`hairline pointer-events-auto absolute bottom-8 right-6 rounded-full border px-3.5 py-1.5 text-sm text-mute transition-all hover:text-bright active:scale-[0.98] sm:right-10 ${
-          orbited && open ? 'opacity-100' : 'pointer-events-none opacity-0'
-        }`}
+        onClick={() => setOn(!on)}
+        aria-label={on ? 'Turn the music off' : 'Turn the music on'}
+        aria-pressed={on}
+        className={`hairline pointer-events-auto absolute right-6 top-6 grid size-[34px] place-items-center rounded-full border bg-void/50 backdrop-blur-sm transition-all active:scale-[0.96] sm:right-10 sm:top-8 ${
+          audio && screen === null ? 'opacity-100' : 'pointer-events-none opacity-0'
+        } ${on ? 'border-acid/40 text-acid' : 'text-mute hover:text-bright'}`}
       >
-        Reset view
+        {on ? <SpeakerSimpleHigh size={15} /> : <SpeakerSimpleSlash size={15} />}
       </button>
 
     </div>
