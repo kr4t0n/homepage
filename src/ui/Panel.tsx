@@ -219,7 +219,7 @@ function Player() {
         {/* The artist line is the attribution. It is not decoration: the track
             is somebody else's record, so this credit stays even though the
             longer disclaimer that used to sit below the card is gone. */}
-        <p className="truncate font-mono text-[10.5px] uppercase tracking-[0.18em] text-mute">
+        <p className="truncate font-mono text-[10.5px] uppercase tracking-[0.18em] text-body">
           {TRACK.artist}
         </p>
 
@@ -235,7 +235,7 @@ function Player() {
           />
           <span
             data-elapsed
-            className="shrink-0 font-mono text-[10.5px] tabular-nums text-mute"
+            className="shrink-0 font-mono text-[10.5px] tabular-nums text-body"
           >
             {mmss(time)} / {mmss(duration)}
           </span>
@@ -456,7 +456,7 @@ export function Panel() {
       ref={scrimRef}
       data-scrim
       aria-hidden
-      className={`pointer-events-none fixed inset-0 z-10 ${compact ? 'bg-void/8' : 'bg-void/15'}`}
+      className={`pointer-events-none fixed inset-0 z-10 ${compact ? 'bg-void/0' : 'bg-void/15'}`}
     />
   )
 
@@ -471,7 +471,7 @@ export function Panel() {
           role="dialog"
           aria-modal="false"
           aria-label={spot.label}
-          className="glass glass-thin pointer-events-auto fixed inset-x-0 bottom-6 z-30 mx-auto flex w-[calc(100%-3rem)] max-w-[540px] items-center gap-4 rounded-[22px] p-4"
+          className="glass glass-clear pointer-events-auto fixed inset-x-0 bottom-6 z-30 mx-auto flex w-[calc(100%-3rem)] max-w-[540px] items-center gap-4 rounded-[22px] p-4"
         >
           <Body />
           <button

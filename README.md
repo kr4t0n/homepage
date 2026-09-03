@@ -132,10 +132,21 @@ no official web implementation, so this is an approximation built from backdrop
 blur, layered translucency, a specular edge and a depth shadow. It will not match
 Apple's material pixel for pixel.
 
-There are two materials. `.glass` is the content panels; `.glass-thin` is the
-decks bar, at under a third of the fill. The bar can afford it because it sits
-over the floor rather than in front of the hexagon light wall, and it is the one
-place the room is genuinely visible through the surface.
+There are two materials, and they are different in kind rather than degree.
+
+`.glass` is the content panels: a dark smoked tint that dims its backdrop via
+`brightness()`. `.glass-clear` is the decks bar: a *light* frosted fill that
+brightens its backdrop, carries no dark fill at all, and lets the room read
+through it as shapes. The second was derived by measuring a reference rather than
+by taste — sampling one object across that reference's edge at matched heights, it
+transmitted 182-432% of the backdrop luminance, i.e. it lightens. Clear glass is
+only affordable on the bar because the bar is anchored over the dark floor; in
+front of the hexagon light wall the same material puts muted text at 3.2:1.
+
+Worth knowing: that reference does not itself meet AA. Where a bright object
+shows through it, white text lands at 1.43:1. It survives on composition — its
+text sits over dark water at 12:1 and the bright object is off to one side. This
+room cannot rely on that, because the camera moves.
 
 **The values are tuned together against measurement and must not be moved
 independently:** the scrim opacity in `Panel.tsx`, the fill and `brightness()` in
@@ -151,10 +162,12 @@ flat and the panels stopped reading as panes over anything. Moving the dimming
 into the material dropped the scrim from 0.78 to 0.15 and the fill from 0.75 to
 0.44 while measuring *better* than before.
 
-`node tools/verify-glass.mjs` is the gate. It opens every panel, hides the
-contents so only the composited surface remains, finds the brightest tile — the
-worst backdrop any glyph could land on — and checks every text role against
-4.5:1. Run it after touching any opacity, any panel colour, or the room's
+`node tools/verify-glass.mjs` is the gate. Per panel it reads the computed colour
+and size of every piece of visible text, hides the contents so only the composited
+surface remains, finds the brightest tile — the worst backdrop any glyph could
+land on — and judges each colour at 3:1 for large text or 4.5:1 otherwise. It
+tests the colours actually present rather than a fixed list, and resolves text on
+an opaque button against that button. Run it after touching any opacity, any panel colour, or the room's
 lighting. The failure mode is invisible otherwise: the bright surfaces that cause
 it are off screen when the panel is closed.
 

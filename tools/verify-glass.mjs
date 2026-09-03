@@ -1,18 +1,24 @@
 /**
  * Glass contrast gate.
  *
- * The frosted panels are only legible because three values were tuned together
- * against measurement: the scrim opacity, the glass fill, and --color-mute.
- * Nudging any one of them can drop text under WCAG AA with no visible warning,
- * because the failure only appears in front of the room's bright surfaces — the
- * hexagon light wall behind the Work panel is the worst case, and it is off
- * screen when the panel is closed. Before this test existed, body text measured
- * 2.22:1 there and nobody could have noticed by looking.
+ * The frosted panels are only legible because several values were tuned together
+ * against measurement: the scrim opacity, each material's fill and
+ * `brightness()`, and the text colours. Nudging any one can drop text under WCAG
+ * AA with no visible warning, because the failure only appears in front of the
+ * room's bright surfaces — the hexagon light wall behind the Work panel is the
+ * worst case, and it is off screen when the panel is closed. Before this test
+ * existed, body text measured 2.22:1 there and nobody could have noticed.
  *
- * Method: open each panel, hide its contents so only the composited glass
- * surface remains, screenshot it, and find the brightest tile — that is the
- * worst backdrop any glyph in that panel could sit on. Then check every text
- * role against it.
+ * Method, per panel:
+ *   1. Read the computed colour and type size of every piece of visible text.
+ *      Testing the *actual* colours matters: an earlier version checked three
+ *      fixed roles everywhere and reported failures for a role the panel did not
+ *      even use, which looked like a real regression and was not.
+ *   2. Hide the contents so only the composited glass surface remains, and find
+ *      the brightest tile — the worst backdrop any glyph in that panel could
+ *      land on.
+ *   3. Check every colour against it, at 3:1 for large text and 4.5:1 otherwise,
+ *      per WCAG 1.4.3.
  *
  * Pixel decoding happens inside the page: Node has no PNG decoder, so the shot
  * is handed back to the browser, drawn to a canvas and read with getImageData.
@@ -57,13 +63,6 @@ const browser = await chromium.launch({
 })
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
 
-/** Text roles as authored in index.css. Keep in sync with @theme. */
-const ROLES = {
-  body: [182, 192, 214], // --color-body
-  mute: [139, 152, 182], // --color-mute
-  bright: [238, 242, 251], // --color-bright
-}
-
 /**
  * Every routable panel, by hotspot *id* — not by panel kind, which is what
  * `stats` is. Must match the ids in HOTSPOTS in src/content.ts; `signals` is
@@ -72,13 +71,27 @@ const ROLES = {
  */
 const PANELS = ['work', 'music', 'player', 'writing', 'about', 'cv', 'contact', 'signals']
 
-const AA = 4.5
+const lin = (c) => {
+  const v = c / 255
+  return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4
+}
+const lum = ([r, g, b]) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+const contrast = (fg, bg) => {
+  const a = lum(fg)
+  const b = lum(bg)
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
+}
+/** WCAG 1.4.3: 3:1 for large text, 4.5:1 otherwise. */
+const threshold = (px, weight) => (px >= 24 || (px >= 18.66 && weight >= 700) ? 3 : 4.5)
 
 const fails = []
 const rows = []
 
 for (const id of PANELS) {
-  await page.goto(`${BASE}/#/${id}`, { waitUntil: 'networkidle', timeout: 120_000 })
+  // Unique query so this is a real document load, not a same-document hash
+  // change. Without it React reuses nodes across panels and the
+  // visibility:hidden applied below survives into the next iteration.
+  await page.goto(`${BASE}/?panel=${id}#/${id}`, { waitUntil: 'networkidle', timeout: 120_000 })
   await page
     .waitForFunction(() => !document.querySelector('[role="status"]'), { timeout: 120_000 })
     .catch(() => {})
@@ -95,8 +108,55 @@ for (const id of PANELS) {
     continue
   }
 
-  // Keep the box and the glass, drop the content, so what is left is exactly
-  // the surface a glyph would be drawn onto.
+  // Step 1: what text is actually on this panel, and in what colour.
+  const specs = await page.evaluate(() => {
+    const d = document.querySelector('[role="dialog"]')
+    const seen = new Map()
+    for (const el of d.querySelectorAll('*')) {
+      // Only elements holding their own text, so a wrapper does not report the
+      // colour its children override.
+      const own = [...el.childNodes].some(
+        (n) => n.nodeType === 3 && n.textContent.trim().length > 0,
+      )
+      if (!own) continue
+      const cs = getComputedStyle(el)
+      if (cs.visibility === 'hidden' || cs.display === 'none') continue
+      const px = parseFloat(cs.fontSize)
+      const weight = parseInt(cs.fontWeight, 10) || 400
+      // Walk up for the first background opaque enough to be what this text
+      // actually sits on — but STOP AT THE PANEL. Walking past it reaches
+      // <body>, which is opaque --color-void, and every glass panel then
+      // "passed" at 6.85:1 against a background that is nowhere near the text:
+      // the blurred canvas composites above the body fill. That was a false
+      // pass that bypassed the glass measurement entirely, and it looked
+      // convincing because the number was plausible. Inside the panel the glass
+      // fills are all under 0.9 alpha so they are skipped, leaving the measured
+      // surface; an opaque acid button is found and judged against itself.
+      let bg = null
+      for (let n = el; n && n !== d.parentElement; n = n.parentElement) {
+        const m = getComputedStyle(n).backgroundColor.match(/[\d.]+/g)
+        if (!m) continue
+        const a = m.length >= 4 ? Number(m[3]) : 1
+        if (a >= 0.9) {
+          bg = [Number(m[0]), Number(m[1]), Number(m[2])]
+          break
+        }
+      }
+      const key = `${cs.color}|${Math.round(px)}|${weight}|${bg}`
+      if (!seen.has(key)) {
+        seen.set(key, {
+          color: cs.color,
+          px,
+          weight,
+          bg,
+          sample: el.textContent.trim().slice(0, 22),
+        })
+      }
+    }
+    return [...seen.values()]
+  })
+
+  // Step 2: the bare surface, and its brightest tile.
   await page.evaluate(() => {
     for (const c of document.querySelector('[role="dialog"]').children) {
       c.style.visibility = 'hidden'
@@ -107,77 +167,89 @@ for (const id of PANELS) {
   const box = await dialog.boundingBox()
   const shot = (await page.screenshot({ clip: box })).toString('base64')
 
-  const measured = await page.evaluate(
-    async ([b64, roles, threshold]) => {
-      const img = new Image()
-      img.src = `data:image/png;base64,${b64}`
-      await img.decode()
-      const cv = document.createElement('canvas')
-      cv.width = img.naturalWidth
-      cv.height = img.naturalHeight
-      const ctx = cv.getContext('2d')
-      ctx.drawImage(img, 0, 0)
-      const { data, width, height } = ctx.getImageData(0, 0, cv.width, cv.height)
+  const worst = await page.evaluate(async (b64) => {
+    const img = new Image()
+    img.src = `data:image/png;base64,${b64}`
+    await img.decode()
+    const cv = document.createElement('canvas')
+    cv.width = img.naturalWidth
+    cv.height = img.naturalHeight
+    const ctx = cv.getContext('2d')
+    ctx.drawImage(img, 0, 0)
+    const { data, width, height } = ctx.getImageData(0, 0, cv.width, cv.height)
 
-      const lin = (c) => {
-        const v = c / 255
-        return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4
-      }
-      const lum = ([r, g, b]) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+    const l = (c) => {
+      const v = c / 255
+      return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4
+    }
+    const L = ([r, g, b]) => 0.2126 * l(r) + 0.7152 * l(g) + 0.0722 * l(b)
 
-      // Brightest 8x8 average, sampled on a grid. Averaging rather than taking
-      // a single pixel avoids failing on one stray anti-aliased dot, while still
-      // catching a genuinely bright region behind a line of text.
-      // Inset past the decorative edge. The border, the inset rim light and the
-      // specular sheen are all bright and all within ~3px of the boundary, and
-      // no glyph ever lands there — every panel has at least 16px of padding.
-      // Sampling from the boundary measured the chrome instead of the backdrop,
-      // and only started failing when the fill dropped far enough that the rim
-      // became the brightest thing in the frame. Measure where text can be.
-      const PAD = 16
-      let worst = null
-      const T = 8
-      for (let y = PAD; y + T < height - PAD; y += 6) {
-        for (let x = PAD; x + T < width - PAD; x += 6) {
-          let r = 0, g = 0, bl = 0
-          for (let dy = 0; dy < T; dy++) {
-            for (let dx = 0; dx < T; dx++) {
-              const i = ((y + dy) * width + (x + dx)) * 4
-              r += data[i]; g += data[i + 1]; bl += data[i + 2]
-            }
+    // Inset past the decorative edge. The border, the inset rim light and the
+    // specular sheen are all bright and all within ~3px of the boundary, and no
+    // glyph ever lands there — every panel has at least 16px of padding.
+    // Sampling from the boundary measured the chrome instead of the backdrop,
+    // and only started failing when the fill dropped far enough that the rim
+    // became the brightest thing in frame. Measure where text can be.
+    const PAD = 16
+    const T = 8
+    let out = null
+    for (let y = PAD; y + T < height - PAD; y += 6) {
+      for (let x = PAD; x + T < width - PAD; x += 6) {
+        let r = 0, g = 0, bl = 0
+        for (let dy = 0; dy < T; dy++) {
+          for (let dx = 0; dx < T; dx++) {
+            const i = ((y + dy) * width + (x + dx)) * 4
+            r += data[i]; g += data[i + 1]; bl += data[i + 2]
           }
-          const n = T * T
-          const avg = [Math.round(r / n), Math.round(g / n), Math.round(bl / n)]
-          if (!worst || lum(avg) > lum(worst)) worst = avg
         }
+        const n = T * T
+        const avg = [Math.round(r / n), Math.round(g / n), Math.round(bl / n)]
+        if (!out || L(avg) > L(out)) out = avg
       }
+    }
+    return out
+  }, shot)
 
-      const ratio = (fg, bg) => {
-        const a = lum(fg), b = lum(bg)
-        return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
-      }
-      const out = { worst, roles: {}, pass: true }
-      for (const [name, rgb] of Object.entries(roles)) {
-        const r = ratio(rgb, worst)
-        out.roles[name] = Math.round(r * 100) / 100
-        if (r < threshold) out.pass = false
-      }
-      return out
-    },
-    [shot, ROLES, AA],
-  )
-
-  rows.push({ id, ...measured })
-  if (!measured.pass) {
-    const under = Object.entries(measured.roles).filter(([, r]) => r < AA)
-    fails.push(`${id}: ${under.map(([n, r]) => `${n} ${r}:1`).join(', ')} under ${AA}:1`)
+  // Step 3: judge each colour that is actually used.
+  let worstRatio = Infinity
+  let culprit = null
+  for (const s of specs) {
+    const m = s.color.match(/(\d+(?:\.\d+)?)/g)
+    if (!m) continue
+    const rgb = m.slice(0, 3).map(Number)
+    // Fully transparent text cannot be read either way; skip rather than divide.
+    if (m.length >= 4 && Number(m[3]) === 0) continue
+    // Judge against whatever is really behind this text.
+    const against = s.bg ?? worst
+    const r = contrast(rgb, against)
+    const need = threshold(s.px, s.weight)
+    if (r < need) {
+      fails.push(
+        `${id}: ${s.color} at ${Math.round(s.px)}px on ${s.bg ? `opaque rgb(${s.bg.join(',')})` : 'glass'}` +
+          ` needs ${need}:1, measured ${r.toFixed(2)}:1  ("${s.sample}")`,
+      )
+    }
+    const slack = r / need
+    if (slack < worstRatio) {
+      worstRatio = slack
+      culprit = { ...s, r, need }
+    }
   }
+
+  rows.push({ id, worst, specs: specs.length, culprit })
 }
 
-console.log(`\n${'panel'.padEnd(9)}${'worst backdrop'.padEnd(18)}${Object.keys(ROLES).map((r) => r.padStart(8)).join('')}`)
+console.log(
+  `\n${'panel'.padEnd(9)}${'worst backdrop'.padEnd(19)}${'texts'.padEnd(7)}tightest text`,
+)
 for (const r of rows) {
-  const cells = Object.keys(ROLES).map((k) => String(r.roles[k]).padStart(8)).join('')
-  console.log(`${r.id.padEnd(9)}${`rgb(${r.worst.join(',')})`.padEnd(18)}${cells}  ${r.pass ? 'ok' : 'FAIL'}`)
+  const c = r.culprit
+  const tight = c
+    ? `${c.r.toFixed(2)}:1 vs ${c.need}:1 needed  ${Math.round(c.px)}px ${c.color}`
+    : 'no text found'
+  console.log(
+    `${r.id.padEnd(9)}${`rgb(${r.worst.join(',')})`.padEnd(19)}${String(r.specs).padEnd(7)}${tight}`,
+  )
 }
 
 await browser.close()
@@ -186,9 +258,9 @@ server.close()
 if (fails.length) {
   console.log(`\n${fails.length} FAILED:`)
   for (const f of fails) console.log(`  ${f}`)
-  console.log(`\nThe scrim opacity, the .glass fill and --color-mute are tuned together.`)
-  console.log(`Raising translucency or darkening a text role means re-running this.`)
+  console.log(`\nThe scrim, each material's fill and brightness(), and the text`)
+  console.log(`colours are tuned together. Changing one means re-running this.`)
 } else {
-  console.log(`\nall panels clear AA (${AA}:1) for every text role, at their worst backdrop`)
+  console.log(`\nevery text colour on every panel clears WCAG AA at its worst backdrop`)
 }
 process.exit(fails.length ? 1 : 0)

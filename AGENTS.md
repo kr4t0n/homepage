@@ -161,9 +161,18 @@ ignores it; gloss across the *face* is charged for.
 bright surface.** At 0.34 brightness with 90px blur the backdrop behind the Work
 panel is still rgb(73,84,63), where muted text would have to be *lighter than
 body text* to reach AA. This is why there are two materials: `.glass` for content
-and `.glass-thin` for the decks bar, which is anchored over the dark floor and so
-gets away with 0.14 fill. If a future panel is positioned in front of the light
-wall, it needs the thick material, not a tweak.
+and `.glass-clear` for the decks bar, which is anchored over the dark floor and so
+gets away with a light fill and no darkening at all. If a future panel is
+positioned in front of the light wall, it needs the thick material, not a tweak.
+
+**Two materials differ in kind, not degree.** `.glass` darkens its backdrop;
+`.glass-clear` lightens it. The second came from measuring a supplied reference,
+which transmitted 182-432% of its backdrop luminance across its own edge — it is
+a white frosted fill, not a tint. Three rounds were spent making dark glass
+thinner, which never reads as glass no matter how thin, because the direction was
+wrong. Also note that reference fails AA where a bright object shows through
+(white text at 1.43:1) and survives on composition alone; that is not available
+here, because the camera moves.
 
 **Scrim opacity differs by panel kind for a task reason, not an arithmetic one.**
 Content panels dim harder (you are reading, and the Work panel needs it to clear
