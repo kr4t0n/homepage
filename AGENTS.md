@@ -116,6 +116,40 @@ works on the very first press of a cold visit. `verify-player.mjs` guards this
 with a fresh browser context; a reload will not reproduce it, because navigating
 the same tab keeps its user activation and the track just keeps playing.
 
+**Never hand-write a `-webkit-` prefix in this project.** Lightning CSS, which
+Tailwind v4 runs, autoprefixes from the build targets *and* treats
+`-webkit-backdrop-filter` as an alias of the standard property. Writing both
+collapses them to whichever came last, so putting the prefix second shipped a
+rule with only `-webkit-backdrop-filter` — which current Chromium does not
+recognise. Every other glass property applied, the computed value read `none`,
+and the panels rendered translucent but completely unblurred. Nothing warns you.
+Write the standard property alone and let the build add prefixes.
+
+**Component base styles belong in `@layer components`, not `@layer utilities`.**
+`.glass` sets `position: relative` for its specular pseudo-element. As a utility
+it landed in the same layer as Tailwind's own `fixed`, and since this file is
+emitted later it won. The panel silently detached from `bottom-6` and rendered at
+the top of the viewport. In `components`, utilities on the element always win,
+which is the correct precedence for a base style anyway.
+
+**Translucent panels over this room fail WCAG AA by default, and the failure is
+invisible from a screenshot of the closed page.** The blur averages whole glowing
+surfaces, not pixels: in front of the hexagon light wall the backdrop behind the
+Work panel reaches rgb(114,132,92), where body text measured 2.22:1 and muted
+text 1.15:1. A parameter sweep proved the obvious fix does not work — reaching AA
+by thickening glass alone needs ~82% fill behind a ~90% scrim, which is neither
+glass nor a visible room. It takes three coordinated changes: a scrim that dims
+the canvas, the glass fill, and a lifted `--color-mute` (the old `#7b88a8` was
+chosen against opaque near-black and was the single blocking value). Those three
+are tuned *together*; `tools/verify-glass.mjs` is the gate, and it exists because
+this cannot be eyeballed.
+
+**Scrim opacity differs by panel kind for a task reason, not an arithmetic one.**
+Content panels dim harder (you are reading, and the Work panel needs it to clear
+AA); the decks bar dims less, because you have just clicked the DJ controller and
+the camera has flown to frame it, so blacking out the object you asked to look at
+would be perverse.
+
 **A looping tween must be built once and paused, never rebuilt per state change.**
 The spinning cover is one `paused: true` tween that `play()`/`pause()` toggle. The
 tempting shape — recreate `gsap.to(el, {rotation: 360})` whenever `playing`

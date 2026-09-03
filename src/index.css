@@ -20,7 +20,12 @@
   --color-acid-dim: #6aa60f;
   --color-lav: #b9a7f0;
 
-  --color-mute: #7b88a8;
+  /* Lifted from #7b88a8. That value was chosen against an opaque near-black
+     panel, where it measures 5.1:1. On translucent glass over the lit room it
+     collapsed to 3.2:1 — the single thing blocking AA on the whole design. This
+     is 6.6:1 on opaque ink and 4.7:1 on glass, so it is strictly better
+     everywhere and still clearly secondary to --color-body. */
+  --color-mute: #8b98b6;
   --color-body: #b6c0d6;
   --color-bright: #eef2fb;
 
@@ -67,6 +72,130 @@
 
   .hairline {
     border-color: var(--color-hair);
+  }
+}
+
+/*
+ * Glass lives in `components`, not `utilities`, and that placement is load-
+ * bearing rather than tidiness. It sets `position: relative` so its specular
+ * pseudo-element has something to anchor to — and as a utility that rule
+ * outranked Tailwind's own `fixed` on the same element, because both sit in the
+ * utilities layer and this file is emitted later. The panel silently detached
+ * from `bottom-6` and rendered at the top of the viewport. In `components`,
+ * every utility on the element wins, which is the correct precedence for a
+ * component base style anyway.
+ */
+@layer components {
+  /*
+   * Frosted-glass surface, in the spirit of Apple's Liquid Glass.
+   *
+   * Being accurate about what this is: Apple documents Liquid Glass for Apple
+   * platforms, and there is no official web implementation of it. This is an
+   * approximation built from the primitives the platform does give us —
+   * backdrop blur, layered translucency, a specular edge and a depth shadow.
+   * It is not a port of Apple's material and will not match it pixel for pixel.
+   *
+   * Three constraints shaped the numbers, and all of them came from measuring
+   * this page rather than from the aesthetic:
+   *
+   * 1. CONTRAST, which set every value here. The backdrop is a lit 3D room, not
+   *    a calm gradient, and the blur averages whole glowing surfaces rather than
+   *    single pixels — in front of the hexagon light wall the sampled backdrop
+   *    reaches rgb(114,132,92). Undimmed, body text measured 2.22:1 there and
+   *    muted text 1.15:1. A parameter sweep showed that fixing this by
+   *    thickening the glass alone needs ~82% fill behind a ~90% scrim, which is
+   *    neither glass nor a visible room. The fix is split three ways instead: a
+   *    scrim that dims the backdrop, this fill, and a lifted --color-mute. That
+   *    combination measures 7.6:1 body and 4.7:1 muted at the worst point on the
+   *    worst panel.
+   * 2. SATURATION. Blur alone over a dark scene turns the panel into grey
+   *    sludge. Pushing saturation back up is what keeps the navy and the acid
+   *    bleeding through as colour rather than noise.
+   * 3. The highlight is a hairline, not a wash. A broad white gradient is the
+   *    tell of every glassmorphism template; a real specular edge is thin,
+   *    brightest at the top, and gone by the midpoint.
+   */
+  .glass {
+    position: relative;
+    isolation: isolate;
+    background:
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.06) 0%,
+        rgba(255, 255, 255, 0.015) 38%,
+        rgba(255, 255, 255, 0) 100%
+      ),
+      rgba(7, 10, 18, 0.75);
+    backdrop-filter: blur(30px) saturate(175%);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    box-shadow:
+      /* Depth: cast well below the element so it reads as floating over the
+         room rather than pasted onto it. */
+      0 28px 70px -28px rgba(0, 0, 0, 0.8),
+      /* Rim light along the top inner edge, and a dark inner floor so the
+         bottom edge does not dissolve into the scene. */
+      inset 0 1px 0 rgba(255, 255, 255, 0.13),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.4);
+  }
+
+  /* The specular sweep. Brightest just off-centre rather than dead centre, so
+     the light reads as coming from somewhere. */
+  .glass::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px 1px 0;
+    background: linear-gradient(
+      100deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.28) 34%,
+      rgba(255, 255, 255, 0.06) 52%,
+      transparent 68%
+    );
+    /* No hand-written -webkit- prefixes anywhere in this file. Lightning CSS
+       autoprefixes from the build's browser targets, and it treats the -webkit-
+       form as an alias of the standard property — so writing both collapses them
+       to whichever came last. Writing the prefix second here shipped a rule with
+       *only* -webkit-backdrop-filter, which current Chromium does not recognise,
+       and the blur silently disappeared while every other glass property worked. */
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  /* A surface that sits *on* glass. Solid fills defeat the material: an opaque
+     card covering most of a glass panel means the blur is doing nothing anyone
+     can see. These read as depth through a faint tint and a divider instead. */
+  .on-glass {
+    background: rgba(255, 255, 255, 0.035);
+  }
+
+  /* No backdrop-filter: fall back to a nearly opaque fill rather than shipping
+     a transparent panel with unreadable text over a moving scene. */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .glass {
+      background: rgba(7, 10, 18, 0.95);
+    }
+  }
+
+  /* Some people get motion sickness or simply cannot parse text over texture.
+     This is an explicit request for opacity, so honour it completely: no blur,
+     no translucency, no sheen. */
+  @media (prefers-reduced-transparency: reduce) {
+    .glass {
+      background: var(--color-void);
+      backdrop-filter: none;
+      border-color: var(--color-hair);
+    }
+    .glass::before {
+      display: none;
+    }
+    .on-glass {
+      background: var(--color-ink);
+    }
   }
 }
 

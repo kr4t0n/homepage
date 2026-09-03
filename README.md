@@ -119,10 +119,43 @@ asserts on media loading and needs real MIME types and range requests:
 ```bash
 npm run build
 node tools/verify-player.mjs          # autoplay policy, transport, persistence
+node tools/verify-glass.mjs           # panel text clears WCAG AA on glass
 ```
 
-It also exits non-zero on failure. `verify-hotspots.mjs` likewise serves
-`dist/` itself.
+Both exit non-zero on failure. `verify-hotspots.mjs` likewise serves `dist/`.
+
+## The glass panels
+
+Panels use a frosted-glass surface, `.glass` in `src/index.css`. Being accurate
+about what that is: Apple documents Liquid Glass for Apple platforms and there is
+no official web implementation, so this is an approximation built from backdrop
+blur, layered translucency, a specular edge and a depth shadow. It will not match
+Apple's material pixel for pixel.
+
+**Three values are tuned together and must not be changed independently:** the
+scrim opacity in `Panel.tsx`, the fill in `.glass`, and `--color-mute`.
+Translucency over this room fails WCAG AA by default — the blur averages whole
+glowing surfaces, and in front of the hexagon light wall body text measured
+2.22:1 undimmed. Thickening the glass alone cannot fix it; a sweep showed that
+needs ~82% fill behind a ~90% scrim, which leaves neither glass nor a visible
+room. Hence the split across three values.
+
+`node tools/verify-glass.mjs` is the gate. It opens every panel, hides the
+contents so only the composited surface remains, finds the brightest tile — the
+worst backdrop any glyph could land on — and checks every text role against
+4.5:1. Run it after touching any opacity, any panel colour, or the room's
+lighting. The failure mode is invisible otherwise: the bright surfaces that cause
+it are off screen when the panel is closed.
+
+Reduced transparency is honoured completely — no blur, no translucency, no sheen
+— via `prefers-reduced-transparency`. There is also a nearly-opaque fallback for
+browsers without `backdrop-filter`, because shipping a transparent panel with
+unreadable text over a moving scene is worse than shipping no glass.
+
+**Not verified:** the GPU cost of blurring a continuously rendering canvas. This
+box has no hardware GL, and software rasterisation gives ~6fps with no glass at
+all, so the numbers are meaningless. Watch for dropped frames while orbiting with
+a panel open, which is when the compositor must re-blur every frame.
 
 All of the above need a one-time `npx playwright install chromium`.
 

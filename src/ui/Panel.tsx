@@ -23,9 +23,15 @@ function Pending({ what }: { what: string }) {
 
 function Projects() {
   return (
-    <div className="grid gap-px overflow-hidden rounded-[14px] bg-hair">
-      {PROJECTS.map((p) => (
-        <article key={p.name} className="bg-ink p-6 sm:p-8">
+    /* One translucent container with hairline rules between entries, rather
+       than the old opaque cards on a hairline background. Solid cards covering
+       most of a glass panel meant the blur was doing work nobody could see. */
+    <div className="hairline on-glass overflow-hidden rounded-[14px] border">
+      {PROJECTS.map((p, i) => (
+        <article
+          key={p.name}
+          className={`p-6 sm:p-8 ${i > 0 ? 'border-t border-hair' : ''}`}
+        >
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <h3 className="text-2xl tracking-tight text-bright">{p.name}</h3>
             <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-acid">
@@ -385,6 +391,7 @@ export function Panel() {
   const focus = useScene((s) => s.focus)
   const setFocus = useScene((s) => s.setFocus)
   const root = useRef<HTMLDivElement>(null)
+  const scrimRef = useRef<HTMLDivElement>(null)
   const spot = hotspotById(focus)
 
   // Panel arrives after the camera has committed to the move, so the two reads
@@ -396,6 +403,10 @@ export function Panel() {
       if (!spot) return
       const mm = gsap.matchMedia()
       mm.add('(prefers-reduced-motion: no-preference)', () => {
+        // The scrim leads the panel slightly: the room dims, then the glass
+        // arrives on the darkened backdrop. Reversing that order shows the panel
+        // at its worst contrast for a beat before the fix lands.
+        gsap.from(scrimRef.current, { opacity: 0, duration: 0.45, ease: 'power2.out' })
         gsap.from(root.current, {
           opacity: 0,
           y: 18,
@@ -413,53 +424,97 @@ export function Panel() {
   const Body = BODY[spot.kind] ?? (() => null)
   const compact = COMPACT.has(spot.kind)
 
+  /*
+   * Dims the room behind an open panel.
+   *
+   * This exists for contrast, not atmosphere, and it is what makes translucency
+   * affordable at all. Measured against the undimmed room, body text on glass
+   * hit 2.22:1 in front of the glowing hexagon wall and muted text 1.15:1 —
+   * unreadable, not merely tight. Fixing that by thickening the glass would have
+   * meant ~90% fill, which is not glass any more. Darkening the backdrop instead
+   * keeps the material thin and the blur visible, and is what the platforms this
+   * borrows from actually do behind a sheet.
+   *
+   * z-10 is deliberate: the canvas sits below it, while the HUD (z-20) and the
+   * panel (z-30) stay crisp above it. pointer-events-none so room interaction is
+   * unchanged — this is a filter, not an overlay that swallows clicks.
+   *
+   * Content panels dim harder than the decks bar, and the reason is the task
+   * rather than the arithmetic. A content panel covers most of the viewport and
+   * you are reading it, so the room can recede; the Work panel sits in front of
+   * the hexagon light wall and needs the extra dimming to clear AA at all. The
+   * decks bar is a glance — you have just clicked the DJ controller and the
+   * camera has flown to frame it, so blacking out the thing you asked to look at
+   * would be perverse. It clears AA comfortably at the lighter value.
+   */
+  const scrim = (
+    <div
+      ref={scrimRef}
+      data-scrim
+      aria-hidden
+      className={`pointer-events-none fixed inset-0 z-10 ${compact ? 'bg-void/62' : 'bg-void/78'}`}
+    />
+  )
+
   // The visible heading is dropped in compact mode, so the dialog's accessible
   // name comes from aria-label alone — which it already did.
   if (compact) {
     return (
+      <>
+        {scrim}
+        <div
+          ref={root}
+          role="dialog"
+          aria-modal="false"
+          aria-label={spot.label}
+          className="glass pointer-events-auto fixed inset-x-0 bottom-6 z-30 mx-auto flex w-[calc(100%-3rem)] max-w-[540px] items-center gap-4 rounded-[22px] p-4"
+        >
+          <Body />
+          <button
+            type="button"
+            onClick={() => setFocus(null)}
+            aria-label="Close and return to the room"
+            className="hairline shrink-0 self-start rounded-full border p-1.5 text-mute transition-colors hover:text-bright"
+          >
+            <X size={14} weight="bold" />
+          </button>
+        </div>
+      </>
+    )
+  }
+
+  return (
+    <>
+      {scrim}
       <div
         ref={root}
         role="dialog"
         aria-modal="false"
         aria-label={spot.label}
-        className="pointer-events-auto fixed inset-x-0 bottom-6 z-30 mx-auto flex w-[calc(100%-3rem)] max-w-[540px] items-center gap-4 rounded-[14px] border border-hair bg-void/92 p-4 backdrop-blur-xl"
+        className="glass pointer-events-auto fixed inset-x-0 bottom-0 z-30 mx-auto flex max-h-[68dvh] w-full max-w-[820px] flex-col rounded-t-[22px] sm:inset-x-6 sm:bottom-6 sm:rounded-[22px] lg:max-w-[880px]"
       >
-        <Body />
-        <button
-          type="button"
-          onClick={() => setFocus(null)}
-          aria-label="Close and return to the room"
-          className="hairline shrink-0 self-start rounded-full border p-1.5 text-mute transition-colors hover:text-bright"
-        >
-          <X size={14} weight="bold" />
-        </button>
-      </div>
-    )
-  }
-
-  return (
-    <div
-      ref={root}
-      role="dialog"
-      aria-modal="false"
-      aria-label={spot.label}
-      className="pointer-events-auto fixed inset-x-0 bottom-0 z-30 mx-auto max-h-[68dvh] w-full max-w-[820px] overflow-y-auto rounded-t-[14px] border-t border-hair bg-void/92 p-6 backdrop-blur-xl sm:inset-x-6 sm:bottom-6 sm:rounded-[14px] sm:border sm:p-8 lg:max-w-[880px]"
-    >
-      <div className="mb-6 flex items-start justify-between gap-6">
-        <div>
-          <h2 className="text-3xl tracking-tight text-bright sm:text-4xl">{spot.label}</h2>
-          <p className="mt-1 text-sm text-mute">{spot.hint}</p>
+        {/* The scroll lives on this inner element, not the glass one. An
+            absolutely-positioned sheen inside a scroll container scrolls with the
+            content, so the specular edge would slide away from the panel's own
+            top edge the moment anyone scrolled. */}
+        <div className="min-h-0 flex-1 overflow-y-auto p-6 sm:p-8">
+          <div className="mb-6 flex items-start justify-between gap-6">
+            <div>
+              <h2 className="text-3xl tracking-tight text-bright sm:text-4xl">{spot.label}</h2>
+              <p className="mt-1 text-sm text-mute">{spot.hint}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setFocus(null)}
+              aria-label="Close and return to the room"
+              className="hairline shrink-0 rounded-full border p-2 text-mute transition-colors hover:text-bright"
+            >
+              <X size={16} weight="bold" />
+            </button>
+          </div>
+          <Body />
         </div>
-        <button
-          type="button"
-          onClick={() => setFocus(null)}
-          aria-label="Close and return to the room"
-          className="hairline shrink-0 rounded-full border p-2 text-mute transition-colors hover:text-bright"
-        >
-          <X size={16} weight="bold" />
-        </button>
       </div>
-      <Body />
-    </div>
+    </>
   )
 }
