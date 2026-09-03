@@ -30,13 +30,20 @@ const TYPES = {
   '.json': 'application/json',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
+  '.webp': 'image/webp',
   '.mp3': 'audio/mpeg',
 }
 
 let served = 0
+/** Flipped on to simulate the fresh-clone case, where cover.webp is absent. */
+let blockCover = false
 const server = createServer(async (req, res) => {
   const url = decodeURIComponent((req.url ?? '/').split('?')[0])
   const rel = normalize(url === '/' ? '/index.html' : url).replace(/^(\.\.[/\\])+/, '')
+  if (blockCover && rel.endsWith('cover.webp')) {
+    res.writeHead(404).end('absent')
+    return
+  }
   try {
     const buf = await readFile(join(ROOT, rel))
     if (rel.endsWith('.mp3')) served += 1
@@ -133,6 +140,17 @@ const body = (await page.textContent('[role="dialog"]')) ?? ''
 check('shows the track title', body.includes('A Moment Apart'))
 check('shows the artist', body.includes('ODESZA'))
 
+// Presence alone is not enough: a 404 would remove the element via onError, and
+// a wrong MIME type would leave it present but undecoded. naturalWidth proves
+// the bytes arrived and decoded.
+const art = await page.evaluate(() => {
+  const img = document.querySelector('[role="dialog"] img')
+  if (!img) return { present: false }
+  return { present: true, w: img.naturalWidth, h: img.naturalHeight, alt: img.alt }
+})
+check('cover art is present and decoded', art.present && art.w > 0, JSON.stringify(art))
+check('cover art is not announced twice', art.alt === '', `alt="${art.alt}"`)
+
 // --- 3. A gesture starts it -------------------------------------------------
 // Press a key rather than click, to prove the arming is not tied to one event.
 await page.keyboard.press('Space')
@@ -226,7 +244,28 @@ const clicked = await elapsedOn(room)
 check('clicking the room starts the music', clicked > 0, `elapsed=${clicked}s`)
 await roomCtx.close()
 
-// --- 9. The decks are reachable by clicking the object ---------------------
+// --- 9. A missing cover degrades to no artwork, not a broken frame ----------
+// This is the fresh-clone case, not an edge case: cover.webp is gitignored, so
+// absent is what anyone who clones this repo actually gets. A 404'd <img> that
+// stayed in the DOM would render a broken-image glyph in the middle of the bar.
+blockCover = true
+const bareCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+const bare = await bareCtx.newPage()
+await bare.goto(`${BASE}/#/player`, { waitUntil: 'networkidle', timeout: 120_000 })
+await bare
+  .waitForFunction(() => !document.querySelector('[role="status"]'), { timeout: 120_000 })
+  .catch(() => {})
+await bare.waitForTimeout(1800)
+check('a missing cover removes the image entirely', (await bare.$('[role="dialog"] img')) === null)
+const bareBody = (await bare.textContent('[role="dialog"]')) ?? ''
+check(
+  'the bar still works without artwork',
+  bareBody.includes('A Moment Apart') && (await bare.$('[data-elapsed]')) !== null,
+)
+await bareCtx.close()
+blockCover = false
+
+// --- 10. The decks are reachable by clicking the object --------------------
 await page.goto(BASE, { waitUntil: 'networkidle' })
 await page.waitForTimeout(2000)
 await page.click('nav[aria-label="Places in the room"] button:has-text("Now playing")')

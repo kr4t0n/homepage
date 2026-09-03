@@ -80,6 +80,13 @@ export const PROFILE = {
  */
 export const TRACK = {
   src: '/track.mp3',
+  /**
+   * Cover art, 128px square — enough for a ~44px thumbnail at 3x DPR. Extracted
+   * from the file's own ID3 tag, which held it as a 1400x1400 PNG: 1.59 MB for a
+   * thumbnail, versus 2.4 KB once resized to WebP. Uncommitted, like the track.
+   * Leave it undefined and the player simply renders no artwork.
+   */
+  cover: '/cover.webp' as string | undefined,
   title: 'A Moment Apart',
   artist: 'ODESZA',
   seconds: 234,

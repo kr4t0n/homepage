@@ -93,6 +93,9 @@ function Player() {
   const duration = usePlayer((s) => s.duration)
   const setOn = usePlayer((s) => s.setOn)
   const seek = usePlayer((s) => s.seek)
+  // The cover is gitignored, so a fresh clone 404s it. Track that and drop the
+  // element rather than leaving a broken-image frame in the bar.
+  const [noArt, setNoArt] = useState(false)
 
   if (!available) {
     return (
@@ -109,7 +112,20 @@ function Player() {
   // which only read as deliberate while there was a sibling paragraph to group
   // against.
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-4">
+    <div className="flex min-w-0 flex-1 items-center gap-3.5">
+      {TRACK.cover && !noArt && (
+        /* alt is empty on purpose: the title and artist sit right next to it as
+           real text, so announcing the artwork too is pure duplication. */
+        <img
+          src={TRACK.cover}
+          alt=""
+          width={48}
+          height={48}
+          onError={() => setNoArt(true)}
+          className="hairline size-12 shrink-0 rounded-[8px] border object-cover"
+        />
+      )}
+
       {/* Follows `playing`, not the stored intent, for the reason in Hud.tsx:
           a transport that shows Pause while silent invites the one click that
           turns the music off for good. Pressing this is itself a gesture, so
@@ -337,7 +353,7 @@ export function Panel() {
         role="dialog"
         aria-modal="false"
         aria-label={spot.label}
-        className="pointer-events-auto fixed inset-x-0 bottom-6 z-30 mx-auto flex w-[calc(100%-3rem)] max-w-[540px] items-center gap-4 rounded-[14px] border border-hair bg-void/92 p-4 backdrop-blur-xl"
+        className="pointer-events-auto fixed inset-x-0 bottom-6 z-30 mx-auto flex w-[calc(100%-3rem)] max-w-[600px] items-center gap-4 rounded-[14px] border border-hair bg-void/92 p-4 backdrop-blur-xl"
       >
         <Body />
         <button
