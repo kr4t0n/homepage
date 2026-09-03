@@ -207,7 +207,27 @@ const c1 = await elapsedOn(cold)
 check('one press of the speaker starts it from cold', c1 > 0, `elapsed=${c1}s`)
 await coldCtx.close()
 
-// --- 8. The decks are reachable by clicking the object ---------------------
+// --- 8. A click on the room itself arms it ----------------------------------
+// The headline behaviour is "interact with the room and music starts", but the
+// gesture above is a keypress, which exercises a different listener. A visitor
+// clicking the scene and getting silence is the exact confusion this guards
+// against, so assert the pointer path separately, in its own fresh context.
+const roomCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+const room = await roomCtx.newPage()
+await room.goto(`${BASE}/#/player`, { waitUntil: 'networkidle', timeout: 120_000 })
+await room
+  .waitForFunction(() => !document.querySelector('[role="status"]'), { timeout: 120_000 })
+  .catch(() => {})
+await room.waitForTimeout(1800)
+check('room click: silent to begin with', (await elapsedOn(room)) === 0)
+// Well clear of the panel and of the speaker button, i.e. bare scene.
+await room.mouse.click(720, 250)
+await room.waitForTimeout(2800)
+const clicked = await elapsedOn(room)
+check('clicking the room starts the music', clicked > 0, `elapsed=${clicked}s`)
+await roomCtx.close()
+
+// --- 9. The decks are reachable by clicking the object ---------------------
 await page.goto(BASE, { waitUntil: 'networkidle' })
 await page.waitForTimeout(2000)
 await page.click('nav[aria-label="Places in the room"] button:has-text("Now playing")')
