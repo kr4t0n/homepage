@@ -186,16 +186,35 @@
   .glass-clear {
     background: transparent;
     backdrop-filter: none;
-    border: 1px solid rgba(255, 255, 255, 0.5);
+    /* Sub-pixel on purpose. On a 2x or 3x display this is a true hairline; at 1x
+       the browser antialiases it to a lighter line rather than dropping it, which
+       is the intended reading either way. */
+    border: 0.5px solid rgba(255, 255, 255, 0.42);
     box-shadow:
       /* Depth, so it floats rather than being cut out of the scene. */
       0 20px 50px -20px rgba(0, 0, 0, 0.6),
-      /* The edge does all the work: a bright catch along the top, a dimmer one
-         underneath, and a faint inner glow that reads as the thickness of the
-         pane rather than as a fill. */
-      inset 0 1px 0 rgba(255, 255, 255, 0.55),
-      inset 0 -1px 0 rgba(255, 255, 255, 0.16),
+      /* One hairline, not three. This edge previously stacked the border, a 1px
+         inset highlight and the .glass::before specular ring on top of each
+         other, which is why it read as a thick white outline rather than the rim
+         of a thin pane. The inset catches are now well under the border's weight,
+         so they shade it instead of doubling it. */
+      inset 0 0.5px 0 rgba(255, 255, 255, 0.22),
+      inset 0 -0.5px 0 rgba(255, 255, 255, 0.1),
       inset 0 0 28px rgba(255, 255, 255, 0.05);
+  }
+
+  /* The shared specular sweep is a 1px ring, which on the clear material is a
+     third bright line at the same edge. Halve it and take the intensity down so
+     it modulates the border rather than competing with it. */
+  .glass-clear::before {
+    padding: 0.5px 0.5px 0;
+    background: linear-gradient(
+      100deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.3) 34%,
+      rgba(255, 255, 255, 0.04) 52%,
+      transparent 68%
+    );
   }
 
   /* The specular sweep. Brightest just off-centre rather than dead centre, so
