@@ -78,6 +78,29 @@ const fadeTo = (v: number, done?: () => void) => {
   })
 }
 
+/**
+ * Make the element audible and start it, in that order, synchronously.
+ *
+ * There is deliberately no fade-in, and this is a correctness constraint rather
+ * than taste. WebKit classifies volume-0 media as silent, allows it to play, and
+ * then *pauses it* the moment it becomes audible without a user gesture. An
+ * earlier version started at volume 0 and ramped up over 1.6s from a GSAP tick,
+ * which is a rAF callback and therefore never a gesture: Safari started the
+ * track and immediately stopped it, so clicking the room did nothing at all
+ * while Chromium was perfectly happy. Setting the volume before `play()`, in the
+ * same synchronous turn as the gesture, is what makes this work on both.
+ *
+ * iOS Safari also ignores writes to `volume` entirely, which is a second reason
+ * never to let audibility depend on a ramp completing.
+ */
+const playAudible = () => {
+  if (!el) return Promise.reject(new Error('no element'))
+  gsap.killTweensOf(level)
+  level.v = TARGET_VOLUME
+  el.volume = TARGET_VOLUME
+  return el.play()
+}
+
 export const usePlayer = create<PlayerState>((set, get) => ({
   available: true,
   on: typeof window === 'undefined' ? true : readPref(),
@@ -94,9 +117,10 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     }
     if (!el || !get().available) return
     if (v) {
-      void el.play().then(() => fadeTo(TARGET_VOLUME)).catch(() => {})
+      void playAudible().catch(() => {})
     } else {
-      // Fade rather than cut, then pause once silent.
+      // Fade rather than cut, then pause once silent. Ramping *down* is safe
+      // outside a gesture; only becoming audible is restricted.
       fadeTo(0, () => el?.pause())
     }
   },
@@ -145,17 +169,17 @@ export const bindTrack = () => {
   const start = () => {
     const { on, available } = usePlayer.getState()
     if (!el || !on || !available) return
-    void el
-      .play()
+    void playAudible()
       .then(() => {
-        // Re-check: the gesture that unblocked playback may itself have been a
-        // click on the speaker button, which resolves after play() does. Volume
-        // is still 0 here, so bailing out now is silent rather than a blip.
+        // Guard the case where the gesture that unblocked playback was itself a
+        // request to stop: `play()` resolves a turn later and would otherwise
+        // start a track the visitor just declined. Since the controls show
+        // "turn on" whenever the room is silent, this is now hard to reach from
+        // the UI, but the ordering hazard is real and cheap to hold closed.
         if (!usePlayer.getState().on) {
           el?.pause()
           return
         }
-        fadeTo(TARGET_VOLUME)
         disarm()
       })
       .catch(() => {
@@ -163,7 +187,18 @@ export const bindTrack = () => {
       })
   }
 
-  const EVENTS = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const
+  // `pointerdown` covers Safari 13+, but `mousedown` and `click` are kept as
+  // fallbacks for older WebKit, where Pointer Events are absent and the whole
+  // arming mechanism would silently never fire. `start()` is safe to call
+  // repeatedly: `play()` on an already-playing element resolves as a no-op.
+  const EVENTS = [
+    'pointerdown',
+    'mousedown',
+    'click',
+    'keydown',
+    'wheel',
+    'touchstart',
+  ] as const
   const onGesture = () => start()
   disarm = () => EVENTS.forEach((e) => window.removeEventListener(e, onGesture))
   EVENTS.forEach((e) => window.addEventListener(e, onGesture, { passive: true }))

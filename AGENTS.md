@@ -116,12 +116,34 @@ works on the very first press of a cold visit. `verify-player.mjs` guards this
 with a fresh browser context; a reload will not reproduce it, because navigating
 the same tab keeps its user activation and the track just keeps playing.
 
+**Never let audibility depend on a volume ramp: WebKit pauses media that becomes
+audible without a gesture.** This is the one bug in this feature that Chromium
+cannot catch, and it was shipped and reported from Safari. The first version set
+`volume = 0`, called `play()` inside the gesture, and ramped up over 1.6s from a
+GSAP tick. Chromium played it. WebKit classifies volume-0 media as silent, allows
+it to start, then stops it the instant the ramp makes it audible — because a rAF
+callback is not a user gesture. The symptom is total silence in Safari with no
+error, while Chromium is perfectly fine, which sends you looking at the wrong
+layer entirely. `playAudible()` therefore sets the volume *before* `play()`, in
+the same synchronous turn as the gesture, and there is no fade-in. Ramping down
+is unrestricted, so the fade-out and the synth duck are fine. iOS Safari
+additionally ignores writes to `volume` outright, which is a second reason never
+to make audibility contingent on a tween completing.
+
+**Do not assume the verification suite covers Safari.** It is Chromium-only:
+Playwright's WebKit will not install on the dev box here (missing ~24 system
+libraries), and Playwright WebKit is not Safari anyway — its autoplay policy
+differs, so a green run there would not have meant much. Anything touching
+autoplay, volume or codecs needs a manual pass in real Safari before it is
+believed.
+
 **`play()` resolves after the click that authorised it.** If the authorising
 gesture *is* the click that turns sound off, the promise still resolves and would
 start a track the visitor just declined. `start()` re-reads `on` inside `.then()`
-and bails; volume is still 0 at that point, so the abort is silent rather than a
-blip. Removing that re-check reintroduces a bug that only shows up when the first
-thing a visitor touches is the speaker button.
+and bails. Since the controls read "turn on" whenever the room is silent, this is
+now hard to reach from the UI, but the ordering hazard is real and the guard is
+one branch. Note it is no longer a *silent* abort: volume is set before `play()`
+now, so a reachable path here would be a brief blip rather than nothing.
 
 **Chromium serves media over range requests.** A test server that answers `200`
 to every request stalls the element forever, and one that sends

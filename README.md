@@ -154,6 +154,14 @@ Two behaviours worth knowing before changing any of this:
 - **There is one piece of user state, `on`, not a mute flag plus a paused
   flag.** Two flags let the HUD speaker and the panel transport disagree about
   the same track. The choice persists to `localStorage` under `kr4t0n:music`.
+- **The track starts at full level with no fade-in, deliberately.** WebKit pauses
+  media that becomes audible without a user gesture, so a volume ramp after
+  `play()` means Safari starts the track and immediately stops it while Chromium
+  plays it fine. Volume is set before `play()`, synchronously. Fading *out* is
+  unrestricted. See AGENTS.md before adding any fade-in.
+- **The suite is Chromium-only.** Verify autoplay, volume and codec changes
+  manually in Safari; Playwright's WebKit is not Safari and does not stand in
+  for it.
 
 Strip embedded cover art before serving a file. The track supplied for this
 build carried 1.6 MB of ID3v2 album art — 22% of the download — that the page
