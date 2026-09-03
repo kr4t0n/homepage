@@ -157,37 +157,45 @@
   }
 
   /*
-   * The clear material: genuinely transparent, light-tinted, for the decks bar.
+   * The clear material: optically clear, not frosted. For the decks bar.
    *
-   * Derived by measuring a reference the owner supplied rather than by taste.
-   * That card *brightens* its backdrop — sampling one object across its edge at
-   * matched heights, it transmits 182-432% of the backdrop luminance. It is a
-   * white frosted fill that scatters light, the opposite of the dark smoked tint
-   * .glass uses. Hence a white fill and no darkening here, plus a modest blur so
-   * shapes behind stay readable as shapes, and a bright rim.
+   * Derived by measuring two references the owner supplied. The second one is
+   * unfiltered — the flowers behind it are pin-sharp and full-colour — and what
+   * sells it as glass is the edge, not the face: a bright specular rim plus
+   * refraction along the border. So there is no blur and no tint here at all.
    *
-   * The honest caveat, also measured: the reference does not meet WCAG AA. Where
-   * a bright object shows through it, white text lands at 1.43:1. It survives by
-   * composition — its text sits over dark water at 12:1 and the bright object is
-   * off to one side. This room cannot rely on that, because the camera moves and
-   * the light wall can end up anywhere. So this material is scoped to the decks
-   * bar, which is anchored over the dark floor, and the gate still has to clear
-   * it. If a future panel needs this look in front of a bright surface, the
-   * answer is the thicker .glass, not a lower contrast bar.
+   * The counter-intuitive part, measured rather than assumed: removing the frost
+   * *improved* contrast. The worst backdrop behind the bar went from rgb(63,72,93)
+   * to rgb(52,63,88), and body text from 5.01:1 to 5.76:1. A blur pulls bright
+   * pixels in from neighbouring areas and a white fill adds luminance outright, so
+   * the frosting was costing legibility as well as transparency. Note that a
+   * faint white fill on top of clear measured 4.42:1 — under AA — which is why
+   * there is no fill, not even a subtle one.
+   *
+   * No SVG feDisplacementMap refraction, deliberately, even though it is the
+   * mechanism visible in the reference and `backdrop-filter: url(#…)` does work in
+   * Chromium. Safari does not support SVG filters in backdrop-filter, and Safari
+   * is what this site is being checked in, so it would be effort spent on an
+   * effect the owner would never see. The rim, the inner highlight and the drop
+   * shadow carry it instead, and those work everywhere.
+   *
+   * Legibility here depends on the bar being anchored over the dark floor. The
+   * gate measures it; if a future layout floats this material somewhere brighter,
+   * it needs .glass, not a thinner border.
    */
   .glass-clear {
-    background:
-      linear-gradient(
-        180deg,
-        rgba(255, 255, 255, 0.16) 0%,
-        rgba(255, 255, 255, 0.07) 45%,
-        rgba(255, 255, 255, 0.04) 100%
-      );
-    backdrop-filter: blur(22px) saturate(150%) brightness(0.66);
-    border: 1px solid rgba(255, 255, 255, 0.42);
+    background: transparent;
+    backdrop-filter: none;
+    border: 1px solid rgba(255, 255, 255, 0.5);
     box-shadow:
-      0 24px 60px -24px rgba(0, 0, 0, 0.7),
-      inset 0 1px 0 rgba(255, 255, 255, 0.4);
+      /* Depth, so it floats rather than being cut out of the scene. */
+      0 20px 50px -20px rgba(0, 0, 0, 0.6),
+      /* The edge does all the work: a bright catch along the top, a dimmer one
+         underneath, and a faint inner glow that reads as the thickness of the
+         pane rather than as a fill. */
+      inset 0 1px 0 rgba(255, 255, 255, 0.55),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.16),
+      inset 0 0 28px rgba(255, 255, 255, 0.05);
   }
 
   /* The specular sweep. Brightest just off-centre rather than dead centre, so

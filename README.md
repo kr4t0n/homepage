@@ -134,19 +134,26 @@ Apple's material pixel for pixel.
 
 There are two materials, and they are different in kind rather than degree.
 
-`.glass` is the content panels: a dark smoked tint that dims its backdrop via
-`brightness()`. `.glass-clear` is the decks bar: a *light* frosted fill that
-brightens its backdrop, carries no dark fill at all, and lets the room read
-through it as shapes. The second was derived by measuring a reference rather than
-by taste — sampling one object across that reference's edge at matched heights, it
-transmitted 182-432% of the backdrop luminance, i.e. it lightens. Clear glass is
-only affordable on the bar because the bar is anchored over the dark floor; in
-front of the hexagon light wall the same material puts muted text at 3.2:1.
+`.glass` is the content panels: a frosted, dark-tinted surface that dims its
+backdrop via `brightness()`. `.glass-clear` is the decks bar: **optically clear**
+— no blur, no tint, no fill. The room passes through it sharp and unmodified, and
+the edge does all the work via a bright rim, an inner highlight and a drop shadow.
 
-Worth knowing: that reference does not itself meet AA. Where a bright object
-shows through it, white text lands at 1.43:1. It survives on composition — its
-text sits over dark water at 12:1 and the bright object is off to one side. This
-room cannot rely on that, because the camera moves.
+Removing the frost *improved* contrast, which is worth knowing before anyone adds
+it back. Behind the bar the worst backdrop went from rgb(63,72,93) frosted to
+rgb(52,63,88) clear, and body text from 5.01:1 to 5.76:1: a blur pulls bright
+pixels in from neighbouring areas and a white fill adds luminance outright. A
+faint white fill over clear measured 4.42:1, under AA — so there is no fill at
+all, not even a subtle one.
+
+Clear is only affordable on the bar because the bar is anchored over the dark
+floor. In front of the hexagon light wall the same treatment puts muted text at
+3.2:1, which is why content panels keep the frosted material.
+
+No SVG `feDisplacementMap` edge refraction, though that is the mechanism visible
+in the reference and `backdrop-filter: url(#…)` does work in Chromium: Safari does
+not support SVG filters in `backdrop-filter`, and Safari is the browser this site
+gets checked in, so it would be an effect its owner never sees.
 
 **The values are tuned together against measurement and must not be moved
 independently:** the scrim opacity in `Panel.tsx`, the fill and `brightness()` in
