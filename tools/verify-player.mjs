@@ -93,12 +93,13 @@ await page
 await page.waitForTimeout(1500)
 
 /** Elapsed seconds as the mini-player reports them, or null if not mounted. */
-const elapsed = async () => {
-  const t = await page.textContent('[data-elapsed]').catch(() => null)
+const elapsedOn = async (p) => {
+  const t = await p.textContent('[data-elapsed]').catch(() => null)
   if (!t) return null
   const [mm, ss] = t.split('/')[0].trim().split(':').map(Number)
   return mm * 60 + ss
 }
+const elapsed = () => elapsedOn(page)
 
 // --- 1. Silent before any gesture -------------------------------------------
 // Open the panel by URL, which is not a user activation, so the policy still
@@ -113,6 +114,18 @@ check(
   'silent until the visitor interacts',
   before === 0 && stillBefore === 0,
   `${before}s -> ${stillBefore}s`,
+)
+
+// The trap this guards against: the speaker used to render the stored intent,
+// so it lit up as "sound is on" during the window before the browser allows
+// any. Clicking the thing that is lying to you then wrote `off` to
+// localStorage, permanently, and no amount of clicking the room brought it
+// back. The control must report real sound, never intent.
+const coldLabel = await page.getAttribute('button[aria-label^="Turn the music"]', 'aria-label')
+check(
+  'the speaker does not claim sound before there is any',
+  coldLabel === 'Turn the music on',
+  `label="${coldLabel}"`,
 )
 
 // --- 2. Track metadata is what content.ts says ------------------------------
@@ -171,7 +184,30 @@ check('turning it back on resumes playback', un > 0, `elapsed=${un}s`)
 // Leave the preference clean, or the next run starts muted.
 await page.evaluate(() => window.localStorage.removeItem('kr4t0n:music'))
 
-// --- 7. The decks are reachable by clicking the object ---------------------
+// --- 7. One press of the speaker is enough, from cold -----------------------
+// A fresh context, not a reload: navigating the same tab keeps its user
+// activation, so the track simply carries on playing and the assertions below
+// would pass against a document that was never cold. This is the only way to
+// get a document the browser genuinely does not trust yet.
+const coldCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+const cold = await coldCtx.newPage()
+await cold.goto(`${BASE}/#/player`, { waitUntil: 'networkidle', timeout: 120_000 })
+await cold
+  .waitForFunction(() => !document.querySelector('[role="status"]'), { timeout: 120_000 })
+  .catch(() => {})
+await cold.waitForTimeout(1800)
+
+const c0 = await elapsedOn(cold)
+check('a genuinely cold visit starts silent', c0 === 0, `elapsed=${c0}s`)
+const coldBtn = await cold.getAttribute('button[aria-label^="Turn the music"]', 'aria-label')
+check('cold speaker offers to start, not to stop', coldBtn === 'Turn the music on', `label="${coldBtn}"`)
+await cold.click('button[aria-label="Turn the music on"]')
+await cold.waitForTimeout(2600)
+const c1 = await elapsedOn(cold)
+check('one press of the speaker starts it from cold', c1 > 0, `elapsed=${c1}s`)
+await coldCtx.close()
+
+// --- 8. The decks are reachable by clicking the object ---------------------
 await page.goto(BASE, { waitUntil: 'networkidle' })
 await page.waitForTimeout(2000)
 await page.click('nav[aria-label="Places in the room"] button:has-text("Now playing")')

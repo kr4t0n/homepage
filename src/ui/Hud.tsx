@@ -31,7 +31,7 @@ export function Hud() {
   const orbited = useScene((s) => s.orbited)
   const setOrbited = useScene((s) => s.setOrbited)
   const audio = usePlayer((s) => s.available)
-  const on = usePlayer((s) => s.on)
+  const playing = usePlayer((s) => s.playing)
   const setOn = usePlayer((s) => s.setOn)
   const root = useRef<HTMLDivElement>(null)
 
@@ -183,17 +183,26 @@ export function Hud() {
           duplicate link, and hiding it costs accessibility.
           Top rather than bottom because it stays reachable while a panel owns
           the lower half — muting while reading About is exactly when you want
-          it. Hidden only for a framed screen, which fills the whole frame. */}
+          it. Hidden only for a framed screen, which fills the whole frame.
+
+          It reports `playing`, the real state, and never `on`, the intent. An
+          earlier version showed intent, which meant it lit up as "sound is on"
+          during the window before the browser has allowed any: the honest
+          reading of that is "this is lying", the natural response is to click
+          it, and clicking it wrote `off` to localStorage permanently. So the
+          click follows the icon rather than the intent — press a silent speaker
+          and you get sound, which is also a user gesture, so it works on the
+          very first press. */}
       <button
         type="button"
-        onClick={() => setOn(!on)}
-        aria-label={on ? 'Turn the music off' : 'Turn the music on'}
-        aria-pressed={on}
+        onClick={() => setOn(!playing)}
+        aria-label={playing ? 'Turn the music off' : 'Turn the music on'}
+        aria-pressed={playing}
         className={`hairline pointer-events-auto absolute right-6 top-6 grid size-[34px] place-items-center rounded-full border bg-void/50 backdrop-blur-sm transition-all active:scale-[0.96] sm:right-10 sm:top-8 ${
           audio && screen === null ? 'opacity-100' : 'pointer-events-none opacity-0'
-        } ${on ? 'border-acid/40 text-acid' : 'text-mute hover:text-bright'}`}
+        } ${playing ? 'border-acid/40 text-acid' : 'text-mute hover:text-bright'}`}
       >
-        {on ? <SpeakerSimpleHigh size={15} /> : <SpeakerSimpleSlash size={15} />}
+        {playing ? <SpeakerSimpleHigh size={15} /> : <SpeakerSimpleSlash size={15} />}
       </button>
 
     </div>

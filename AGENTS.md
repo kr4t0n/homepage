@@ -83,13 +83,15 @@ a 404 is a first-class state that the decks panel reports honestly. The same
 reasoning already applied to the purchased `.blend`. A missing track must never
 be an error path, because for anyone cloning this repo it is the normal one.
 
-**The player models intent, not mechanism.** `usePlayer` carries a single `on`
-flag rather than separate mute and paused flags. With two, the HUD speaker and
-the panel transport could disagree about one track — pausing at the decks left
-the speaker still claiming sound was on. `playing` exists alongside `on` but is
-derived from the element's own events and is read-only to the UI: between page
-load and the first gesture, intent is yes and the browser's answer is still no,
-and the panel says "press any key" instead of looking broken.
+**The player stores intent but renders reality.** `usePlayer` carries a single
+`on` flag rather than separate mute and paused flags, because with two the HUD
+speaker and the panel transport could disagree about one track — pausing at the
+decks left the speaker still claiming sound was on. But `on` is *storage only*:
+every control renders `playing`, which is derived from the element's own events.
+The two diverge in exactly the window that matters, between page load and the
+first gesture, when intent is yes and the browser's answer is still no. A
+control that rendered intent there showed a lit "sound is on" speaker over
+silence; see the trap in Non-obvious behaviours.
 
 ## Non-obvious behaviours
 
@@ -100,6 +102,19 @@ attempts playback immediately — a returning visitor with media engagement is
 allowed it — and otherwise leaves listeners armed on `pointerdown`, `keydown`,
 `wheel` and `touchstart`. Anyone "fixing" this by muting the element to force
 autoplay is trading the feature for silence.
+
+**A sound control that renders intent instead of real state is a trap, not a
+cosmetic bug.** Before the first gesture, `on` is true and nothing is playing. A
+speaker button bound to `on` therefore lights up as "sound is on" over total
+silence. The honest reading of that is "this control is lying", the natural
+response is to press it, and pressing it wrote `off` to `localStorage` — so the
+room went permanently silent and no amount of clicking around brought it back,
+across reloads. Both the HUD speaker and the panel transport now bind to
+`playing` and their click sends `setOn(!playing)`, which means pressing a silent
+speaker always produces sound. The press is itself a user activation, so it
+works on the very first press of a cold visit. `verify-player.mjs` guards this
+with a fresh browser context; a reload will not reproduce it, because navigating
+the same tab keeps its user activation and the track just keeps playing.
 
 **`play()` resolves after the click that authorised it.** If the authorising
 gesture *is* the click that turns sound off, the promise still resolves and would

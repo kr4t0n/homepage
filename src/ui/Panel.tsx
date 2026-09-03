@@ -88,7 +88,6 @@ const mmss = (s: number) => {
  */
 function Player() {
   const available = usePlayer((s) => s.available)
-  const on = usePlayer((s) => s.on)
   const playing = usePlayer((s) => s.playing)
   const time = usePlayer((s) => s.time)
   const duration = usePlayer((s) => s.duration)
@@ -104,22 +103,23 @@ function Player() {
   return (
     <div className="space-y-6">
       <div className="hairline flex items-center gap-5 rounded-[14px] border p-5 sm:p-6">
+        {/* Follows `playing`, not the stored intent, for the reason in Hud.tsx:
+            a transport that shows Pause while silent invites the one click that
+            turns the music off for good. Pressing this is itself a gesture, so
+            it starts playback even on a cold visit where autoplay was refused. */}
         <button
           type="button"
-          onClick={() => setOn(!on)}
-          aria-label={on ? `Pause ${TRACK.title}` : `Play ${TRACK.title}`}
+          onClick={() => setOn(!playing)}
+          aria-label={playing ? `Pause ${TRACK.title}` : `Play ${TRACK.title}`}
           className="grid size-12 shrink-0 place-items-center rounded-full bg-acid text-void transition-transform active:scale-[0.96]"
         >
-          {on ? <Pause size={19} weight="fill" /> : <Play size={19} weight="fill" />}
+          {playing ? <Pause size={19} weight="fill" /> : <Play size={19} weight="fill" />}
         </button>
 
         <div className="min-w-0 flex-1">
           <p className="truncate text-lg tracking-tight text-bright">{TRACK.title}</p>
           <p className="truncate font-mono text-[11px] uppercase tracking-[0.18em] text-mute">
             {TRACK.artist}
-            {/* Intent without sound yet: the browser is still waiting for a
-                gesture, and saying so beats looking broken. */}
-            {on && !playing && <span className="ml-2 text-acid">— press any key</span>}
           </p>
 
           <div className="mt-3 flex items-center gap-3">
