@@ -83,8 +83,6 @@ export const TRACK = {
   title: 'A Moment Apart',
   artist: 'ODESZA',
   seconds: 234,
-  /** Shown in the player: this is scaffolding, not a claim of authorship. */
-  placeholder: true,
 } as const
 
 export const PROJECTS: Project[] = [

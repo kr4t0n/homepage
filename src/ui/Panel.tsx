@@ -101,57 +101,47 @@ function Player() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="hairline flex items-center gap-5 rounded-[14px] border p-5 sm:p-6">
-        {/* Follows `playing`, not the stored intent, for the reason in Hud.tsx:
-            a transport that shows Pause while silent invites the one click that
-            turns the music off for good. Pressing this is itself a gesture, so
-            it starts playback even on a cold visit where autoplay was refused. */}
-        <button
-          type="button"
-          onClick={() => setOn(!playing)}
-          aria-label={playing ? `Pause ${TRACK.title}` : `Play ${TRACK.title}`}
-          className="grid size-12 shrink-0 place-items-center rounded-full bg-acid text-void transition-transform active:scale-[0.96]"
-        >
-          {playing ? <Pause size={19} weight="fill" /> : <Play size={19} weight="fill" />}
-        </button>
+    <div className="hairline flex items-center gap-5 rounded-[14px] border p-5 sm:p-6">
+      {/* Follows `playing`, not the stored intent, for the reason in Hud.tsx:
+          a transport that shows Pause while silent invites the one click that
+          turns the music off for good. Pressing this is itself a gesture, so
+          it starts playback even on a cold visit where autoplay was refused. */}
+      <button
+        type="button"
+        onClick={() => setOn(!playing)}
+        aria-label={playing ? `Pause ${TRACK.title}` : `Play ${TRACK.title}`}
+        className="grid size-12 shrink-0 place-items-center rounded-full bg-acid text-void transition-transform active:scale-[0.96]"
+      >
+        {playing ? <Pause size={19} weight="fill" /> : <Play size={19} weight="fill" />}
+      </button>
 
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-lg tracking-tight text-bright">{TRACK.title}</p>
-          <p className="truncate font-mono text-[11px] uppercase tracking-[0.18em] text-mute">
-            {TRACK.artist}
-          </p>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-lg tracking-tight text-bright">{TRACK.title}</p>
+        {/* The artist line is the attribution. It is not decoration: the track
+            is somebody else's record, so this credit stays even though the
+            longer disclaimer that used to sit below the card is gone. */}
+        <p className="truncate font-mono text-[11px] uppercase tracking-[0.18em] text-mute">
+          {TRACK.artist}
+        </p>
 
-          <div className="mt-3 flex items-center gap-3">
-            <input
-              type="range"
-              min={0}
-              max={Math.max(1, Math.floor(duration))}
-              value={Math.min(time, duration)}
-              onChange={(e) => seek(Number(e.target.value))}
-              aria-label="Seek"
-              className="h-1 w-full min-w-0 cursor-pointer accent-acid"
-            />
-            <span
-              data-elapsed
-              className="shrink-0 font-mono text-[11px] tabular-nums text-mute"
-            >
-              {mmss(time)} / {mmss(duration)}
-            </span>
-          </div>
+        <div className="mt-3 flex items-center gap-3">
+          <input
+            type="range"
+            min={0}
+            max={Math.max(1, Math.floor(duration))}
+            value={Math.min(time, duration)}
+            onChange={(e) => seek(Number(e.target.value))}
+            aria-label="Seek"
+            className="h-1 w-full min-w-0 cursor-pointer accent-acid"
+          />
+          <span
+            data-elapsed
+            className="shrink-0 font-mono text-[11px] tabular-nums text-mute"
+          >
+            {mmss(time)} / {mmss(duration)}
+          </span>
         </div>
       </div>
-
-      {TRACK.placeholder && (
-        <p className="max-w-[56ch] text-sm leading-relaxed text-mute">
-          Placeholder, and not my work — {TRACK.artist} wrote it. It stands in
-          until my own mixdowns are ready, which is also why the audio file is
-          kept out of the repository rather than shipped with it. The synth on
-          the {' '}
-          <span className="text-body">Music</span> panel is the instrument;
-          this is just the record playing.
-        </p>
-      )}
     </div>
   )
 }

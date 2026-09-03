@@ -139,8 +139,9 @@ put audio back:
 
 1. Drop a file in as `public/track.mp3`.
 2. Update `TRACK` in `src/content.ts` — `title`, `artist` and `seconds`.
-3. Set `placeholder: false` once it is actually your own music. That flag is
-   what renders the "not my work" disclaimer in the panel.
+
+`artist` is the attribution and the panel always renders it, so a track that is
+not yours stays credited. There is no longer a longer disclaimer below the card.
 
 Two behaviours worth knowing before changing any of this:
 
@@ -268,5 +269,5 @@ tools/
   others. All missing textures are stripped at export, so nothing
   rights-encumbered ships, but the asset's provenance is not clean.
 - The track currently wired up is a commercial release used as scaffolding. It
-  is kept out of the repo and labelled as not the author's work in the panel,
-  but it should be replaced with an original mixdown rather than shipped as-is.
+  is kept out of the repo and the artist is credited in the panel, but it should
+  be replaced with an original mixdown rather than shipped as-is.

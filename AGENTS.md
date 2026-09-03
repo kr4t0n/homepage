@@ -383,9 +383,11 @@ does.
   would close the remaining gap against the offline renders.
 - Argus is linked, not embedded. The GitHub Pages host sends no
   `X-Frame-Options`, so a live iframe is possible if that is ever wanted.
-- The backing track is a commercial placeholder. It is uncommitted and labelled
-  as not the author's work, but the intended end state is an original mixdown,
-  at which point `TRACK.placeholder` goes false and the disclaimer disappears.
+- The backing track is a commercial placeholder. It is uncommitted, and the
+  panel credits `TRACK.artist`, but the intended end state is an original
+  mixdown. Until then the only thing keeping the recording off the public site
+  is the `.mp3` gitignore rule, so treat that rule as load-bearing rather than
+  housekeeping.
 - The synth and the player own separate audio graphs — an `AudioContext` and an
   `HTMLAudioElement`. They only coordinate through `duckTrack()`, which is a
   volume ramp and not a real bus. If the keys ever need to be recorded over the

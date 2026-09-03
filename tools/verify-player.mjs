@@ -132,7 +132,6 @@ check(
 const body = (await page.textContent('[role="dialog"]')) ?? ''
 check('shows the track title', body.includes('A Moment Apart'))
 check('shows the artist', body.includes('ODESZA'))
-check('declares itself a placeholder', /Placeholder, and not my work/i.test(body))
 
 // --- 3. A gesture starts it -------------------------------------------------
 // Press a key rather than click, to prove the arming is not tied to one event.
