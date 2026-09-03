@@ -441,18 +441,22 @@ export function Panel() {
    *
    * Content panels dim harder than the decks bar, and the reason is the task
    * rather than the arithmetic. A content panel covers most of the viewport and
-   * you are reading it, so the room can recede; the Work panel sits in front of
-   * the hexagon light wall and needs the extra dimming to clear AA at all. The
-   * decks bar is a glance — you have just clicked the DJ controller and the
-   * camera has flown to frame it, so blacking out the thing you asked to look at
-   * would be perverse. It clears AA comfortably at the lighter value.
+   * you are reading it, so the room can recede. The decks bar is a glance — you
+   * have just clicked the DJ controller and the camera has flown to frame it, so
+   * dimming the thing you asked to look at would be perverse.
+   *
+   * Both values are far lower than they once were. The first version darkened
+   * the whole scene to buy contrast, which worked and looked wrong: the room
+   * went flat and the panels stopped reading as panes over anything. Moving the
+   * dimming into the panel's own backdrop-filter, via brightness(), let these
+   * fall from 0.78 and 0.62 to 0.15 and 0.08 while measuring better than before.
    */
   const scrim = (
     <div
       ref={scrimRef}
       data-scrim
       aria-hidden
-      className={`pointer-events-none fixed inset-0 z-10 ${compact ? 'bg-void/62' : 'bg-void/78'}`}
+      className={`pointer-events-none fixed inset-0 z-10 ${compact ? 'bg-void/8' : 'bg-void/15'}`}
     />
   )
 
@@ -467,7 +471,7 @@ export function Panel() {
           role="dialog"
           aria-modal="false"
           aria-label={spot.label}
-          className="glass pointer-events-auto fixed inset-x-0 bottom-6 z-30 mx-auto flex w-[calc(100%-3rem)] max-w-[540px] items-center gap-4 rounded-[22px] p-4"
+          className="glass glass-thin pointer-events-auto fixed inset-x-0 bottom-6 z-30 mx-auto flex w-[calc(100%-3rem)] max-w-[540px] items-center gap-4 rounded-[22px] p-4"
         >
           <Body />
           <button

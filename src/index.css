@@ -102,18 +102,35 @@
    *    a calm gradient, and the blur averages whole glowing surfaces rather than
    *    single pixels — in front of the hexagon light wall the sampled backdrop
    *    reaches rgb(114,132,92). Undimmed, body text measured 2.22:1 there and
-   *    muted text 1.15:1. A parameter sweep showed that fixing this by
-   *    thickening the glass alone needs ~82% fill behind a ~90% scrim, which is
-   *    neither glass nor a visible room. The fix is split three ways instead: a
-   *    scrim that dims the backdrop, this fill, and a lifted --color-mute. That
-   *    combination measures 7.6:1 body and 4.7:1 muted at the worst point on the
-   *    worst panel.
-   * 2. SATURATION. Blur alone over a dark scene turns the panel into grey
-   *    sludge. Pushing saturation back up is what keeps the navy and the acid
-   *    bleeding through as colour rather than noise.
-   * 3. The highlight is a hairline, not a wash. A broad white gradient is the
-   *    tell of every glassmorphism template; a real specular edge is thin,
-   *    brightest at the top, and gone by the midpoint.
+   *    muted text 1.15:1.
+   *
+   *    The load-bearing trick is `brightness()` *inside* backdrop-filter. It
+   *    dims only what sits behind the pane, so the room stays lit while text
+   *    gets its contrast locally. That is what replaced an earlier approach of
+   *    darkening the whole scene: the full-screen scrim fell from 0.78 to 0.15
+   *    and the fill from 0.75 to 0.44, so the room reads bright and the panel
+   *    reads as a pane over it, at better measured legibility than before.
+   *
+   *    What `brightness()` cannot do is rescue a *thin* panel in front of that
+   *    wall. At 0.34 brightness with 90px blur the backdrop is still
+   *    rgb(73,84,63), where muted text would have to be lighter than body text
+   *    to pass. Hence two materials rather than one: see .glass-thin.
+   *
+   *    Do not trust a sweep that samples from the panel's boundary. Early tuning
+   *    was distorted by exactly that: the border, the inset rim and the specular
+   *    sheen are all bright and all within ~3px of the edge, so once the fill got
+   *    thin enough they became the brightest thing measured, and the numbers
+   *    reported failure on a backdrop no glyph ever touches. tools/verify-glass
+   *    now insets past the padding, and the honest floors turned out to be
+   *    considerably thinner than the polluted sweep claimed.
+   * 2. SATURATION. Blur plus brightness over a dark scene turns the panel into
+   *    grey sludge. Pushing saturation back up is what keeps the navy and the
+   *    acid bleeding through as colour rather than noise.
+   * 3. Gloss belongs on the edge, and that is also where it is free. White added
+   *    across the *face* raises the luminance the text sits on and the gate
+   *    charges for it; a brighter border, rim and specular sweep cost nothing
+   *    measured, because the gate excludes the region no glyph can occupy. So the
+   *    edge treatment carries the gloss and the face stays clean.
    */
   .glass {
     position: relative;
@@ -121,21 +138,47 @@
     background:
       linear-gradient(
         180deg,
-        rgba(255, 255, 255, 0.06) 0%,
-        rgba(255, 255, 255, 0.015) 38%,
+        rgba(255, 255, 255, 0.07) 0%,
+        rgba(255, 255, 255, 0.02) 40%,
         rgba(255, 255, 255, 0) 100%
       ),
-      rgba(7, 10, 18, 0.75);
-    backdrop-filter: blur(30px) saturate(175%);
-    border: 1px solid rgba(255, 255, 255, 0.09);
+      rgba(7, 10, 18, 0.44);
+    backdrop-filter: blur(72px) saturate(190%) brightness(0.26);
+    border: 1px solid rgba(255, 255, 255, 0.16);
     box-shadow:
       /* Depth: cast well below the element so it reads as floating over the
          room rather than pasted onto it. */
       0 28px 70px -28px rgba(0, 0, 0, 0.8),
       /* Rim light along the top inner edge, and a dark inner floor so the
          bottom edge does not dissolve into the scene. */
-      inset 0 1px 0 rgba(255, 255, 255, 0.13),
+      inset 0 1px 0 rgba(255, 255, 255, 0.22),
       inset 0 -1px 0 rgba(0, 0, 0, 0.4);
+  }
+
+  /*
+   * The thin material, for chrome rather than content: the decks bar.
+   *
+   * It can afford under a third of the content fill because of where it sits.
+   * Anchored to the bottom of the viewport it is over the floor, not the light
+   * wall, so the worst backdrop it ever samples is far darker — measured 5.49:1
+   * on muted text at 0.14 fill behind a 0.08 scrim, better margin than the
+   * content panels manage at three times the fill.
+   *
+   * This is the material the design is actually reaching for, and the one place
+   * the room is genuinely visible through the surface. Content panels are the
+   * compromise, forced by what happens to be behind them.
+   */
+  .glass-thin {
+    background:
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.08) 0%,
+        rgba(255, 255, 255, 0.025) 45%,
+        rgba(255, 255, 255, 0) 100%
+      ),
+      rgba(7, 10, 18, 0.14);
+    backdrop-filter: blur(84px) saturate(200%) brightness(0.42);
+    border-color: rgba(255, 255, 255, 0.2);
   }
 
   /* The specular sweep. Brightest just off-centre rather than dead centre, so
@@ -149,7 +192,7 @@
     background: linear-gradient(
       100deg,
       transparent 0%,
-      rgba(255, 255, 255, 0.28) 34%,
+      rgba(255, 255, 255, 0.42) 34%,
       rgba(255, 255, 255, 0.06) 52%,
       transparent 68%
     );
@@ -179,6 +222,11 @@
     .glass {
       background: rgba(7, 10, 18, 0.95);
     }
+    /* No local dimming available, so the thin material cannot stay thin: without
+       backdrop-filter its 0.22 fill would leave text over a sharp lit room. */
+    .glass-thin {
+      background: rgba(7, 10, 18, 0.95);
+    }
   }
 
   /* Some people get motion sickness or simply cannot parse text over texture.
@@ -186,6 +234,11 @@
      no translucency, no sheen. */
   @media (prefers-reduced-transparency: reduce) {
     .glass {
+      background: var(--color-void);
+      backdrop-filter: none;
+      border-color: var(--color-hair);
+    }
+    .glass-thin {
       background: var(--color-void);
       backdrop-filter: none;
       border-color: var(--color-hair);

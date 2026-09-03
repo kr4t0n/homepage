@@ -132,13 +132,24 @@ no official web implementation, so this is an approximation built from backdrop
 blur, layered translucency, a specular edge and a depth shadow. It will not match
 Apple's material pixel for pixel.
 
-**Three values are tuned together and must not be changed independently:** the
-scrim opacity in `Panel.tsx`, the fill in `.glass`, and `--color-mute`.
-Translucency over this room fails WCAG AA by default — the blur averages whole
-glowing surfaces, and in front of the hexagon light wall body text measured
-2.22:1 undimmed. Thickening the glass alone cannot fix it; a sweep showed that
-needs ~82% fill behind a ~90% scrim, which leaves neither glass nor a visible
-room. Hence the split across three values.
+There are two materials. `.glass` is the content panels; `.glass-thin` is the
+decks bar, at under a third of the fill. The bar can afford it because it sits
+over the floor rather than in front of the hexagon light wall, and it is the one
+place the room is genuinely visible through the surface.
+
+**The values are tuned together against measurement and must not be moved
+independently:** the scrim opacity in `Panel.tsx`, the fill and `brightness()` in
+each material, and `--color-mute`. Translucency over this room fails WCAG AA by
+default — the blur averages whole glowing surfaces, and in front of the hexagon
+wall body text measured 2.22:1 undimmed.
+
+The thing that makes thin glass possible is `brightness()` **inside**
+`backdrop-filter`. It dims only what sits behind the pane, so the room stays lit
+while text gets contrast locally. An earlier version darkened the whole scene
+with a heavy scrim instead: it passed AA and looked wrong, because the room went
+flat and the panels stopped reading as panes over anything. Moving the dimming
+into the material dropped the scrim from 0.78 to 0.15 and the fill from 0.75 to
+0.44 while measuring *better* than before.
 
 `node tools/verify-glass.mjs` is the gate. It opens every panel, hides the
 contents so only the composited surface remains, finds the brightest tile — the
@@ -146,6 +157,16 @@ worst backdrop any glyph could land on — and checks every text role against
 4.5:1. Run it after touching any opacity, any panel colour, or the room's
 lighting. The failure mode is invisible otherwise: the bright surfaces that cause
 it are off screen when the panel is closed.
+
+Two traps if you retune it. The gate insets past the panel padding on purpose —
+the border, inset rim and specular sheen are all bright and within ~3px of the
+edge, and sampling them reports failures on a backdrop no glyph ever touches.
+And it waits for the camera flight to land, because measuring early samples the
+brighter home framing through the glass.
+
+Gloss belongs on the edge, where it is also free: white across the face raises
+the luminance text sits on and the gate charges for it, while a brighter border,
+rim and sweep cost nothing measured.
 
 Reduced transparency is honoured completely — no blur, no translucency, no sheen
 — via `prefers-reduced-transparency`. There is also a nearly-opaque fallback for

@@ -82,7 +82,12 @@ for (const id of PANELS) {
   await page
     .waitForFunction(() => !document.querySelector('[role="status"]'), { timeout: 120_000 })
     .catch(() => {})
-  await page.waitForTimeout(2600)
+  // Long enough for the camera flight to land. Measuring early samples the
+  // *home* view through the glass, which is brighter than the hotspot framing,
+  // and produced failures that no amount of CSS would have fixed. Note the room
+  // also drifts continuously, so a run near the threshold is inherently noisy —
+  // the values are tuned to leave margin rather than to scrape past 4.5:1.
+  await page.waitForTimeout(3800)
 
   const dialog = page.locator('[role="dialog"]')
   if ((await dialog.count()) === 0) {
@@ -123,10 +128,17 @@ for (const id of PANELS) {
       // Brightest 8x8 average, sampled on a grid. Averaging rather than taking
       // a single pixel avoids failing on one stray anti-aliased dot, while still
       // catching a genuinely bright region behind a line of text.
+      // Inset past the decorative edge. The border, the inset rim light and the
+      // specular sheen are all bright and all within ~3px of the boundary, and
+      // no glyph ever lands there — every panel has at least 16px of padding.
+      // Sampling from the boundary measured the chrome instead of the backdrop,
+      // and only started failing when the fill dropped far enough that the rim
+      // became the brightest thing in the frame. Measure where text can be.
+      const PAD = 16
       let worst = null
       const T = 8
-      for (let y = 2; y + T < height; y += 6) {
-        for (let x = 2; x + T < width; x += 6) {
+      for (let y = PAD; y + T < height - PAD; y += 6) {
+        for (let x = PAD; x + T < width - PAD; x += 6) {
           let r = 0, g = 0, bl = 0
           for (let dy = 0; dy < T; dy++) {
             for (let dx = 0; dx < T; dx++) {

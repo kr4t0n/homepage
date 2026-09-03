@@ -136,13 +136,34 @@ which is the correct precedence for a base style anyway.
 invisible from a screenshot of the closed page.** The blur averages whole glowing
 surfaces, not pixels: in front of the hexagon light wall the backdrop behind the
 Work panel reaches rgb(114,132,92), where body text measured 2.22:1 and muted
-text 1.15:1. A parameter sweep proved the obvious fix does not work — reaching AA
-by thickening glass alone needs ~82% fill behind a ~90% scrim, which is neither
-glass nor a visible room. It takes three coordinated changes: a scrim that dims
-the canvas, the glass fill, and a lifted `--color-mute` (the old `#7b88a8` was
-chosen against opaque near-black and was the single blocking value). Those three
-are tuned *together*; `tools/verify-glass.mjs` is the gate, and it exists because
-this cannot be eyeballed.
+text 1.15:1. The fix that actually works is `brightness()` *inside*
+`backdrop-filter` — it dims only what sits behind the pane, so the room stays lit
+while text gets contrast locally. The first attempt instead darkened the whole
+scene with a 0.78 scrim: it passed AA and looked wrong, because the room went
+flat and the panels stopped reading as panes over anything. Moving the dimming
+into the material took the scrim to 0.15 and the fill to 0.44 at *better*
+measured contrast. `--color-mute` also had to be lifted off `#7b88a8`, a value
+chosen against opaque near-black. `tools/verify-glass.mjs` is the gate; these
+values are tuned together and it exists because none of this can be eyeballed.
+
+**When measuring contrast on a surface, never sample its own chrome.** Two
+separate false failures came from this. First a naive "brightest patch" scan
+picked the acid-green *button* inside the panel. Then, after fixing that, the scan
+started at the panel boundary and found the border, inset rim and specular sheen —
+all bright, all within ~3px of the edge, and none of them a place a glyph can
+land. That one only appeared once the fill got thin enough for the rim to become
+the brightest thing in frame, so it looked exactly like a real regression and sent
+the tuning in the wrong direction for two rounds. The gate now insets past the
+padding. Corollary: gloss on the *edge* is free, because the gate correctly
+ignores it; gloss across the *face* is charged for.
+
+**`brightness()` in backdrop-filter cannot rescue a thin panel in front of a
+bright surface.** At 0.34 brightness with 90px blur the backdrop behind the Work
+panel is still rgb(73,84,63), where muted text would have to be *lighter than
+body text* to reach AA. This is why there are two materials: `.glass` for content
+and `.glass-thin` for the decks bar, which is anchored over the dark floor and so
+gets away with 0.14 fill. If a future panel is positioned in front of the light
+wall, it needs the thick material, not a tweak.
 
 **Scrim opacity differs by panel kind for a task reason, not an arithmetic one.**
 Content panels dim harder (you are reading, and the Work panel needs it to clear
