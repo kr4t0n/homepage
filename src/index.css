@@ -87,126 +87,88 @@
  */
 @layer components {
   /*
-   * Frosted-glass surface, in the spirit of Apple's Liquid Glass.
+   * One glass material for every panel in the room.
    *
    * Being accurate about what this is: Apple documents Liquid Glass for Apple
-   * platforms, and there is no official web implementation of it. This is an
-   * approximation built from the primitives the platform does give us —
-   * backdrop blur, layered translucency, a specular edge and a depth shadow.
-   * It is not a port of Apple's material and will not match it pixel for pixel.
+   * platforms and there is no official web implementation, so this is an
+   * approximation — an unfiltered pane, a hairline specular edge and a depth
+   * shadow. It will not match Apple's material pixel for pixel.
    *
-   * Three constraints shaped the numbers, and all of them came from measuring
-   * this page rather than from the aesthetic:
+   * The base is optically clear: no blur, no tint, no fill. The room passes
+   * through sharp and unmodified and the edge does all the work. That was
+   * arrived at by measuring a supplied reference whose backdrop is pin-sharp
+   * through the glass, and it turned out to beat the frosted version on contrast
+   * too — behind the decks bar the worst backdrop went from rgb(63,72,93)
+   * frosted to rgb(52,63,88) clear, and body text from 5.01:1 to 5.76:1. A blur
+   * pulls bright pixels in from neighbouring areas and a white fill adds
+   * luminance outright, so frosting was costing legibility as well as
+   * transparency. A faint white fill over clear measured 4.42:1, under AA, which
+   * is why there is no fill at all.
    *
-   * 1. CONTRAST, which set every value here. The backdrop is a lit 3D room, not
-   *    a calm gradient, and the blur averages whole glowing surfaces rather than
-   *    single pixels — in front of the hexagon light wall the sampled backdrop
-   *    reaches rgb(114,132,92). Undimmed, body text measured 2.22:1 there and
-   *    muted text 1.15:1.
+   * Panels differ only in how far they dim their own backdrop — see .glass-dim.
+   * Nothing else changes between them, so they read as one material.
    *
-   *    The load-bearing trick is `brightness()` *inside* backdrop-filter. It
-   *    dims only what sits behind the pane, so the room stays lit while text
-   *    gets its contrast locally. That is what replaced an earlier approach of
-   *    darkening the whole scene: the full-screen scrim fell from 0.78 to 0.15
-   *    and the fill from 0.75 to 0.44, so the room reads bright and the panel
-   *    reads as a pane over it, at better measured legibility than before.
-   *
-   *    What `brightness()` cannot do is rescue a *thin* panel in front of that
-   *    wall. At 0.34 brightness with 90px blur the backdrop is still
-   *    rgb(73,84,63), where muted text would have to be lighter than body text
-   *    to pass. That is why this material stays comparatively thick and why
-   *    .glass-clear is scoped to the decks bar, which sits over the dark floor.
-   *
-   *    Do not trust a sweep that samples from the panel's boundary. Early tuning
-   *    was distorted by exactly that: the border, the inset rim and the specular
-   *    sheen are all bright and all within ~3px of the edge, so once the fill got
-   *    thin enough they became the brightest thing measured, and the numbers
-   *    reported failure on a backdrop no glyph ever touches. tools/verify-glass
-   *    now insets past the padding, and the honest floors turned out to be
-   *    considerably thinner than the polluted sweep claimed.
-   * 2. SATURATION. Blur plus brightness over a dark scene turns the panel into
-   *    grey sludge. Pushing saturation back up is what keeps the navy and the
-   *    acid bleeding through as colour rather than noise.
-   * 3. Gloss belongs on the edge, and that is also where it is free. White added
-   *    across the *face* raises the luminance the text sits on and the gate
-   *    charges for it; a brighter border, rim and specular sweep cost nothing
-   *    measured, because the gate excludes the region no glyph can occupy. So the
-   *    edge treatment carries the gloss and the face stays clean.
+   * No SVG feDisplacementMap edge refraction, deliberately, even though that is
+   * the mechanism in the reference and `backdrop-filter: url(#…)` does work in
+   * Chromium. Safari does not support SVG filters in backdrop-filter, and Safari
+   * is where this site gets checked, so it would be an effect its owner never
+   * sees. The rim, the inner catches and the drop shadow carry it, everywhere.
    */
   .glass {
     position: relative;
     isolation: isolate;
-    background:
-      linear-gradient(
-        180deg,
-        rgba(255, 255, 255, 0.07) 0%,
-        rgba(255, 255, 255, 0.02) 40%,
-        rgba(255, 255, 255, 0) 100%
-      ),
-      rgba(7, 10, 18, 0.44);
-    backdrop-filter: blur(72px) saturate(190%) brightness(0.26);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    box-shadow:
-      /* Depth: cast well below the element so it reads as floating over the
-         room rather than pasted onto it. */
-      0 28px 70px -28px rgba(0, 0, 0, 0.8),
-      /* Rim light along the top inner edge, and a dark inner floor so the
-         bottom edge does not dissolve into the scene. */
-      inset 0 1px 0 rgba(255, 255, 255, 0.22),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.4);
-  }
-
-  /*
-   * The clear material: optically clear, not frosted. For the decks bar.
-   *
-   * Derived by measuring two references the owner supplied. The second one is
-   * unfiltered — the flowers behind it are pin-sharp and full-colour — and what
-   * sells it as glass is the edge, not the face: a bright specular rim plus
-   * refraction along the border. So there is no blur and no tint here at all.
-   *
-   * The counter-intuitive part, measured rather than assumed: removing the frost
-   * *improved* contrast. The worst backdrop behind the bar went from rgb(63,72,93)
-   * to rgb(52,63,88), and body text from 5.01:1 to 5.76:1. A blur pulls bright
-   * pixels in from neighbouring areas and a white fill adds luminance outright, so
-   * the frosting was costing legibility as well as transparency. Note that a
-   * faint white fill on top of clear measured 4.42:1 — under AA — which is why
-   * there is no fill, not even a subtle one.
-   *
-   * No SVG feDisplacementMap refraction, deliberately, even though it is the
-   * mechanism visible in the reference and `backdrop-filter: url(#…)` does work in
-   * Chromium. Safari does not support SVG filters in backdrop-filter, and Safari
-   * is what this site is being checked in, so it would be effort spent on an
-   * effect the owner would never see. The rim, the inner highlight and the drop
-   * shadow carry it instead, and those work everywhere.
-   *
-   * Legibility here depends on the bar being anchored over the dark floor. The
-   * gate measures it; if a future layout floats this material somewhere brighter,
-   * it needs .glass, not a thinner border.
-   */
-  .glass-clear {
     background: transparent;
-    backdrop-filter: none;
+    backdrop-filter: saturate(140%);
     /* Sub-pixel on purpose. On a 2x or 3x display this is a true hairline; at 1x
-       the browser antialiases it to a lighter line rather than dropping it, which
-       is the intended reading either way. */
+       the browser antialiases it to a lighter line rather than dropping it. */
     border: 0.5px solid rgba(255, 255, 255, 0.42);
     box-shadow:
       /* Depth, so it floats rather than being cut out of the scene. */
       0 20px 50px -20px rgba(0, 0, 0, 0.6),
       /* One hairline, not three. This edge previously stacked the border, a 1px
-         inset highlight and the .glass::before specular ring on top of each
-         other, which is why it read as a thick white outline rather than the rim
-         of a thin pane. The inset catches are now well under the border's weight,
-         so they shade it instead of doubling it. */
+         inset highlight and the ::before specular ring on top of each other,
+         which read as a thick white outline rather than the rim of a thin pane.
+         The inset catches now stay well under the border's weight. */
       inset 0 0.5px 0 rgba(255, 255, 255, 0.22),
       inset 0 -0.5px 0 rgba(255, 255, 255, 0.1),
       inset 0 0 28px rgba(255, 255, 255, 0.05);
   }
 
-  /* The shared specular sweep is a 1px ring, which on the clear material is a
-     third bright line at the same edge. Halve it and take the intensity down so
-     it modulates the border rather than competing with it. */
-  .glass-clear::before {
+  /*
+   * Content panels: the same pane, dimming its own backdrop.
+   *
+   * This is the whole difference between the decks bar and everything else, and
+   * it exists because of what is behind them rather than for variety. The bar is
+   * a thin strip anchored over the dark floor carrying three short strings. A
+   * content panel covers most of the viewport, is dense with 14px text, and sits
+   * in front of the hexagon light wall and the lit monitors — fully clear, the
+   * About heading measured 1.03:1 and Contact body text 1.09:1. That is
+   * invisible text, not marginal.
+   *
+   * 0.16 is derived, not tuned by eye. Over a white monitor the backdrop is 255;
+   * muted text needs it at or below ~49/255 to clear 4.5:1, which is a multiplier
+   * just under 0.2. It sits a little under that because the room drifts: repeat
+   * runs of the gate on an identical build vary by ~2%, so a value that merely
+   * scrapes past 4.5:1 would fail intermittently. Note this dims *only* what is
+   * behind the pane, so the rest of the room stays at full brightness — there is
+   * no full-screen scrim any more.
+   *
+   * Critically it does not blur. Shapes behind stay sharp, so this still reads as
+   * the same glass as the bar, just deeper smoked. Adding blur here would break
+   * that family resemblance and, per the note above, cost contrast as well.
+   */
+  .glass-dim {
+    backdrop-filter: saturate(140%) brightness(0.16);
+  }
+
+  /* The specular sweep: a half-pixel ring that modulates the border rather than
+     competing with it. Brightest just off-centre so the light reads as coming
+     from somewhere. */
+  .glass::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
     padding: 0.5px 0.5px 0;
     background: linear-gradient(
       100deg,
@@ -215,29 +177,12 @@
       rgba(255, 255, 255, 0.04) 52%,
       transparent 68%
     );
-  }
-
-  /* The specular sweep. Brightest just off-centre rather than dead centre, so
-     the light reads as coming from somewhere. */
-  .glass::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    padding: 1px 1px 0;
-    background: linear-gradient(
-      100deg,
-      transparent 0%,
-      rgba(255, 255, 255, 0.42) 34%,
-      rgba(255, 255, 255, 0.06) 52%,
-      transparent 68%
-    );
     /* No hand-written -webkit- prefixes anywhere in this file. Lightning CSS
        autoprefixes from the build's browser targets, and it treats the -webkit-
        form as an alias of the standard property — so writing both collapses them
        to whichever came last. Writing the prefix second here shipped a rule with
        *only* -webkit-backdrop-filter, which current Chromium does not recognise,
-       and the blur silently disappeared while every other glass property worked. */
+       and the panels rendered translucent but completely unblurred. */
     mask:
       linear-gradient(#000 0 0) content-box,
       linear-gradient(#000 0 0);
@@ -246,36 +191,26 @@
   }
 
   /* A surface that sits *on* glass. Solid fills defeat the material: an opaque
-     card covering most of a glass panel means the blur is doing nothing anyone
-     can see. These read as depth through a faint tint and a divider instead. */
+     card covering most of a panel means the pane is doing nothing anyone can
+     see. These read as depth through a faint tint and a divider instead. */
   .on-glass {
     background: rgba(255, 255, 255, 0.035);
   }
 
-  /* No backdrop-filter: fall back to a nearly opaque fill rather than shipping
-     a transparent panel with unreadable text over a moving scene. */
+  /* Without backdrop-filter there is no dimming to be had, and this material
+     carries no fill of its own, so text would sit directly on a sharp lit room.
+     It needs a real background rather than a thinner one. */
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
     .glass {
-      background: rgba(7, 10, 18, 0.95);
-    }
-    /* This one matters most. .glass-clear carries no dark fill at all — only
-       white gradients — so without backdrop-filter its text would sit directly
-       on a sharp lit room. It needs a real background, not a thinner one. */
-    .glass-clear {
       background: rgba(7, 10, 18, 0.95);
     }
   }
 
   /* Some people get motion sickness or simply cannot parse text over texture.
-     This is an explicit request for opacity, so honour it completely: no blur,
-     no translucency, no sheen. */
+     This is an explicit request for opacity, so honour it completely: no
+     translucency, no sheen. */
   @media (prefers-reduced-transparency: reduce) {
     .glass {
-      background: var(--color-void);
-      backdrop-filter: none;
-      border-color: var(--color-hair);
-    }
-    .glass-clear {
       background: var(--color-void);
       backdrop-filter: none;
       border-color: var(--color-hair);

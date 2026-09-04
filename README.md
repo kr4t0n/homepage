@@ -126,48 +126,44 @@ Both exit non-zero on failure. `verify-hotspots.mjs` likewise serves `dist/`.
 
 ## The glass panels
 
-Panels use a frosted-glass surface, `.glass` in `src/index.css`. Being accurate
-about what that is: Apple documents Liquid Glass for Apple platforms and there is
-no official web implementation, so this is an approximation built from backdrop
-blur, layered translucency, a specular edge and a depth shadow. It will not match
-Apple's material pixel for pixel.
+Panels use `.glass` in `src/index.css`. Being accurate about what that is: Apple
+documents Liquid Glass for Apple platforms and there is no official web
+implementation, so this is an approximation — an unfiltered pane, a hairline
+specular edge and a depth shadow. It will not match Apple's material pixel for
+pixel.
 
-There are two materials, and they are different in kind rather than degree.
+There is **one** material, `.glass`, and one modifier, `.glass-dim`.
 
-`.glass` is the content panels: a frosted, dark-tinted surface that dims its
-backdrop via `brightness()`. `.glass-clear` is the decks bar: **optically clear**
-— no blur, no tint, no fill. The room passes through it sharp and unmodified, and
-the edge does all the work via a bright rim, an inner highlight and a drop shadow.
+The base is optically clear: no blur, no tint, no fill. The room passes through
+sharp and unmodified and the edge does the work — a sub-pixel hairline border,
+two faint inset catches and a drop shadow. The decks bar uses it as-is.
+
+`.glass-dim` changes exactly one thing: it dims the panel's own backdrop, and
+nothing else. Content panels use it. They still do not blur, so shapes behind
+them stay sharp and they read as the same pane, just deeper smoked.
+
+The split is forced by what sits behind each panel, not by taste. The bar is a
+thin strip anchored over the dark floor carrying three short strings. A content
+panel covers most of the viewport, is dense with 14px text, and sits in front of
+the hexagon light wall and the lit monitors — fully clear, the About heading
+measured 1.03:1 and Contact body 1.09:1, which is invisible text rather than
+marginal. The 0.16 multiplier is derived: over a white monitor the backdrop is
+255 and muted text needs it at or below ~49/255, a little margin included because
+repeat gate runs on an identical build vary by ~2% as the room drifts.
 
 Removing the frost *improved* contrast, which is worth knowing before anyone adds
 it back. Behind the bar the worst backdrop went from rgb(63,72,93) frosted to
 rgb(52,63,88) clear, and body text from 5.01:1 to 5.76:1: a blur pulls bright
 pixels in from neighbouring areas and a white fill adds luminance outright. A
-faint white fill over clear measured 4.42:1, under AA — so there is no fill at
-all, not even a subtle one.
+faint white fill over clear measured 4.42:1, under AA, so there is no fill at all.
 
-Clear is only affordable on the bar because the bar is anchored over the dark
-floor. In front of the hexagon light wall the same treatment puts muted text at
-3.2:1, which is why content panels keep the frosted material.
+There is no full-screen scrim any more. `brightness()` inside `backdrop-filter`
+dims only what is behind the pane, so the room stays at full brightness around it.
 
 No SVG `feDisplacementMap` edge refraction, though that is the mechanism visible
 in the reference and `backdrop-filter: url(#…)` does work in Chromium: Safari does
 not support SVG filters in `backdrop-filter`, and Safari is the browser this site
 gets checked in, so it would be an effect its owner never sees.
-
-**The values are tuned together against measurement and must not be moved
-independently:** the scrim opacity in `Panel.tsx`, the fill and `brightness()` in
-each material, and `--color-mute`. Translucency over this room fails WCAG AA by
-default — the blur averages whole glowing surfaces, and in front of the hexagon
-wall body text measured 2.22:1 undimmed.
-
-The thing that makes thin glass possible is `brightness()` **inside**
-`backdrop-filter`. It dims only what sits behind the pane, so the room stays lit
-while text gets contrast locally. An earlier version darkened the whole scene
-with a heavy scrim instead: it passed AA and looked wrong, because the room went
-flat and the panels stopped reading as panes over anything. Moving the dimming
-into the material dropped the scrim from 0.78 to 0.15 and the fill from 0.75 to
-0.44 while measuring *better* than before.
 
 `node tools/verify-glass.mjs` is the gate. Per panel it reads the computed colour
 and size of every piece of visible text, hides the contents so only the composited

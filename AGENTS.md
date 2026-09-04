@@ -161,18 +161,26 @@ ignores it; gloss across the *face* is charged for.
 bright surface.** At 0.34 brightness with 90px blur the backdrop behind the Work
 panel is still rgb(73,84,63), where muted text would have to be *lighter than
 body text* to reach AA. This is why there are two materials: `.glass` for content
-and `.glass-clear` for the decks bar, which is anchored over the dark floor and so
-gets away with a light fill and no darkening at all. If a future panel is
-positioned in front of the light wall, it needs the thick material, not a tweak.
+There is now one material, `.glass`, plus a `.glass-dim` modifier that only
+changes how far a panel dims its own backdrop. The decks bar is undimmed because
+it is anchored over the dark floor; content panels are dimmed because they sit in
+front of the light wall and the monitors. A new panel in front of something bright
+needs `.glass-dim`, not a tweak to the base.
 
-**Two materials differ in kind, not degree.** `.glass` darkens its backdrop;
-`.glass-clear` lightens it. The second came from measuring a supplied reference,
-which transmitted 182-432% of its backdrop luminance across its own edge — it is
-a white frosted fill, not a tint. Three rounds were spent making dark glass
-thinner, which never reads as glass no matter how thin, because the direction was
-wrong. Also note that reference fails AA where a bright object shows through
-(white text at 1.43:1) and survives on composition alone; that is not available
-here, because the camera moves.
+**Blur is what stopped it reading as glass, not opacity.** Several rounds went
+into making a frosted panel thinner, which never worked, because a thin frosted
+pane is still frosted. Measuring the supplied references settled it: both are
+unfiltered, their backdrops pin-sharp through the glass. Removing the blur also
+*improved* contrast — it pulls bright pixels in from neighbouring areas — so the
+frosting was costing legibility and transparency at once. Do not reintroduce a
+blur to "soften" a panel; dim it with `.glass-dim` instead, which keeps shapes
+sharp and keeps every panel in the same family.
+
+**Neither reference meets AA, and that is why they look the way they do.** The
+first puts white text at 1.43:1 where a bright object shows through; the second
+carries no text at all, only glyphs. Both survive on composition — text placed
+over dark areas — which is not available here because the camera moves and the
+light wall can end up behind anything.
 
 **Scrim opacity differs by panel kind for a task reason, not an arithmetic one.**
 Content panels dim harder (you are reading, and the Work panel needs it to clear

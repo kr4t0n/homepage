@@ -456,7 +456,7 @@ export function Panel() {
       ref={scrimRef}
       data-scrim
       aria-hidden
-      className={`pointer-events-none fixed inset-0 z-10 ${compact ? 'bg-void/0' : 'bg-void/15'}`}
+      className={`pointer-events-none fixed inset-0 z-10 ${compact ? 'bg-void/0' : 'bg-void/0'}`}
     />
   )
 
@@ -471,7 +471,7 @@ export function Panel() {
           role="dialog"
           aria-modal="false"
           aria-label={spot.label}
-          className="glass glass-clear pointer-events-auto fixed inset-x-0 bottom-6 z-30 mx-auto flex w-[calc(100%-3rem)] max-w-[540px] items-center gap-4 rounded-[22px] p-4"
+          className="glass pointer-events-auto fixed inset-x-0 bottom-6 z-30 mx-auto flex w-[calc(100%-3rem)] max-w-[540px] items-center gap-4 rounded-[22px] p-4"
         >
           <Body />
           <button
@@ -495,7 +495,7 @@ export function Panel() {
         role="dialog"
         aria-modal="false"
         aria-label={spot.label}
-        className="glass pointer-events-auto fixed inset-x-0 bottom-0 z-30 mx-auto flex max-h-[68dvh] w-full max-w-[820px] flex-col rounded-t-[22px] sm:inset-x-6 sm:bottom-6 sm:rounded-[22px] lg:max-w-[880px]"
+        className="glass glass-dim pointer-events-auto fixed inset-x-0 bottom-0 z-30 mx-auto flex max-h-[68dvh] w-full max-w-[820px] flex-col rounded-t-[22px] sm:inset-x-6 sm:bottom-6 sm:rounded-[22px] lg:max-w-[880px]"
       >
         {/* The scroll lives on this inner element, not the glass one. An
             absolutely-positioned sheen inside a scroll container scrolls with the
