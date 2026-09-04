@@ -105,8 +105,13 @@
    * transparency. A faint white fill over clear measured 4.42:1, under AA, which
    * is why there is no fill at all.
    *
-   * Panels differ only in how far they dim their own backdrop — see .glass-dim.
-   * Nothing else changes between them, so they read as one material.
+   * Every panel uses this and nothing else — there is no dim modifier and no
+   * per-panel variant. An earlier version dimmed the content panels' own
+   * backdrops via brightness(0.16) so their text would clear WCAG AA in front of
+   * the lit monitors and the hexagon wall. That was dropped deliberately, by the
+   * owner, after looking at both in a real browser: the crystal-clear render is
+   * the point of the design. The cost is recorded, with measured numbers, in
+   * tools/verify-glass.mjs — read that before assuming the panels are fine.
    *
    * No SVG feDisplacementMap edge refraction, deliberately, even though that is
    * the mechanism in the reference and `backdrop-filter: url(#…)` does work in
@@ -132,33 +137,6 @@
       inset 0 0.5px 0 rgba(255, 255, 255, 0.22),
       inset 0 -0.5px 0 rgba(255, 255, 255, 0.1),
       inset 0 0 28px rgba(255, 255, 255, 0.05);
-  }
-
-  /*
-   * Content panels: the same pane, dimming its own backdrop.
-   *
-   * This is the whole difference between the decks bar and everything else, and
-   * it exists because of what is behind them rather than for variety. The bar is
-   * a thin strip anchored over the dark floor carrying three short strings. A
-   * content panel covers most of the viewport, is dense with 14px text, and sits
-   * in front of the hexagon light wall and the lit monitors — fully clear, the
-   * About heading measured 1.03:1 and Contact body text 1.09:1. That is
-   * invisible text, not marginal.
-   *
-   * 0.16 is derived, not tuned by eye. Over a white monitor the backdrop is 255;
-   * muted text needs it at or below ~49/255 to clear 4.5:1, which is a multiplier
-   * just under 0.2. It sits a little under that because the room drifts: repeat
-   * runs of the gate on an identical build vary by ~2%, so a value that merely
-   * scrapes past 4.5:1 would fail intermittently. Note this dims *only* what is
-   * behind the pane, so the rest of the room stays at full brightness — there is
-   * no full-screen scrim any more.
-   *
-   * Critically it does not blur. Shapes behind stay sharp, so this still reads as
-   * the same glass as the bar, just deeper smoked. Adding blur here would break
-   * that family resemblance and, per the note above, cost contrast as well.
-   */
-  .glass-dim {
-    backdrop-filter: saturate(140%) brightness(0.16);
   }
 
   /* The specular sweep: a half-pixel ring that modulates the border rather than

@@ -141,6 +141,17 @@ emitted later it won. The panel silently detached from `bottom-6` and rendered a
 the top of the viewport. In `components`, utilities on the element always win,
 which is the correct precedence for a base style anyway.
 
+**Six panels ship under WCAG AA on purpose, and the gate encodes that as a
+waiver rather than going permanently red.** Clear glass in front of the lit
+monitors leaves 14px muted text at 1.03:1 to 2.89:1. Dimming each panel's own
+backdrop with `brightness(0.16)` cleared AA everywhere at a tightest 5.17:1, but
+read as smoked rather than clear; the owner compared both in a real browser and
+chose the clear render. `ACCEPTED` in `tools/verify-glass.mjs` holds the measured
+ratio per panel, so the gate still fails on a regression, on any panel outside the
+list, and on a stale waiver whose panel now passes. Do not silently widen those
+numbers to make a run go green — the fix is to reframe the camera over a darker
+part of the room, which is why the decks bar passes outright at 5.55:1.
+
 **Translucent panels over this room fail WCAG AA by default, and the failure is
 invisible from a screenshot of the closed page.** The blur averages whole glowing
 surfaces, not pixels: in front of the hexagon light wall the backdrop behind the

@@ -84,7 +84,38 @@ const contrast = (fg, bg) => {
 /** WCAG 1.4.3: 3:1 for large text, 4.5:1 otherwise. */
 const threshold = (px, weight) => (px >= 24 || (px >= 18.66 && weight >= 700) ? 3 : 4.5)
 
+/**
+ * Panels knowingly shipping under WCAG AA, with the ratio measured when the
+ * decision was made.
+ *
+ * This is a waiver, not a pass. The owner chose crystal-clear glass over
+ * contrast after viewing both in a real browser: content panels sit in front of
+ * the lit monitors and the hexagon wall, and clear glass there puts 14px muted
+ * text between 1.03:1 and 2.89:1 against a 4.5:1 requirement. That is a real
+ * accessibility cost, taken deliberately and with the numbers in hand.
+ *
+ * The gate still earns its keep. A panel listed here fails if it gets
+ * *worse* than its baseline, a panel not listed here must clear AA outright, and
+ * a newly added panel cannot land under the bar unnoticed. Tolerance is 15%,
+ * comfortably wider than the ~2% run-to-run variation from the room's idle
+ * drift, so this does not flap.
+ *
+ * The route back to a clean pass is the camera, not the CSS: reframe these
+ * hotspots over darker parts of the room, the way the decks bar already is, and
+ * clear glass becomes affordable. Delete an entry the moment its panel passes.
+ */
+const ACCEPTED = {
+  about: 1.03,
+  contact: 1.09,
+  signals: 1.57,
+  writing: 1.64,
+  music: 1.78,
+  cv: 2.89,
+}
+const TOLERANCE = 0.85
+
 const fails = []
+const waived = []
 const rows = []
 
 for (const id of PANELS) {
@@ -213,6 +244,8 @@ for (const id of PANELS) {
   // Step 3: judge each colour that is actually used.
   let worstRatio = Infinity
   let culprit = null
+  let tightest = Infinity
+  const under = []
   for (const s of specs) {
     const m = s.color.match(/(\d+(?:\.\d+)?)/g)
     if (!m) continue
@@ -224,16 +257,34 @@ for (const id of PANELS) {
     const r = contrast(rgb, against)
     const need = threshold(s.px, s.weight)
     if (r < need) {
-      fails.push(
+      under.push(
         `${id}: ${s.color} at ${Math.round(s.px)}px on ${s.bg ? `opaque rgb(${s.bg.join(',')})` : 'glass'}` +
           ` needs ${need}:1, measured ${r.toFixed(2)}:1  ("${s.sample}")`,
       )
+      if (r < tightest) tightest = r
     }
     const slack = r / need
     if (slack < worstRatio) {
       worstRatio = slack
       culprit = { ...s, r, need }
     }
+  }
+
+  const baseline = ACCEPTED[id]
+  if (under.length === 0) {
+    // A waived panel that now passes: the waiver is stale and should go.
+    if (baseline !== undefined) {
+      fails.push(`${id}: now clears AA — delete its ACCEPTED entry (was ${baseline}:1)`)
+    }
+  } else if (baseline === undefined) {
+    fails.push(...under)
+  } else if (tightest < baseline * TOLERANCE) {
+    fails.push(
+      `${id}: REGRESSED past its accepted baseline — was ${baseline}:1, now ${tightest.toFixed(2)}:1`,
+      ...under,
+    )
+  } else {
+    waived.push(`${id}: ${under.length} run(s) under AA, tightest ${tightest.toFixed(2)}:1 (accepted ${baseline}:1)`)
   }
 
   rows.push({ id, worst, specs: specs.length, culprit })
@@ -255,11 +306,18 @@ for (const r of rows) {
 await browser.close()
 server.close()
 
+if (waived.length) {
+  console.log(`\n${waived.length} panel(s) knowingly under AA — see ACCEPTED in this file:`)
+  for (const w of waived) console.log(`  ${w}`)
+}
+
 if (fails.length) {
   console.log(`\n${fails.length} FAILED:`)
   for (const f of fails) console.log(`  ${f}`)
-  console.log(`\nThe scrim, each material's fill and brightness(), and the text`)
-  console.log(`colours are tuned together. Changing one means re-running this.`)
+  console.log(`\nEither a panel got worse than its accepted baseline, or one that`)
+  console.log(`was passing stopped. Clear glass is unforgiving of what sits behind it.`)
+} else if (waived.length) {
+  console.log(`\nno regressions; the accepted deviations above are unchanged`)
 } else {
   console.log(`\nevery text colour on every panel clears WCAG AA at its worst backdrop`)
 }

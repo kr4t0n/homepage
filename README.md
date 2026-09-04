@@ -132,33 +132,33 @@ implementation, so this is an approximation — an unfiltered pane, a hairline
 specular edge and a depth shadow. It will not match Apple's material pixel for
 pixel.
 
-There is **one** material, `.glass`, and one modifier, `.glass-dim`.
+There is **one** material, `.glass`, used by every panel with no modifier and no
+per-panel variant. It is optically clear: no blur, no tint, no fill. The room
+passes through sharp and unmodified, and the edge does the work — a sub-pixel
+hairline border, two faint inset catches and a drop shadow.
 
-The base is optically clear: no blur, no tint, no fill. The room passes through
-sharp and unmodified and the edge does the work — a sub-pixel hairline border,
-two faint inset catches and a drop shadow. The decks bar uses it as-is.
+**Six panels knowingly ship under WCAG AA, and that was a deliberate choice.**
+Content panels sit in front of the lit monitors and the hexagon light wall, and
+clear glass there leaves 14px muted text between 1.03:1 and 2.89:1 against a
+4.5:1 requirement. An earlier version dimmed each panel's own backdrop with
+`brightness(0.16)`, which cleared AA everywhere at a tightest 5.17:1, but read as
+smoked rather than clear. The owner compared both in a real browser and chose the
+clear render. The decks bar is the one panel that passes outright, at 5.55:1,
+because it is anchored over the dark floor rather than in front of anything lit.
 
-`.glass-dim` changes exactly one thing: it dims the panel's own backdrop, and
-nothing else. Content panels use it. They still do not blur, so shapes behind
-them stay sharp and they read as the same pane, just deeper smoked.
-
-The split is forced by what sits behind each panel, not by taste. The bar is a
-thin strip anchored over the dark floor carrying three short strings. A content
-panel covers most of the viewport, is dense with 14px text, and sits in front of
-the hexagon light wall and the lit monitors — fully clear, the About heading
-measured 1.03:1 and Contact body 1.09:1, which is invisible text rather than
-marginal. The 0.16 multiplier is derived: over a white monitor the backdrop is
-255 and muted text needs it at or below ~49/255, a little margin included because
-repeat gate runs on an identical build vary by ~2% as the room drifts.
+The measured cost is recorded in `ACCEPTED` in `tools/verify-glass.mjs` rather
+than being left implicit. **The route back to a clean pass is the camera, not the
+CSS:** reframe those hotspots over darker parts of the room, the way the bar
+already is, and clear glass becomes affordable at no legibility cost.
 
 Removing the frost *improved* contrast, which is worth knowing before anyone adds
 it back. Behind the bar the worst backdrop went from rgb(63,72,93) frosted to
 rgb(52,63,88) clear, and body text from 5.01:1 to 5.76:1: a blur pulls bright
 pixels in from neighbouring areas and a white fill adds luminance outright. A
-faint white fill over clear measured 4.42:1, under AA, so there is no fill at all.
+faint white fill over clear measured 4.42:1, so there is no fill at all.
 
-There is no full-screen scrim any more. `brightness()` inside `backdrop-filter`
-dims only what is behind the pane, so the room stays at full brightness around it.
+There is no full-screen scrim. `brightness()` inside `backdrop-filter` only ever
+dimmed what was behind a pane, never the room around it.
 
 No SVG `feDisplacementMap` edge refraction, though that is the mechanism visible
 in the reference and `backdrop-filter: url(#…)` does work in Chromium: Safari does
