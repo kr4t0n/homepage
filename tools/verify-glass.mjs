@@ -69,7 +69,7 @@ const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
  * included even though it is `unverified` and hidden from the room, because it
  * is still reachable by URL and so still has to be legible.
  */
-const PANELS = ['work', 'music', 'player', 'writing', 'about', 'cv', 'contact', 'signals']
+const PANELS = ['music', 'player', 'writing', 'about', 'cv', 'contact', 'signals']
 
 const lin = (c) => {
   const v = c / 255

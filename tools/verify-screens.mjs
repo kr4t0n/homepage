@@ -166,13 +166,23 @@ for (const [id, href] of LINKED) {
 await page.goto(BASE, { waitUntil: 'networkidle' })
 await page.waitForTimeout(2400)
 
-// The Work panel must still be reachable from the nav.
-await page.click('nav[aria-label="Places in the room"] button:nth-child(1)')
-await page.waitForTimeout(1800)
-check(page.url().includes('#/work'), 'Work is still reachable from the nav')
+// The Work panel used to be asserted here, as the only keyboard route to the
+// project links. It has been removed — the monitors carry those projects and are
+// the real presentation — so what has to hold now is that the links did not
+// vanish with it. The monitors are raycast targets with no tabIndex, so About
+// carries them for anyone not using a pointer.
+await page.goto(`${BASE}/#/about`, { waitUntil: 'networkidle' })
+await page.waitForTimeout(2200)
+const links = await page.evaluate(() =>
+  [...document.querySelectorAll('[role="dialog"] a')].map((a) => a.getAttribute('href')),
+)
 check(
-  (await page.locator('[role="dialog"]').count()) === 1,
-  'Work still opens its panel',
+  links.some((h) => h?.includes('kr4t0n.github.io/argus')),
+  `Argus stays reachable without a pointer (${links.length} links in About)`,
+)
+check(
+  links.some((h) => h?.includes('nodex.kubitnodes.com')),
+  'nodex stays reachable without a pointer',
 )
 
 if (errors.length) console.log(`\nERRORS:\n${[...new Set(errors)].join('\n')}`)

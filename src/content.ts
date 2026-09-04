@@ -6,7 +6,7 @@
  * pointing it at a node that exists in `scene-manifest.json`.
  */
 
-export type PanelKind = 'projects' | 'music' | 'player' | 'stats' | 'writing' | 'about' | 'cv' | 'contact'
+export type PanelKind = 'music' | 'player' | 'stats' | 'writing' | 'about' | 'cv' | 'contact'
 
 export interface Project {
   name: string
@@ -19,7 +19,7 @@ export interface Project {
 }
 
 export interface Hotspot {
-  /** URL fragment, e.g. #/work */
+  /** URL fragment, e.g. #/about */
   id: string
   /** Mesh node inside room.glb. Must match a key in scene-manifest.json. */
   node: string
@@ -43,21 +43,22 @@ export interface Hotspot {
    * prop; the panel is still reachable from the nav and the 2D fallback.
    */
   unverified?: boolean
-  /**
-   * In the nav but not clickable in the room, because the object it names has
-   * its own richer interaction. The monitors are the case: clicking one focuses
-   * that screen rather than opening a panel, but Work still needs a nav entry,
-   * since it is the only keyboard route to the Argus and nodex links.
-   */
-  navOnly?: boolean
 }
 
 /** Hotspots offered in the nav and the 2D fallback. */
 export const ROOM_HOTSPOTS = () => HOTSPOTS.filter((h) => !h.unverified)
 
-/** Hotspots a click in the 3D room can resolve to. */
-export const PICKABLE_HOTSPOTS = () =>
-  HOTSPOTS.filter((h) => !h.unverified && !h.navOnly)
+/**
+ * Hotspots a click in the 3D room can resolve to.
+ *
+ * Identical to ROOM_HOTSPOTS now. It used to also exclude `navOnly` entries,
+ * which existed for exactly one hotspot: Work, whose object is the monitors, and
+ * the monitors have their own two-stage interaction. Work is gone — the projects
+ * it listed are on the monitors and linked from About — so the flag went with
+ * it. Kept as a separate export because the distinction is real and the next
+ * object with its own interaction will need it back.
+ */
+export const PICKABLE_HOTSPOTS = () => HOTSPOTS.filter((h) => !h.unverified)
 
 export const PROFILE = {
   handle: 'kr4t0n',
@@ -122,19 +123,6 @@ export const PROJECTS: Project[] = [
  * frame, since the content panel occupies the lower half.
  */
 export const HOTSPOTS: Hotspot[] = [
-  {
-    id: 'work',
-    node: 'hot_screens',
-    label: 'Work',
-    hint: 'Argus and nodex',
-    kind: 'projects',
-    offset: [1.1, 1.5, 4.2],
-    look: [0, 0.15, 0],
-    // The monitors have their own interaction, so a click in the room focuses a
-    // screen instead of opening this. Kept in the nav because it is the only
-    // keyboard-reachable route to the project links.
-    navOnly: true,
-  },
   {
     id: 'music',
     // The synth, not the DJ controller. Both region names in the exporter used

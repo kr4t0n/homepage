@@ -293,6 +293,12 @@ verification script to confirm it highlights the object you expect. A hotspot
 marked `unverified: true` is excluded from the 3D room but still renders in the
 2D fallback.
 
+There is no Work panel. The two projects it listed are on the monitors — click
+the left one for nodex, the centre one for Argus — which is the presentation that
+was wanted, so a panel repeating it was redundant. `PROJECTS` still drives the 2D
+fallback, and About links both by name, because the monitors are raycast targets
+with no `tabIndex` and would otherwise be unreachable without a pointer.
+
 ## Deployment
 
 Pushing to `main` builds and publishes to GitHub Pages via

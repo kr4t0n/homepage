@@ -21,60 +21,28 @@ function Pending({ what }: { what: string }) {
   )
 }
 
-function Projects() {
+/**
+ * Links a project mention by name, degrading to plain text if that project is
+ * ever removed from content.ts.
+ *
+ * These exist because the Work panel is gone. Its body was the only
+ * keyboard-reachable route to the project links: the monitors carry them in the
+ * room, but they are raycast targets with no tabIndex, so a keyboard user cannot
+ * reach them. About already named both projects in prose, so turning those
+ * mentions into links restores the route without inventing any copy.
+ */
+function ProjectLink({ name }: { name: string }) {
+  const p = PROJECTS.find((x) => x.name === name)
+  if (!p) return <>{name}</>
   return (
-    /* One translucent container with hairline rules between entries, rather
-       than the old opaque cards on a hairline background. Solid cards covering
-       most of a glass panel meant the blur was doing work nobody could see. */
-    <div className="hairline on-glass overflow-hidden rounded-[14px] border">
-      {PROJECTS.map((p, i) => (
-        <article
-          key={p.name}
-          className={`p-6 sm:p-8 ${i > 0 ? 'border-t border-hair' : ''}`}
-        >
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h3 className="text-2xl tracking-tight text-bright">{p.name}</h3>
-            <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-acid">
-              {p.status === 'live' ? 'Live' : 'In design'}
-            </span>
-          </div>
-          <p className="mt-1 text-body">{p.tagline}</p>
-          <p className="mt-4 max-w-[62ch] text-sm leading-relaxed text-mute">{p.body}</p>
-          <div className="mt-5 flex flex-wrap gap-2">
-            {p.stack.map((s) => (
-              <span
-                key={s}
-                className="hairline rounded-full border px-2.5 py-1 font-mono text-[10.5px] text-mute"
-              >
-                {s}
-              </span>
-            ))}
-          </div>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <a
-              href={p.href}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="inline-flex items-center gap-1.5 rounded-full bg-acid px-4 py-2 text-sm font-medium text-void transition-transform active:scale-[0.98]"
-            >
-              Open {p.name}
-              <ArrowUpRight size={15} weight="bold" />
-            </a>
-            {p.repo && (
-              <a
-                href={p.repo}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="hairline inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm text-body transition-transform active:scale-[0.98] hover:text-bright"
-              >
-                Source
-                <ArrowUpRight size={15} />
-              </a>
-            )}
-          </div>
-        </article>
-      ))}
-    </div>
+    <a
+      href={p.href}
+      target="_blank"
+      rel="noreferrer noopener"
+      className="text-body underline decoration-hair underline-offset-4 hover:text-bright"
+    >
+      {name}
+    </a>
   )
 }
 
@@ -351,9 +319,10 @@ function About() {
         not have a window into.
       </p>
       <p className="max-w-[58ch] text-mute">
-        Argus came out of that problem. nodex came out of a different
-        frustration, that component libraries organise by framework when what
-        you actually pick by is design language.
+        <ProjectLink name="Argus" /> came out of that problem.{' '}
+        <ProjectLink name="nodex" /> came out of a different frustration, that
+        component libraries organise by framework when what you actually pick by
+        is design language.
       </p>
       <p className="max-w-[58ch] text-mute">
         The rest of the room is accurate. The keys get more use than the guitar.
@@ -363,7 +332,6 @@ function About() {
 }
 
 const BODY: Record<string, () => React.ReactElement> = {
-  projects: Projects,
   music: Keys,
   player: Player,
   contact: Contact,

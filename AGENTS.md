@@ -72,6 +72,15 @@ user's orbit to zero so the panel gets its authored framing, but `homeView`
 records their offsets first and the return flight restores them. Closing a panel
 must not silently throw away the view someone set up.
 
+**A 3D object is not a keyboard target.** The monitors are raycast hit tests with
+no `tabIndex`, no `<button>` and no `onKeyDown`, so nothing about them is
+reachable without a pointer. That is why the Work panel existed at all — it was
+`navOnly` and carried the only tabbable route to the Argus and nodex links. When
+it was removed as redundant with the monitors, those links moved into About
+rather than disappearing, and `verify-screens.mjs` now asserts they are present
+there. Any future content that lives only on a 3D object needs the same
+treatment.
+
 **Hotspot geometry is grouped, not per-object.** The exporter joins objects into
 one mesh per semantic group so raycasting touches ~13 meshes instead of 193.
 
