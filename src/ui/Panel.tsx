@@ -6,6 +6,8 @@ import { PROFILE, PROJECTS, TRACK, hotspotById, type PanelKind } from '../conten
 import { useScene } from '../store'
 import { NOTES, playNote, unlockAudio } from '../audio/synth'
 import { duckTrack, usePlayer } from '../audio/player'
+import { usePixels } from '../pixels/usePixels'
+import { colourFor, PALETTE_SIZE } from '../pixels/palette'
 
 gsap.registerPlugin(useGSAP)
 
@@ -43,6 +45,72 @@ function ProjectLink({ name }: { name: string }) {
     >
       {name}
     </a>
+  )
+}
+
+/**
+ * Legend for the wall board.
+ *
+ * There are no project names to show: Argus returns opaque hashes on purpose,
+ * with no paths or labels in the payload. So this reports what the board can
+ * honestly say — rank, colour, and hours won — and leaves naming to whoever
+ * wants to add a key->label map here later.
+ */
+function Signals() {
+  const data = usePixels((s) => s.data)
+  const settled = usePixels((s) => s.settled)
+  const error = usePixels((s) => s.error)
+
+  if (!data) {
+    return (
+      <Pending
+        what={
+          settled
+            ? `The board is unlit: ${error ?? 'no data'}. It lights itself when Argus answers again.`
+            : 'Reading six weeks of agent activity from Argus.'
+        }
+      />
+    )
+  }
+
+  const lit = data.winners.filter((w) => w !== null).length
+  const hours = (s: number) => `${Math.round(s / 3600)}h`
+
+  return (
+    <div className="space-y-5">
+      <p className="max-w-[58ch] text-body">
+        Every hour of the last six weeks, coloured by whichever project owned it
+        and lit by how busy it was.{' '}
+        <span className="text-bright">{lit}</span> of {data.slotCount} hours had
+        something running.
+        {data.live.length > 0 && (
+          <span className="text-acid"> Something is running right now.</span>
+        )}
+      </p>
+
+      <ul className="grid gap-2 sm:grid-cols-2">
+        {data.projects.slice(0, PALETTE_SIZE).map((p, i) => (
+          <li key={p.key} className="flex items-center gap-2.5">
+            <span
+              aria-hidden
+              className="size-3 shrink-0 rounded-[3px]"
+              style={{ background: colourFor(i).getStyle() }}
+            />
+            <span className="font-mono text-[11px] text-mute">{p.key}</span>
+            <span className="ml-auto font-mono text-[11px] tabular-nums text-body">
+              {hours(p.wonSeconds)}
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      {data.projects.length > PALETTE_SIZE && (
+        <p className="text-sm text-mute">
+          {data.projects.length - PALETTE_SIZE} smaller projects share one grey.
+          Six colours is as many as stay apart at this pixel size.
+        </p>
+      )}
+    </div>
   )
 }
 
@@ -336,9 +404,7 @@ const BODY: Record<string, () => React.ReactElement> = {
   player: Player,
   contact: Contact,
   about: About,
-  stats: () => (
-    <Pending what="A live board for agent token usage from Argus, plus GitHub activity. Wiring it up once the Argus metrics endpoint is public." />
-  ),
+  stats: Signals,
   writing: () => (
     <Pending what="Notes and longer pieces on agent tooling and evaluation. First few are drafted." />
   ),

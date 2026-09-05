@@ -189,7 +189,6 @@ export const HOTSPOTS: Hotspot[] = [
     // columns. The upward push comes from `look` alone.
     offset: [3.2, 0, 0],
     look: [0, -0.3, 0],
-    placeholder: true,
   },
   {
     id: 'writing',

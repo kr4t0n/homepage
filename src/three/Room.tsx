@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useGLTF } from '@react-three/drei'
 import { type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
 import { HOTSPOTS, PICKABLE_HOTSPOTS, ROOM_HOTSPOTS } from '../content'
 import { useScene } from '../store'
 import { HIGHLIGHT, highlight } from './highlight'
+import { baseline, clearBaselines, setBaseline } from './materials'
 import { orbit } from './orbit'
+import { PixelBoard } from './PixelBoard'
 
 const GLB = '/room.glb'
 
@@ -31,11 +33,13 @@ export function Room() {
     return m
   }, [])
 
-  /** Original emissive + intensity per material, so hover is reversible. */
-  const baseline = useRef(new Map<THREE.Material, { color: THREE.Color; intensity: number }>())
-
+  // The emissive baseline lives in ./materials rather than here, because the
+  // pixel board also writes emissive and has to be able to move a material's
+  // resting value. Hover restores from the same map, so the two cooperate
+  // instead of overwriting each other.
   const cloned = useMemo(() => {
     const root = scene.clone(true)
+    clearBaselines()
 
     // Object3D.clone() shares material instances, and the source asset reuses
     // one material across unrelated props. Without per-node copies, hovering
@@ -77,10 +81,7 @@ export function Room() {
           m.color.multiplyScalar(0.34)
         }
 
-        baseline.current.set(m, {
-          color: m.emissive.clone(),
-          intensity: m.emissiveIntensity,
-        })
+        setBaseline(m, m.emissive, m.emissiveIntensity)
       })
     })
     return root
@@ -98,7 +99,7 @@ export function Room() {
         const mats = Array.isArray(child.material) ? child.material : [child.material]
         mats.forEach((m) => {
           if (!(m instanceof THREE.MeshStandardMaterial)) return
-          const base = baseline.current.get(m)
+          const base = baseline.get(m)
           if (!base) return
           if (on) {
             // Blend the accent into the material's own emissive instead of
@@ -150,6 +151,9 @@ export function Room() {
       }}
     >
       <primitive object={cloned} />
+      {/* Lights the wall board from live activity. Renders nothing; it writes
+          emissive on materials that are already part of `cloned`. */}
+      <PixelBoard root={cloned} />
     </group>
   )
 }
