@@ -36,12 +36,14 @@ npm run dev            # http://localhost:5173
 
 ## The asset pipeline
 
-The source file is `room.blend`: the purchased isometric studio scene
-(originally `ZEFUHEZF.blend`) plus a pixel board added later on the wall behind
-the sofa. It is saved by Blender 5.0.2, which matters twice — the file is
+The source file is `room.blend`: the purchased isometric studio scene plus a
+pixel board added later on the wall behind the sofa. It supersedes the original
+purchase, `ZEFUHEZF.blend`, which is no longer kept — verified as a strict
+superset first, all 193 original objects present and none moved. It is saved by Blender 5.0.2, which matters twice — the file is
 zstd-compressed, and it uses the 17-byte header format, so
-`tools/inspect_blend.py` cannot read it (that parser only understands the legacy
-12-byte header of the 2.82 original). Use `bpy` to inspect it instead.
+`tools/inspect_blend.py` cannot read it — that parser only understands the legacy
+12-byte header of the 2.82 original. It now says so, with the decompression
+command, rather than dying on a misread header. Use `bpy` to inspect this file.
 
 **It is not in this repo, by design.** This repository is public, and committing
 the `.blend` would redistribute a purchased asset rather than use it, which

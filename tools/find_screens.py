@@ -8,7 +8,7 @@ plane exactly over it in the scene.
 
 Emits glTF-space (Y up) values, matching src/scene-manifest.json.
 
-Run: ./.venv/bin/python find_screens.py ../ZEFUHEZF.blend
+Run: ./.venv/bin/python find_screens.py ../room.blend
 """
 import json
 import math
@@ -18,7 +18,7 @@ import sys
 import bpy
 from mathutils import Vector
 
-BLEND = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else "../ZEFUHEZF.blend")
+BLEND = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else "../room.blend")
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 bpy.ops.wm.open_mainfile(filepath=BLEND)

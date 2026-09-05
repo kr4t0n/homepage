@@ -6,7 +6,7 @@ ask where a wall is. This measures the large vertical faces and prints each as a
 plane plus in-plane extents, in glTF space (Y up), which is enough to place a
 sign flat against one.
 
-Run: ./.venv/bin/python find_walls.py ../ZEFUHEZF.blend
+Run: ./.venv/bin/python find_walls.py ../room.blend
 """
 import json
 import os
@@ -15,7 +15,7 @@ import sys
 import bpy
 from mathutils import Vector
 
-BLEND = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else "../ZEFUHEZF.blend")
+BLEND = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else "../room.blend")
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 bpy.ops.wm.open_mainfile(filepath=BLEND)

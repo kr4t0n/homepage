@@ -7,7 +7,7 @@
   4. join each group into one mesh named `hot_<group>` / `static_<group>`
   5. export GLB (+Y up), then Draco-compress via gltf-transform if available
 
-Run: ./.venv/bin/python export_glb.py ../ZEFUHEZF.blend ../public/room.glb
+Run: ./.venv/bin/python export_glb.py ../room.blend ../public/room.glb
 """
 import json
 import os
@@ -17,7 +17,7 @@ import bpy
 from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-BLEND = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else "../ZEFUHEZF.blend")
+BLEND = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else "../room.blend")
 DEST = os.path.abspath(sys.argv[2] if len(sys.argv) > 2
                        else os.path.join(HERE, "..", "public", "room.glb"))
 os.makedirs(os.path.dirname(DEST), exist_ok=True)

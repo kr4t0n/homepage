@@ -4,7 +4,7 @@
 Reports every object sitting near the wall plane with its glTF-space extents,
 then scans for horizontal bands of clear wall.
 
-Run: ./.venv/bin/python wall_occupancy.py ../ZEFUHEZF.blend
+Run: ./.venv/bin/python wall_occupancy.py ../room.blend
 """
 import os
 import sys
@@ -12,7 +12,7 @@ import sys
 import bpy
 from mathutils import Vector
 
-BLEND = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else "../ZEFUHEZF.blend")
+BLEND = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else "../room.blend")
 bpy.ops.wm.open_mainfile(filepath=BLEND)
 scene = bpy.context.scene
 

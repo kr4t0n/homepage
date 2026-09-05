@@ -18,9 +18,29 @@ class Blend:
         self._parse_dna()
 
     def _parse_header(self):
-        h = self.buf[:12]
+        h = self.buf[:17]
+        # Blender 3.0+ writes zstd-compressed .blend by default, and 4.x/5.x use
+        # a 17-byte header instead of the legacy 12. This parser understands
+        # neither, and used to fail either with a confusing magic-mismatch or,
+        # worse, by "succeeding" on a misread header and then dying on a missing
+        # DNA1 block. Say so plainly instead: the current room.blend is 5.0.2 and
+        # hits both cases.
+        if self.buf[:4] == b"\x28\xb5\x2f\xfd":
+            raise SystemExit(
+                "this .blend is zstd-compressed (Blender 3.0+ default).\n"
+                "  decompress first:  zstd -d room.blend -o /tmp/raw.blend\n"
+                "  or just use bpy:   tools/.venv/bin/python -c \"import bpy; "
+                "bpy.ops.wm.open_mainfile(filepath='room.blend')\""
+            )
         if h[:7] != b"BLENDER":
-            raise SystemExit(f"not a .blend (magic={h[:7]!r}) - maybe compressed")
+            raise SystemExit(f"not a .blend (magic={h[:7]!r})")
+        if h[7:9].isdigit():
+            raise SystemExit(
+                f"this .blend uses the newer {h[7:9].decode()}-byte header "
+                f"(Blender {h[13:17].decode(errors='replace')}); this parser only "
+                "reads the legacy 12-byte one.\n"
+                "  use bpy instead, which reads both."
+            )
         self.ptr_size = 8 if h[7:8] == b"-" else 4
         self.endian = "<" if h[8:9] == b"v" else ">"
         self.version = h[9:12].decode()
@@ -272,4 +292,4 @@ def main(path):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "ZEFUHEZF.blend")
+    main(sys.argv[1] if len(sys.argv) > 1 else "room.blend")

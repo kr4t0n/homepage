@@ -2,7 +2,7 @@
 """Cluster the 193 unnamed objects into physical props by spatial proximity,
 then render a colour-keyed overview so each cluster can be identified by eye.
 
-Run: ./.venv/bin/python cluster_scene.py ../ZEFUHEZF.blend
+Run: ./.venv/bin/python cluster_scene.py ../room.blend
 """
 import json
 import os
@@ -11,7 +11,7 @@ import sys
 import bpy
 from mathutils import Vector
 
-BLEND = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else "../ZEFUHEZF.blend")
+BLEND = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else "../room.blend")
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "preview")
 os.makedirs(OUT, exist_ok=True)

@@ -14,7 +14,7 @@ import bpy
 from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-BLEND = os.path.join(HERE, "..", "ZEFUHEZF.blend")
+BLEND = os.path.join(HERE, "..", "room.blend")
 GLB = os.path.join(HERE, "..", "public", "room.glb")
 OUT = os.path.join(HERE, "preview")
 os.makedirs(OUT, exist_ok=True)
