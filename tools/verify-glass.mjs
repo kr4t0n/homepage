@@ -107,7 +107,9 @@ const threshold = (px, weight) => (px >= 24 || (px >= 18.66 && weight >= 700) ? 
 const ACCEPTED = {
   about: 1.03,
   contact: 1.09,
-  signals: 1.57,
+  // Improved from 1.57 when this hotspot moved off the wrongly-guessed
+  // hexpanels node onto the real pixel board, which is darker.
+  signals: 2.06,
   writing: 1.64,
   music: 1.78,
   cv: 2.89,

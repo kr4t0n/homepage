@@ -30,6 +30,15 @@ REGIONS = [
     ("desk",      (-1.05, 3.10,  0.35, 2.10, -0.05, 0.95), True),
     ("chair",     (-0.20, 1.30, -0.30, 1.00, -0.05, 1.35), False),
     ("hexpanels", ( 2.60, 4.90,  1.60, 2.20,  0.80, 3.00), True),
+    # The pixel board, added to the source scene later than everything else: a
+    # 24x42 grid of individual pixel meshes on the -x wall. It MUST come before
+    # `wallart` and `shelves`, because objects land in the first region whose box
+    # contains their centre and those two would otherwise split the board three
+    # ways -- rows above y=-1.00 into wallart, rows below it into shelves, and
+    # the bottom strip below z=1.70 into static. A hotspot cannot be three
+    # meshes. The box also catches Plane.068, a zero-vertex degenerate plane that
+    # happens to sit on the same wall; it contributes no geometry either way.
+    ("pixelboard", (-2.05,-1.85, -2.45,-0.55,  1.40, 2.45), True),
     ("wallart",   (-2.30,-1.60, -1.00, 1.00,  1.40, 3.10), True),
     ("shelves",   (-2.30,-1.55, -4.20,-0.20,  1.70, 3.10), True),
     ("sofa",      (-2.10,-0.55, -3.00,-0.10, -0.05, 1.20), True),
@@ -94,7 +103,7 @@ for img in list(bpy.data.images):
             bpy.data.images.remove(img)
 
 # --------------------------------------------------------- 2. tag groups --
-props = [o for o in scene.objects if o.type in ("MESH", "CURVE")]
+props = [o for o in scene.objects if o.type in ("MESH", "CURVE", "FONT")]
 group_of = {}
 for o in props:
     try:
@@ -143,6 +152,23 @@ if curves:
         print(f"  curve convert failed: {e}")
 bpy.ops.object.select_all(action="DESELECT")
 print(f"converted {len(curves)} curves to mesh at low resolution")
+
+# Pass 3: text -> mesh. glTF has no text primitive, so a FONT object is dropped
+# on export without warning. The pixel board's hour and weekday labels are FONT,
+# so without this the board exports as an unlabelled grid. Converted after the
+# region pass above, which is why FONT is in `props`: the group is keyed by
+# object name and conversion preserves it.
+fonts = [o for o in scene.objects if o.type == "FONT"]
+for o in fonts:
+    o.select_set(True)
+if fonts:
+    view.objects.active = fonts[0]
+    try:
+        bpy.ops.object.convert(target="MESH")
+    except Exception as e:
+        print(f"  font convert failed: {e}")
+bpy.ops.object.select_all(action="DESELECT")
+print(f"converted {len(fonts)} text objects to mesh")
 
 # ------------------------------------- 3b. bake modifiers before joining --
 # bpy.ops.object.join() keeps only the ACTIVE object's modifier stack and

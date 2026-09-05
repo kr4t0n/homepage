@@ -36,7 +36,12 @@ npm run dev            # http://localhost:5173
 
 ## The asset pipeline
 
-The source file is `ZEFUHEZF.blend`, a purchased isometric studio scene.
+The source file is `room.blend`: the purchased isometric studio scene
+(originally `ZEFUHEZF.blend`) plus a pixel board added later on the wall behind
+the sofa. It is saved by Blender 5.0.2, which matters twice — the file is
+zstd-compressed, and it uses the 17-byte header format, so
+`tools/inspect_blend.py` cannot read it (that parser only understands the legacy
+12-byte header of the 2.82 original). Use `bpy` to inspect it instead.
 
 **It is not in this repo, by design.** This repository is public, and committing
 the `.blend` would redistribute a purchased asset rather than use it, which
@@ -45,10 +50,11 @@ committed, so the site builds and runs without it. If you need to re-run the
 pipeline, drop your copy of the `.blend` at the repo root; `*.blend` is
 gitignored.
 
-It arrives in poor shape: 193 objects all named `Plane.041`-style, 157 materials
-named `Material.088`-style, and every texture path pointing at the seller's
-Windows RAR extraction temp folder, so no texture resolves. It is also 2.8 GB of
-triangles once the cable curves are tessellated.
+The purchased half arrives in poor shape: 193 objects all named `Plane.041`-style,
+157 materials named `Material.088`-style, and every texture path pointing at the
+seller's Windows RAR extraction temp folder, so no texture resolves. It is also
+2.8 GB of triangles once the cable curves are tessellated. The pixel board added
+on top brings the scene to 1277 objects — 1008 of those are individual pixels.
 
 `tools/export_glb.py` fixes all of that headlessly:
 
@@ -62,11 +68,27 @@ triangles once the cable curves are tessellated.
    non-active object and several props here are defined by theirs. Subsurf is
    dropped rather than baked; it only smooths and the decimate undoes it.
 4. Tags every object into a semantic group by world-space AABB region and joins
-   each group into one mesh named `hot_<group>` or `static_<group>`.
-5. Exports GLB with Draco compression and writes `src/scene-manifest.json`,
+   each group into one mesh named `hot_<group>` or `static_<group>`. An object
+   lands in the **first** region whose box contains its centre, so order matters:
+   `pixelboard` is listed ahead of `wallart` and `shelves` because those two
+   would otherwise split the board three ways and a hotspot cannot be three
+   meshes.
+5. Converts text to mesh. glTF has no text primitive, so a `FONT` object is
+   dropped on export with no warning. The board's hour, weekday and week labels
+   are all text — without this step it exports as an unlabelled grid.
+6. Exports GLB with Draco compression and writes `src/scene-manifest.json`,
    which carries each group's bounding box in glTF space for camera framing.
 
-Result: **1.6 GB to 1.15 MB, 178,410 triangles.**
+Result: **1.6 GB to 3.78 MB, 368,102 triangles.**
+
+Most of that is the pixel board: `hot_pixelboard` alone is **189,692 triangles**,
+more than the entire rest of the room put together, because it is 1008
+individually modelled pixels at ~188 triangles each. The per-mesh triangle budget
+never fires on it — decimation runs before the join, and each single pixel is far
+under the 4000 ceiling. Adding `pixelboard` to `TRI_BUDGET` with a per-pixel
+ceiling around 40 would cut it by roughly 4x and is invisible at the size a pixel
+occupies on screen, but it has not been done: it changes newly authored art, and
+that is the owner's call.
 
 ### Re-running it
 

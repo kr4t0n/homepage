@@ -13,7 +13,7 @@ The room is a purchased Blender asset, converted by a local pipeline.
 Two halves that meet at one generated file.
 
 ```
-ZEFUHEZF.blend  --[tools/export_glb.py, headless bpy]-->  public/room.glb
+room.blend      --[tools/export_glb.py, headless bpy]-->  public/room.glb
                                                      +-->  src/scene-manifest.json
                                                                    |
                                             src/content.ts  <------+  (node names,
@@ -80,6 +80,20 @@ it was removed as redundant with the monitors, those links moved into About
 rather than disappearing, and `verify-screens.mjs` now asserts they are present
 there. Any future content that lives only on a 3D object needs the same
 treatment.
+
+**glTF has no text, and the exporter's silence about it is the danger.** A
+`FONT` object is neither converted nor warned about — it simply does not appear
+in the GLB. The pixel board's hour, weekday and week labels are all text, so the
+export pass that converts curves to mesh now converts fonts too, and `FONT` is
+included in `props` so those objects get a region before conversion. If a label
+ever goes missing from the room, check this first.
+
+**Region order in `export_glb.py` is load-bearing.** An object joins the *first*
+region whose box contains its centre. The pixel board sits inside the boxes of
+`wallart` and `shelves` as well as its own, so `pixelboard` has to be listed
+before both; otherwise the board splits three ways — rows above y=-1.00 into
+wallart, rows below into shelves, the bottom strip into static — and a hotspot
+cannot be three meshes.
 
 **Hotspot geometry is grouped, not per-object.** The exporter joins objects into
 one mesh per semantic group so raycasting touches ~13 meshes instead of 193.

@@ -166,19 +166,30 @@ export const HOTSPOTS: Hotspot[] = [
   },
   {
     id: 'signals',
-    // TODO(export): no verified node yet. `hot_hexpanels` turned out to enclose
-    // a small wall fixture rather than the light panels. The DJ controller was
-    // the obvious candidate for a levels board, but it now carries the player,
-    // so this needs a different node. Verify with `node tools/verify-hotspots.mjs`,
-    // which hovers each hotspot and captures what actually lights up.
-    node: 'hot_hexpanels',
+    // Resolved at last. This hotspot carried a TODO and `unverified: true` from
+    // the beginning, because no node in the purchased scene was a plausible
+    // stats board -- `hot_hexpanels` turned out to be a small wall fixture, and
+    // the DJ controller went to the player. The board now exists for real: a
+    // 24x42 pixel grid added to the source scene, with hour and weekday labels,
+    // which is an activity heatmap and exactly what this hotspot was reserved
+    // for.
+    node: 'hot_pixelboard',
     label: 'Signals',
     hint: 'Agent activity and GitHub',
     kind: 'stats',
-    offset: [2.6, 0.7, 2.9],
-    look: [0, -0.05, 0],
+    // The board is flat on the -x wall: 1.74 wide by 0.91 tall, facing +x. At a
+    // 34-degree lens visible half-width is 0.49x distance and half-height
+    // 0.31x, so 3.2 of standoff puts the board at ~55% of frame width and ~47%
+    // of frame height -- enough that the week labels along its bottom edge clear
+    // the panel, which they did not at 2.2.
+    //
+    // The camera sits level with the board's centre rather than above it. This
+    // is a flat wall panel read straight on; lifting the camera and aiming down
+    // keystones the grid, which is very visible on something made of rows and
+    // columns. The upward push comes from `look` alone.
+    offset: [3.2, 0, 0],
+    look: [0, -0.3, 0],
     placeholder: true,
-    unverified: true,
   },
   {
     id: 'writing',

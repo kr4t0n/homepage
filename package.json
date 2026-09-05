@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
     "typecheck": "tsc --noEmit",
-    "room": "tools/.venv/bin/python tools/export_glb.py ZEFUHEZF.blend public/room.glb"
+    "room": "tools/.venv/bin/python tools/export_glb.py room.blend public/room.glb"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.5",
