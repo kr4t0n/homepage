@@ -2,8 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
-// User page (kr4t0n.github.io) serves from the domain root. If this ever moves
-// to a project repo, set base to '/<repo>/'.
+// Served from the root of www.kubitnodes.com, so the base stays '/'.
 export default defineConfig({
   base: '/',
   plugins: [react(), tailwindcss()],

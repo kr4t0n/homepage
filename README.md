@@ -1,6 +1,6 @@
-# kr4t0n.github.io
+# kubitnodes homepage
 
-Personal homepage. An explorable 3D diorama of a studio room: click an object,
+Personal homepage, served at `www.kubitnodes.com`. An explorable 3D diorama of a studio room: click an object,
 the camera flies to it, a panel opens with the content that object stands for.
 
 Built from a purchased Blender scene that is converted to a web-ready GLB by a
@@ -325,9 +325,16 @@ with no `tabIndex` and would otherwise be unreachable without a pointer.
 
 ## Deployment
 
-Pushing to `main` builds and publishes to GitHub Pages via
-`.github/workflows/deploy.yml`. For a user page (`kr4t0n.github.io`) keep
-`base: '/'` in `vite.config.ts`; for a project repo set it to `/<repo>/`.
+Deployed into a Kubernetes cluster and exposed through an ingress at
+`www.kubitnodes.com`, alongside `argus-api.kubitnodes.com`. A single container
+serves the built `dist/` and the `/api/pixels` endpoint from one origin, so there
+is no CORS and no credential in the browser.
+
+There is no GitHub Pages workflow. An earlier revision of this repo had one; it
+was never the intended target and has been removed. `base: '/'` in
+`vite.config.ts` stays, because the site serves from a domain root.
+
+The manifests and container build are not written yet — see the pixel board work.
 
 ## Project structure
 
