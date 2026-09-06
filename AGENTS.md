@@ -27,16 +27,18 @@ room.blend      --[tools/export_glb.py, headless bpy]-->  public/room.glb
 panel kind. Both the 3D room and the 2D fallback read from it, so content cannot
 drift between them.
 
-There is a third, much smaller half: the pixel board is the only surface fed by
-live data, and it has a server.
-
+There is a third, much smaller half: the two wall boards are the only surfaces
+fed by live data, and they have a server.
 ```
 Argus  /me/pixels            --+
        /me/usage/by-project   -+--> src/server/api.ts  -->  /api/pixels  -->  usePixels
        (X-API-Key, never                (Hono)                                    |
-        leaves the server)                                          three/PixelBoard.tsx
-                                                                    ui/Panel.tsx (legend)
-                                                                    ui/PixelTooltip.tsx
+        leaves the server)                              +-------------------------+
+                                                        |
+                              three/PixelBoard.tsx  <---+---> three/RankingBoard.tsx
+                              (1008 cells, hours won)   |     (5x32 LEDs, tokens)
+                              ui/Panel.tsx (legend)  <---+
+                              ui/PixelTooltip.tsx    <---+
 ```
 
 One handler, mounted twice: `@hono/vite-dev-server` runs it in `npm run dev` and
@@ -45,7 +47,8 @@ from prod. It exists for exactly one reason — `ARGUS_KEY` must never reach the
 browser — and everything else in it (9s cache, single-flight, strict validation,
 field reduction) serves that hop being cheap and honest.
 `src/shared/pixels.ts` is imported by both sides and holds the payload type, the
-validator and the grid maths.
+validator and the grid maths; `src/pixels/ranking.ts` holds the board ordering,
+kept pure so `verify-api` can assert on it without a GPU.
 
 ## Key design decisions
 
@@ -174,6 +177,40 @@ it landed in the same layer as Tailwind's own `fixed`, and since this file is
 emitted later it won. The panel silently detached from `bottom-6` and rendered at
 the top of the viewport. In `components`, utilities on the element always win,
 which is the correct precedence for a base style anyway.
+
+**The outliner's selection lock silently deletes geometry at export, and every
+signal it gives you says success.** `select_set(True)` on a `hide_select`
+object does not raise and does not warn — `select_get()` just keeps returning
+False. `bpy.ops.object.join()` then finds only its active object, returns
+`{'CANCELLED'}` rather than raising, and the group becomes whichever single
+mesh happened to be first. The ranking board arrived with 193 of its 205
+objects locked and exported as a 92-triangle enclosure; the other 15,828
+triangles shipped as loose top-level nodes, so the board *rendered correctly*
+and was simply not part of its own hotspot. The pixel board had been losing its
+74 labels the same way for as long as it had existed. `export_glb.py` clears
+the lock in step 1a and compares triangle counts across the join, refusing to
+export when they disagree. Never trust a join operator's return value here.
+
+**Linked duplicates share mesh data, so assigning a material writes through
+every copy.** All 160 ranking LEDs are duplicates of one datablock with 160
+users. `o.data.materials[0] = mat` in a loop over them finishes with all 160
+wearing whichever material the last iteration reached, which exports fine and
+looks plausible in a still. `o.data = o.data.copy()` first.
+
+**Anchors for runtime text are exported, not transcribed.** `export_glb.py`
+deletes the ranking board's baked placeholder labels and writes their
+world-space boxes to `src/ranking-anchors.json`, which `RankingBoard.tsx` reads
+to place its canvas. Hardcoding those millimetres would be correct once and
+then rot the first time a row moved — with the failure being a board that still
+renders, still looks designed, and labels the wrong rows. If you add a live
+readout to a modelled surface, measure it at export.
+
+**Board text is a canvas texture rather than drei `<Text>`, for a font
+reason.** troika only converts WOFF1 and this project ships Geist Mono as WOFF2
+only, so `<Text>` would need a committed duplicate font binary or a runtime CDN
+fetch of Roboto. The canvas draws with the webfont the page already loaded. It
+must wait on `document.fonts.ready`; drawing early falls back to the default
+monospace silently and the board ends up in a different face from the room.
 
 **Six panels ship under WCAG AA on purpose, and the gate encodes that as a
 waiver rather than going permanently red.** Clear glass in front of the lit

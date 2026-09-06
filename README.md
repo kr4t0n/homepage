@@ -69,10 +69,11 @@ fix it is an alias map in `fetchNames`.
 
 ## The asset pipeline
 
-The source file is `room.blend`: the purchased isometric studio scene plus a
-pixel board added later on the wall behind the sofa. It supersedes the original
-purchase, `ZEFUHEZF.blend`, which is no longer kept — verified as a strict
-superset first, all 193 original objects present and none moved. It is saved by Blender 5.0.2, which matters twice — the file is
+The source file is `room-v2.blend`: the purchased isometric studio scene plus a
+pixel board and, added beside it, a project ranking board. It supersedes
+`room.blend` (which superseded the original purchase, `ZEFUHEZF.blend`) —
+verified as a strict superset each time, all original objects present and none
+moved. It is saved by Blender 5.0.2, which matters twice — the file is
 zstd-compressed, and it uses the 17-byte header format, so
 `tools/inspect_blend.py` cannot read it — that parser only understands the legacy
 12-byte header of the 2.82 original. It now says so, with the decompression
@@ -88,8 +89,20 @@ gitignored.
 The purchased half arrives in poor shape: 193 objects all named `Plane.041`-style,
 157 materials named `Material.088`-style, and every texture path pointing at the
 seller's Windows RAR extraction temp folder, so no texture resolves. It is also
-2.8 GB of triangles once the cable curves are tessellated. The pixel board added
-on top brings the scene to 1277 objects — 1008 of those are individual pixels.
+2.8 GB of triangles once the cable curves are tessellated. The two boards added
+on top bring the scene to 1482 objects — 1008 of those are individual pixels and
+160 are individual LED segments.
+
+**Both boards arrive with their objects selection-locked in the outliner, and
+that silently deletes geometry.** `select_set(True)` on a locked object is a
+no-op that raises nothing, so the group join in step 4 finds only its active
+object, returns `{'CANCELLED'}` rather than an error, and the hotspot exports as
+whatever single mesh happened to be first. The ranking board came out as a
+92-triangle enclosure this way, with its other 15,828 triangles shipped as loose
+top-level nodes — rendered, in the right place, and not part of the hotspot. The
+pixel board had been quietly losing its 74 hour and weekday labels to the same
+thing. Step 1a clears the lock, and the join now compares triangle counts before
+and after and refuses to export if any went missing.
 
 `tools/export_glb.py` fixes all of that headlessly:
 
@@ -135,6 +148,50 @@ cd .. && npm run room
 ```
 
 No Blender install needed; `bpy` is Blender as a Python module.
+
+## The two wall boards
+
+Both sit on the -x wall and both are driven from the same `/api/pixels` poll.
+They answer different questions, and the difference is not a bug to reconcile:
+
+| Board | Node | Shows | Ordered by |
+|---|---|---|---|
+| Pixel board | `hot_pixelboard` | 1008 hours, coloured by owner, lit by how busy | hours *won* |
+| Ranking board | `hot_ranking` | Top 5 projects, 32-segment bar each | tokens `in + out` |
+
+An hour on the heatmap goes to whichever project was busiest in it, so a project
+can burn tokens all week and win almost no cells. `researchers` ranks third by
+tokens while holding a single hour on the board beside it.
+
+**Both are lit by writing emissive on named materials, never by adding
+geometry.** The pixel board finds 1008 `Pixel Light R# C#`; the ranking board
+finds 160 `Ranking - LED Pnn Snn`. Anything that paints a lasting colour must
+also call `setBaseline`, or the hover wash will blank it — see
+`src/three/materials.ts`.
+
+The ranking board's segment materials existed in the `.blend` but were never
+assigned; all 160 objects pointed at `Ranking - LED P01 S01`, and all 160 shared
+one mesh datablock. The export wires each object to its own material, copying
+the mesh first so the assignment does not write through every LED at once.
+
+**Text on the ranking board is not in the GLB.** glTF has no text primitive, and
+the source scene baked `PROJECT 01`..`PROJECT 05`, five frozen score readouts, a
+`SAMPLE PROJECTS` footer and a `SCORE / 100` column head. Every one of those is
+false once real data arrives, so `export_glb.py` deletes them and records their
+world-space boxes to `src/ranking-anchors.json`. `RankingBoard.tsx` draws live
+text into a canvas and maps it onto one transparent plane at those anchors.
+
+The anchors are exported rather than transcribed on purpose: hardcoded
+millimetres would be right once and then rot the first time a row moved, leaving
+the board rendering correctly with its names a few millimetres off the rows they
+label. Everything that stays true regardless of the data — the rank digits,
+`CURRENT RANKING`, `ACTIVE` — stays baked in the mesh.
+
+A canvas rather than drei's `<Text>`: troika needs a `.ttf`/`.otf`/`.woff` and
+only converts WOFF1, while this project ships Geist Mono as WOFF2 only. Using
+`<Text>` would mean committing a duplicate font binary or letting troika fetch
+Roboto from a CDN at runtime. The canvas draws with the webfont the page has
+already loaded, so the board is set in the same face as the rest of the site.
 
 ## Verifying hotspots
 
@@ -375,18 +432,31 @@ The manifests and container build are not written yet — see the pixel board wo
 src/
   content.ts            all copy, projects, hotspot -> node map
   scene-manifest.json   generated: bounding boxes per group
+  ranking-anchors.json  generated: where the ranking board's live text goes
   store.ts              focus/hover state, hash routing
+  server/
+    api.ts              the /api/pixels proxy; the only holder of ARGUS_KEY
+  shared/
+    pixels.ts           payload type, validator and grid maths, both sides
+  pixels/
+    usePixels.ts        poll, cache, live-slot tracking
+    palette.ts          project colours, cell appearance, cell indexing
+    ranking.ts          top-5 by tokens, scores and segment counts
   three/
     Scene.tsx           canvas, lighting, tone mapping
     Room.tsx            GLB load, raycasting, hover highlight
     CameraDirector.tsx  GSAP camera choreography, orbit, idle drift
     orbit.ts            drag/zoom/pinch input, limits, home-view stash
     highlight.ts        hover accent colour and strength
+    materials.ts        emissive baselines shared by hover and the boards
+    PixelBoard.tsx      lights 1008 cells from live activity
+    RankingBoard.tsx    lights 160 LEDs, draws live text to a canvas
     Screens.tsx         the three monitors, framed on click, link on second
     NeonSign.tsx        canvas-drawn neon wordmark on the back wall
   ui/
     Hud.tsx             hero, hotspot nav, framed-screen exit, sound toggle
     Panel.tsx           focused content panels
+    PixelTooltip.tsx    per-cell readout when the board is focused
     Preloader.tsx       real GLB load progress
     Fallback2D.tsx      no-WebGL / small-screen page
   audio/
@@ -396,15 +466,19 @@ tools/
   export_glb.py         the asset pipeline
   inspect_blend.py      dependency-free .blend parser
   inspect_scene.py      bpy scene report + preview renders
+  diff_blend.py         what changed between two .blend versions
   find_screens.py       measures the monitor panels for SCREENS
   find_walls.py         measures the wall planes
   compare_view.py       source vs export from any camera
   diagnose_keys.py      source vs export vs flat-material render
   diagnose_lighting.py  material colours, neutral vs site light rig
   wall_occupancy.py     lists wall decor and finds clear bands
+  verify-api.mjs        secret containment, proxy disclosure, ranking maths
+  verify-glass.mjs      glass contrast gate
   verify-hotspots.mjs   hover verification captures
   verify-orbit.mjs      orbit, zoom, drag-vs-click checks
   verify-view-restore.mjs  camera restore regression test
+  verify-player.mjs     backing-track transport
   sweep-highlight.mjs   hover-accent tuning sweep
   sweep-neon.mjs        neon brightness tuning sweep
   verify-neon-link.mjs  neon wordmark link behaviour
@@ -426,6 +500,18 @@ tools/
   fix is the camera, not the CSS: frame this hotspot so the panel lands over a
   darker part of the room. Until then it sits in `ACCEPTED` alongside `about`
   and `contact`.
+- The ranking board has no hotspot of its own. `hot_ranking` is in the GLB and
+  is marked interactive in the manifest, but there is no `content.ts` entry
+  pointing at it, so it is not in the nav, not pickable, and has no panel. It
+  reads as part of the Signals view because it sits beside the pixel board.
+  Giving it its own framing would make its text far more legible than it is at
+  the Signals standoff.
+- One bar full and four stubs is what the data looks like. The leader is ~3.5x
+  the runner-up and ~12x fifth place, so a linear bar normalised to the leader
+  leaves the lower rows at 3-9 segments of 32. That is honest and it is also
+  hard to read. A log scale would flatter the lower rows and misrepresent the
+  gap; the alternative worth considering is ranking by output tokens alone,
+  which is a less skewed distribution and arguably a better proxy for work.
 - The right-hand monitor is wired and empty. Adding an `image` and `href` to the
   `right` entry in `SCREENS` is all it needs.
 - Writing, CV and the stats board are marked placeholders in the UI rather than

@@ -14,6 +14,8 @@
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { validate, liveSlot, gridPos } from '../src/shared/pixels.ts'
+import { rankByTokens, shortTokens, ROWS, SEGMENTS } from '../src/pixels/ranking.ts'
+import anchors from '../src/ranking-anchors.json' with { type: 'json' }
 
 const fails = []
 const check = (name, ok, detail = '') => {
@@ -209,6 +211,61 @@ check(
     return r >= 0 && r < 24 && c >= 0 && c < 42
   }),
 )
+
+// --------------------------------------------------------- ranking board --
+// The board is five rows of thirty-two LEDs on a wall, ~30 screen pixels tall
+// when the room is framed. A screenshot cannot tell a correct ranking from a
+// reversed one, so the arithmetic is checked here instead.
+const withTok = (tokens) =>
+  tokens.map(([key, i, o]) => ({ key, wonSeconds: 0, tokens: { in: i, out: o, cached: 0 } }))
+const payload = (projects) => ({ ...good(), projects, winners: [null, null, null, null] })
+
+const r = rankByTokens(payload(withTok([
+  ['a', 100, 5],     // 105
+  ['b', 1000, 10],   // 1010  <- leader
+  ['c', 500, 1],     // 501
+  ['d', 10, 0],      // 10
+  ['e', 300, 0],     // 300
+  ['f', 900, 0],     // 900   <- second
+  ['g', 1, 0],       // 1     falls off a five-row board
+])))
+check('ranks by in + out, not by in alone', r.map((x) => x.project.key).join('') === 'bfcea',
+  r.map((x) => x.project.key).join(''))
+check('truncates to the board’s rows', r.length === ROWS, `${r.length} rows`)
+check('the leader scores 100', Math.round(r[0].score) === 100, `${r[0].score.toFixed(1)}`)
+check('the leader fills every segment', r[0].lit === SEGMENTS, `${r[0].lit}/${SEGMENTS}`)
+check('scores fall monotonically', r.every((x, i) => i === 0 || x.score <= r[i - 1].score))
+check('segment counts stay in range', r.every((x) => x.lit >= 1 && x.lit <= SEGMENTS))
+// A row carrying a name above an entirely unlit bar reads as a broken board
+// rather than a small project, and the spread here reaches 500:1.
+const tiny = rankByTokens(payload(withTok([['big', 1e9, 0], ['tiny', 1, 0]])))
+check('a project that made the board always lights one segment', tiny[1].lit === 1,
+  `${tiny[1].lit}`)
+
+// The names lookup may fail without taking the board down, and then no project
+// has tokens. An empty board is right; a board ranking everything at zero is not.
+const untokened = rankByTokens(payload([{ key: 'x', wonSeconds: 99 }, { key: 'y', wonSeconds: 1 }]))
+check('projects with no token data are dropped, not ranked as zero',
+  untokened.length === 0, `${untokened.length} ranked`)
+
+const tied = rankByTokens(payload(withTok([['zeta', 500, 0], ['alpha', 500, 0]])))
+check('ties break on key so rows do not swap between polls',
+  tied.map((x) => x.project.key).join() === 'alpha,zeta', tied.map((x) => x.project.key).join())
+
+check('shortTokens abbreviates without inventing precision',
+  shortTokens(5_676_270_874) === '5.7B' && shortTokens(450_141_549) === '450M' &&
+  shortTokens(84_341_190) === '84M',
+  `${shortTokens(5_676_270_874)} ${shortTokens(450_141_549)} ${shortTokens(84_341_190)}`)
+
+// The anchors are measured at export from objects the export then deletes. If
+// the board is re-modelled with a different row count the frontend would draw
+// live text into rows that no longer exist.
+check('the exported anchors describe exactly the board’s rows',
+  anchors.rows.length === ROWS, `${anchors.rows.length} anchor rows`)
+check('every anchor row carries a name and a score box',
+  anchors.rows.every((row) => row.name?.min && row.score?.min))
+check('the text plane has real extent',
+  anchors.screen.max[1] > anchors.screen.min[1] && anchors.screen.max[2] > anchors.screen.min[2])
 
 console.log(`\n${fails.length ? `${fails.length} FAILED: ${fails.join(', ')}` : 'all checks passed'}`)
 process.exit(fails.length ? 1 : 0)

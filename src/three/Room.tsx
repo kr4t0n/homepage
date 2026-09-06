@@ -8,6 +8,7 @@ import { HIGHLIGHT, highlight } from './highlight'
 import { baseline, clearBaselines, setBaseline } from './materials'
 import { orbit } from './orbit'
 import { PixelBoard } from './PixelBoard'
+import { RankingBoard } from './RankingBoard'
 import { setPixelHover } from '../pixels/usePixels'
 import { slotFromMaterialName } from '../pixels/palette'
 
@@ -207,6 +208,9 @@ export function Room() {
       {/* Lights the wall board from live activity. Renders nothing; it writes
           emissive on materials that are already part of `cloned`. */}
       <PixelBoard root={cloned} />
+      {/* The ranking board beside it. Writes emissive on `cloned` the same way,
+          and adds one plane of its own for text the GLB cannot carry. */}
+      <RankingBoard root={cloned} />
     </group>
   )
 }

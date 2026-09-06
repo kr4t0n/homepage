@@ -39,6 +39,13 @@ REGIONS = [
     # meshes. The box also catches Plane.068, a zero-vertex degenerate plane that
     # happens to sit on the same wall; it contributes no geometry either way.
     ("pixelboard", (-2.05,-1.85, -2.45,-0.55,  1.40, 2.45), True),
+    # The ranking board, added in room-v2 immediately beside the pixel board on
+    # the same -x wall. Same ordering trap as the pixel board and worse: the
+    # `wallart` box below contains this one entirely, so listed after it the
+    # whole board would vanish into a static mesh. The y range stops at -0.52
+    # rather than meeting `pixelboard` at -0.55, so the two boxes do not touch
+    # and neither can steal a stray object from the other.
+    ("ranking",    (-2.01,-1.87, -0.52, 0.06,  1.44, 2.40), True),
     ("wallart",   (-2.30,-1.60, -1.00, 1.00,  1.40, 3.10), True),
     ("shelves",   (-2.30,-1.55, -4.20,-0.20,  1.70, 3.10), True),
     ("sofa",      (-2.10,-0.55, -3.00,-0.10, -0.05, 1.20), True),
@@ -102,6 +109,64 @@ for img in list(bpy.data.images):
         if not os.path.exists(bpy.path.abspath(img.filepath)):
             bpy.data.images.remove(img)
 
+# ------------------------------------------------- 1a. unlock everything --
+# The outliner's selection lock is authoring state, not scene content, and it
+# is invisible to every check that matters here. `select_set(True)` on a
+# hide_select object is a SILENT no-op: it does not raise, does not warn, and
+# `select_get()` simply keeps returning False. The join in step 4 then has
+# nothing selected but the active object, returns {'CANCELLED'} rather than
+# raising, and the group ends up as whichever single object happened to be
+# first.
+#
+# That is exactly what room-v2 did on arrival: 193 of the ranking board's 205
+# objects were locked, so `hot_ranking` exported as a 92-triangle enclosure
+# with the other 15,828 triangles scattered across 187 stray top-level nodes.
+# It exported cleanly and rendered the board in roughly the right place, which
+# is what makes this worth clearing on principle rather than diagnosing twice.
+locked = 0
+for o in scene.objects:
+    if o.hide_select:
+        o.hide_select = False
+        locked += 1
+    o.hide_viewport = False
+print(f"cleared the selection lock on {locked} objects")
+
+# ------------------------------------------ 1b. one material per LED slot --
+# The ranking board's 160 bar segments all point at a single material in the
+# source scene, `Ranking - LED P01 S01`. That is fine for a still render and
+# useless for a live one: writing emissive on a shared material lights all 160
+# at once, so the bars could only ever be full or empty.
+#
+# The .blend already contains the complete 5x32 set of `Ranking - LED Pnn Snn`
+# materials, with the per-row colour ramp the board was designed around -- row
+# one gold, row five green. They were authored and then never assigned, so this
+# hooks up what is already there rather than inventing 160 copies. The naming
+# convention is the author's; the frontend looks materials up by these names,
+# the same way it finds the 1008 `Pixel Light R# C#` cells.
+#
+# The mesh copy on the first line of the loop is load-bearing and easy to miss:
+# all 160 LEDs are linked duplicates of ONE datablock, `Ranking - Shared
+# beveled LED`, with 160 users. Assigning through `o.data.materials` without
+# breaking that link writes through every LED at once, and the loop finishes
+# with all 160 wearing whichever material the last iteration reached.
+wired, missing_mats = 0, []
+for o in scene.objects:
+    if o.type != "MESH" or not o.name.startswith("RankingLED_"):
+        continue
+    want = "Ranking - LED " + o.name[len("RankingLED_"):].replace("_", " ")
+    mat = bpy.data.materials.get(want)
+    if mat is None:
+        missing_mats.append(want)
+        continue
+    o.data = o.data.copy()
+    o.data.materials.clear()
+    o.data.materials.append(mat)
+    wired += 1
+if missing_mats:
+    raise SystemExit(f"ranking LED materials missing from the .blend: "
+                     f"{missing_mats[:6]} ({len(missing_mats)} total)")
+print(f"wired {wired} ranking LEDs to their own materials")
+
 # --------------------------------------------------------- 2. tag groups --
 props = [o for o in scene.objects if o.type in ("MESH", "CURVE", "FONT")]
 group_of = {}
@@ -122,12 +187,78 @@ for o in props:
     else:
         group_of[o.name] = "static"
 
+# --------------------------------- 2b. drop text the frontend will replace --
+# The ranking board ships with placeholder copy baked into FONT objects:
+# `PROJECT 01`..`PROJECT 05`, five geometry-nodes score readouts frozen at
+# 92/78/64/46/28, and a `SAMPLE PROJECTS` footer. Once the board is driven by
+# live data every one of those is a false statement rendered in geometry, and
+# `SAMPLE PROJECTS` is the worst of them: it tells the reader the numbers above
+# it are made up, on a board where they no longer are.
+#
+# They are deleted here rather than in the .blend so the source file stays a
+# self-contained mockup that still renders correctly on its own. RankingBoard
+# draws live text at the same anchors.
+#
+# Everything else on the board stays baked, because it stays true regardless of
+# the data: the rank digits 01-05, `CURRENT RANKING`, `SCORE / 100`, `ACTIVE`,
+# and the 05 entry count are all fixed properties of a five-row board.
+placeholders = [f"Ranking Project {i:02d} - Name" for i in range(1, 6)]
+placeholders += [f"Ranking Project {i:02d} - Score" for i in range(1, 6)]
+# `SAMPLE PROJECTS` tells the reader the numbers above it are invented, on a
+# board where they no longer are. `SCORE / 100` and `HIGH SCORE FIRST` describe
+# a normalised score, and the right-hand column now prints the token totals the
+# rows are actually ranked by -- keeping them would caption the wrong quantity.
+placeholders += ["Ranking - Sample label", "Ranking - Metric caption",
+                 "Ranking - Footer note"]
+doomed = {n for n in placeholders if bpy.data.objects.get(n) is not None}
+if doomed != set(placeholders):
+    raise SystemExit(
+        f"expected to drop {len(placeholders)} ranking placeholders, found "
+        f"{len(doomed)}. The .blend renamed or removed one; the frontend draws "
+        f"live text at these anchors and would now overlap baked copy.")
+
+# Measure before deleting, and hand the frontend the anchors rather than a set
+# of magic numbers copied out of Blender by hand. Those would be correct once
+# and then rot silently the first time a row moved: the board would still
+# render, with the names a few millimetres off the rows they describe.
+#
+# Recorded in glTF space (Y up, z = -y) so the frontend can use them directly.
+def gltf_box(o):
+    mn, mx = wbb(o)
+    lo = [round(mn.x, 5), round(mn.z, 5), round(-mx.y, 5)]
+    hi = [round(mx.x, 5), round(mx.z, 5), round(-mn.y, 5)]
+    return {"min": [min(a, b) for a, b in zip(lo, hi)],
+            "max": [max(a, b) for a, b in zip(lo, hi)]}
+
+anchors = {
+    "rows": [{"name": gltf_box(bpy.data.objects[f"Ranking Project {i:02d} - Name"]),
+              "score": gltf_box(bpy.data.objects[f"Ranking Project {i:02d} - Score"])}
+             for i in range(1, 6)],
+    "caption": gltf_box(bpy.data.objects["Ranking - Sample label"]),
+    "metric": gltf_box(bpy.data.objects["Ranking - Metric caption"]),
+    "footer": gltf_box(bpy.data.objects["Ranking - Footer note"]),
+    # The face the text sits on, so the overlay can be placed just in front of
+    # it instead of guessing a depth and z-fighting with the baked chrome.
+    "screen": gltf_box(bpy.data.objects["Ranking - Recessed screen"]),
+}
+with open(os.path.join(HERE, "..", "src", "ranking-anchors.json"), "w") as f:
+    json.dump(anchors, f, indent=1)
+print("wrote src/ranking-anchors.json")
+
+# Drop them out of `props` BEFORE deleting the objects. `props` holds live
+# StructRNA references, and touching even `.name` on one after its object is
+# gone raises ReferenceError several steps later, where it looks unrelated.
+props = [o for o in props if o.name not in doomed]
+for n in doomed:
+    bpy.data.objects.remove(bpy.data.objects[n], do_unlink=True)
+    group_of.pop(n, None)
+print(f"dropped {len(doomed)} ranking placeholder labels for live text")
+
 # ------------------------------------------- 3. curves -> mesh, decimate --
 # Cables are Bezier curves with a bevel. At the seller's authoring resolution
 # they tessellate to millions of triangles, so drop the resolution hard first
 # -- at the size they occupy on screen nobody can tell.
 bpy.ops.object.select_all(action="DESELECT")
-
 # Pass 1: lower the tessellation resolution on every curve FIRST. convert()
 # acts on the whole selection, so one call can convert many objects at once --
 # any curve still at authoring resolution when that happens explodes.
@@ -231,10 +362,12 @@ for o in [x for x in scene.objects if x.type == "MESH"]:
     buckets.setdefault(group_of.get(o.name, "static"), []).append(o)
 
 manifest = {}
+lost = []
 for g, obs in sorted(buckets.items()):
     obs = [o for o in obs if o.name in bpy.data.objects]
     if not obs:
         continue
+    want = sum(tris(o) for o in obs)
     bpy.ops.object.select_all(action="DESELECT")
     for o in obs:
         o.select_set(True)
@@ -245,6 +378,16 @@ for g, obs in sorted(buckets.items()):
         except Exception as e:
             print(f"  join failed for {g}: {e}")
     merged = view.objects.active
+    # A join that swallowed only some of its group is the failure mode worth
+    # guarding: bpy.ops.object.join() returns {'CANCELLED'} rather than raising
+    # when nothing but the active object is selected, so the try/except above
+    # sees nothing wrong. The group still exports, still lands in the manifest,
+    # and still renders in roughly the right place -- with most of its geometry
+    # left behind as loose top-level nodes the frontend has no name for.
+    # Compare triangles instead of trusting the operator.
+    got = tris(merged)
+    if got != want:
+        lost.append(f"{g}: joined {got:,} of {want:,} tris from {len(obs)} objects")
     prefix = "hot" if g in hot_names else "static"
     merged.name = f"{prefix}_{g}"
     merged.data.name = f"{prefix}_{g}"
@@ -260,6 +403,13 @@ for g, obs in sorted(buckets.items()):
     }
     print(f"  {merged.name:<20} {tris(merged):>7,} tris  "
           f"c=({c.x:6.2f},{c.y:6.2f},{c.z:6.2f})")
+
+if lost:
+    raise SystemExit("\nJOIN LEFT GEOMETRY BEHIND:\n  " + "\n  ".join(lost) +
+                     "\n\nThe usual cause is the outliner's selection lock on the "
+                     "source objects; step 1a clears it, so if this fires the "
+                     "objects are unselectable for some other reason. Exporting "
+                     "anyway would ship a hotspot missing most of its geometry.")
 
 # glTF is Y-up; Blender is Z-up. Record centres in glTF space for the frontend.
 for g, d in manifest.items():
