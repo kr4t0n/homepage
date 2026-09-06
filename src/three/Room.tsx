@@ -8,6 +8,8 @@ import { HIGHLIGHT, highlight } from './highlight'
 import { baseline, clearBaselines, setBaseline } from './materials'
 import { orbit } from './orbit'
 import { PixelBoard } from './PixelBoard'
+import { setPixelHover } from '../pixels/usePixels'
+import { slotFromMaterialName } from '../pixels/palette'
 
 const GLB = '/room.glb'
 
@@ -19,6 +21,9 @@ const GLB = '/room.glb'
  * them `hot_*` / `static_*`, so raycasting is a handful of meshes rather than
  * the 193 unnamed objects the asset shipped with.
  */
+/** The activity board's hotspot id. Its cells get a per-cell readout. */
+const PIXEL_HOTSPOT = 'signals'
+
 export function Room() {
   const { scene } = useGLTF(GLB)
   const hover = useScene((s) => s.hover)
@@ -135,6 +140,25 @@ export function Room() {
     }
   }, [hover, focus, cloned])
 
+  /**
+   * Which pixel of the activity board is under the pointer, if any.
+   *
+   * Reads the hit material's name rather than consulting a lookup: the name
+   * already encodes row and column, so no shared map is needed between here and
+   * PixelBoard. This costs nothing extra per move — the board's meshes are
+   * inside `cloned` and were already being raycast.
+   */
+  const pickPixel = (e: ThreeEvent<PointerEvent>): number | null => {
+    for (const hit of e.intersections) {
+      const o = hit.object
+      if (!(o instanceof THREE.Mesh)) continue
+      const mat = Array.isArray(o.material) ? o.material[0] : o.material
+      const slot = mat?.name ? slotFromMaterialName(mat.name) : null
+      if (slot !== null) return slot
+    }
+    return null
+  }
+
   const pick = (e: ThreeEvent<PointerEvent>): string | null => {
     for (const hit of e.intersections) {
       let n: THREE.Object3D | null = hit.object
@@ -151,9 +175,26 @@ export function Room() {
     <group
       onPointerMove={(e) => {
         e.stopPropagation()
-        setHover(pick(e))
+        const id = pick(e)
+        setHover(id)
+        // Per-cell readout, but only once the board is the focused subject.
+        // From the home view the board is a thumbnail a couple of hundred pixels
+        // wide, where a cell is barely two pixels and a readout would be noise
+        // chasing the pointer. Focused, the camera has flown to it and each cell
+        // is a real target worth inspecting.
+        if (id === PIXEL_HOTSPOT && focus === PIXEL_HOTSPOT) {
+          const slot = pickPixel(e)
+          setPixelHover(
+            slot === null ? null : { slot, x: e.nativeEvent.clientX, y: e.nativeEvent.clientY },
+          )
+        } else {
+          setPixelHover(null)
+        }
       }}
-      onPointerOut={() => setHover(null)}
+      onPointerOut={() => {
+        setHover(null)
+        setPixelHover(null)
+      }}
       onClick={(e) => {
         e.stopPropagation()
         // Releasing an orbit drag over an object should not open it.

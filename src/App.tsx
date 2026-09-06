@@ -4,6 +4,7 @@ import { Hud } from './ui/Hud'
 import { Panel } from './ui/Panel'
 import { Preloader } from './ui/Preloader'
 import { Fallback2D } from './ui/Fallback2D'
+import { PixelTooltip } from './ui/PixelTooltip'
 import { bindCursor, bindEscape, bindHistory } from './store'
 import { bindPixels } from './pixels/usePixels'
 import { bindTrack } from './audio/player'
@@ -71,6 +72,7 @@ export default function App() {
       </div>
       <Hud />
       <Panel />
+      <PixelTooltip />
       <Preloader />
     </>
   )

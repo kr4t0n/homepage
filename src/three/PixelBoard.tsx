@@ -27,6 +27,20 @@ export function PixelBoard({ root }: { root: THREE.Object3D }) {
   // mapping cannot change without re-exporting the asset.
   const cells = useMemo(() => indexCells(root), [root])
 
+  // Dev-only handle, matching the __hover and __orbit hooks the room already
+  // exposes. The verification harnesses cannot reach into the R3F store, and
+  // asserting on pixel state through screenshots alone is far too blunt.
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    ;(window as unknown as Record<string, unknown>).__board = () => ({
+      cells: cells.size,
+      // Distinct meshes across all cells. If this equals the cell count each
+      // pixel is its own raycast target; if it is 1 they are merged and a
+      // per-cell hover would need UV maths instead.
+      meshes: new Set([...cells.values()].map((c) => c.mesh)).size,
+    })
+  }, [cells])
+
   useEffect(() => {
     if (!data) return
 

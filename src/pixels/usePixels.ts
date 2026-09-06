@@ -19,6 +19,14 @@ import { validate, liveSlot, type PixelPayload } from '../shared/pixels'
  */
 const POLL_MS = 10_000
 
+/** Which cell the pointer is over, and where to put its readout. */
+export interface PixelHover {
+  slot: number
+  /** Viewport coords, captured when the pointer entered this cell. */
+  x: number
+  y: number
+}
+
 interface PixelState {
   data: PixelPayload | null
   /** Set once a fetch has completed, successfully or not. */
@@ -26,6 +34,8 @@ interface PixelState {
   error: string | null
   /** Index of the slot happening now, or -1. Recomputed on every tick. */
   live: number
+  /** Non-null only while the board is focused and the pointer is on a cell. */
+  hover: PixelHover | null
 }
 
 export const usePixels = create<PixelState>(() => ({
@@ -33,7 +43,22 @@ export const usePixels = create<PixelState>(() => ({
   settled: false,
   error: null,
   live: -1,
+  hover: null,
 }))
+
+/**
+ * Record which cell the pointer is over.
+ *
+ * Only writes when the slot actually changes, never on every pointer move. The
+ * position is captured on entry rather than tracked continuously: a cell is
+ * about 20 screen pixels, so an anchored readout follows the pointer closely
+ * enough while costing one render per cell instead of one per mouse event.
+ */
+export function setPixelHover(next: PixelHover | null) {
+  const cur = usePixels.getState().hover
+  if (cur?.slot === next?.slot) return
+  usePixels.setState({ hover: next })
+}
 
 async function poll(signal: AbortSignal) {
   try {

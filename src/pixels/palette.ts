@@ -68,8 +68,32 @@ export function materialName(row: number, col: number): string {
   return `Pixel Light R${pad(row)} C${pad(col)}`
 }
 
+/**
+ * Slot index from a pixel's material name, or null if it is not a pixel.
+ *
+ * Stateless on purpose. The name already encodes the grid position, so a
+ * raycast hit can be resolved without consulting the cell index — which means
+ * the hover path needs no shared map between Room and PixelBoard.
+ */
+export function slotFromMaterialName(name: string, slotsPerDay = 24): number | null {
+  const m = /^Pixel Light R(\d+) C(\d+)$/.exec(name)
+  if (!m) return null
+  const row = Number(m[1]) - 1
+  const col = Number(m[2]) - 1
+  return col * slotsPerDay + row
+}
+
 export interface PixelCell {
   material: THREE.MeshStandardMaterial
+  /**
+   * The mesh carrying this pixel.
+   *
+   * glTF meshes with several primitives load as a Group of one Mesh per
+   * primitive, so the board's 1008 pixels arrive as 1008 separate meshes rather
+   * than one merged surface. That is what makes a per-cell raycast possible at
+   * all — see PixelTooltip.
+   */
+  mesh: THREE.Mesh
   /** Slot index this cell shows, for the painter to look up. */
   slot: number
 }
@@ -81,24 +105,25 @@ export interface PixelCell {
  * an hour would be wasteful, and the mapping cannot change without a re-export.
  */
 export function indexCells(root: THREE.Object3D, slotsPerDay = 24): Map<number, PixelCell> {
-  const byName = new Map<string, THREE.MeshStandardMaterial>()
+  const byName = new Map<string, { material: THREE.MeshStandardMaterial; mesh: THREE.Mesh }>()
   root.traverse((o) => {
     if (!(o instanceof THREE.Mesh)) return
     const mats = Array.isArray(o.material) ? o.material : [o.material]
     for (const m of mats) {
       if (m instanceof THREE.MeshStandardMaterial && m.name.startsWith('Pixel Light ')) {
-        byName.set(m.name, m)
+        byName.set(m.name, { material: m, mesh: o })
       }
     }
   })
 
   const cells = new Map<number, PixelCell>()
-  for (const [name, material] of byName) {
+  for (const [name, { material, mesh }] of byName) {
     const m = /^Pixel Light R(\d+) C(\d+)$/.exec(name)
     if (!m) continue
     const row = Number(m[1]) - 1
     const col = Number(m[2]) - 1
-    cells.set(col * slotsPerDay + row, { material, slot: col * slotsPerDay + row })
+    const slot = col * slotsPerDay + row
+    cells.set(slot, { material, mesh, slot })
   }
   return cells
 }

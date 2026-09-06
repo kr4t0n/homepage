@@ -119,3 +119,61 @@ export function gridPos(p: PixelPayload, i: number): { row: number; col: number 
   const slotsPerDay = 1440 / p.slotMinutes
   return { row: i % slotsPerDay, col: Math.floor(i / slotsPerDay) }
 }
+
+/**
+ * Human label for a slot, in the grid's own timezone.
+ *
+ * The timezone handling is the whole point of this function. `start` is a UTC
+ * instant, but the grid was bucketed in `p.tz`, so slot 14 of a column is 14:00
+ * *there* — not 14:00 wherever the visitor happens to be. Formatting a Date with
+ * default locale settings would relabel every cell for anyone outside that zone
+ * and quietly disagree with the row labels printed on the board itself, which
+ * come from `i % 24` and cannot move.
+ *
+ * So the instant is computed by arithmetic on the slot index and then formatted
+ * with an explicit `timeZone`. A visitor in London and one in Shanghai see the
+ * same label on the same cell.
+ */
+export function slotLabel(p: PixelPayload, slot: number): string {
+  const at = new Date(Date.parse(p.start) + slot * p.slotMinutes * 60_000)
+  const day = new Intl.DateTimeFormat('en-GB', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    timeZone: p.tz,
+  }).format(at)
+  const hour = new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: p.tz,
+  }).format(at)
+  return `${day}, ${hour}`
+}
+
+/** A slot's contested split, if Argus sent one. Sparse: most slots have none. */
+export interface SlotShare {
+  projectIndex: number
+  seconds: number
+}
+
+/**
+ * Who worked a slot and for how long, busiest first.
+ *
+ * `breakdown` is only present for slots where the winner held under ~70% of the
+ * time, which is roughly a third of lit slots. When it is absent the winner had
+ * the hour to itself, so the single-entry fallback is accurate rather than a
+ * guess — but it is capped at the slot length, since Argus clamps concurrent
+ * work and an hour cannot contain more than an hour.
+ */
+export function slotShares(p: PixelPayload, slot: number): SlotShare[] {
+  const raw = p.breakdown?.[String(slot)]
+  if (raw) {
+    return Object.entries(raw)
+      .map(([k, seconds]) => ({ projectIndex: Number(k), seconds }))
+      .sort((a, b) => b.seconds - a.seconds)
+  }
+  const winner = p.winners[slot]
+  if (winner === null || winner === undefined) return []
+  return [{ projectIndex: winner, seconds: p.slotMinutes * 60 }]
+}
