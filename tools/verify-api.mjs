@@ -61,6 +61,41 @@ if (!existsSync('dist')) {
   )
 }
 
+// ------------------------------------------------ what the proxy discloses --
+// The naming lookup reads /me/usage/by-project, which is far more revealing
+// than the pixel payload: absolute workingDir paths carrying a username and
+// machine layout, machineId, projectId, per-project token counts and costUsd in
+// the thousands. The proxy reduces all that to a bare name. Forwarding the raw
+// object instead — an easy "just pass it through" change — would publish every
+// one of those fields to any visitor who opens devtools.
+const FORBIDDEN = ['workingDir', 'machineId', 'projectId', 'costUsd', 'inputTokens',
+  'outputTokens', 'cacheReadTokens', 'turns', 'cliTypes']
+const ALLOWED_PROJECT_FIELDS = ['key', 'name', 'wonSeconds', 'other']
+
+try {
+  const res = await fetch('http://localhost:5173/api/pixels', {
+    signal: AbortSignal.timeout(20_000),
+  })
+  const body = await res.text()
+  const json = JSON.parse(body)
+  const leaked = FORBIDDEN.filter((f) => body.includes(f))
+  check('the proxy discloses no path, machine or cost fields', leaked.length === 0, leaked.join(', '))
+
+  const extra = [...new Set(json.projects.flatMap(Object.keys))].filter(
+    (f) => !ALLOWED_PROJECT_FIELDS.includes(f),
+  )
+  check(
+    'projects carry only the allowlisted fields',
+    extra.length === 0,
+    extra.length ? `unexpected: ${extra.join(', ')}` : '',
+  )
+
+  const named = json.projects.filter((p) => p.name).length
+  check('hashes resolve to names', named > 0, `${named}/${json.projects.length} named`)
+} catch (err) {
+  console.log(`skip  live proxy checks — dev server not reachable (${err.message.slice(0, 60)})`)
+}
+
 // ------------------------------------------------------------- validation --
 const good = () => ({
   start: '2026-07-26T16:00:00.000Z',

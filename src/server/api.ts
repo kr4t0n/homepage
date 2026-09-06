@@ -17,6 +17,13 @@ import { validate } from '../shared/pixels'
 const QUERY = 'tz=Asia/Shanghai&days=42&slotMinutes=60&clampMinutes=60&breakdown=1'
 
 /**
+ * Names change far more slowly than activity does, and this is a second
+ * upstream call, so it gets its own much longer TTL rather than riding the 9s
+ * pixel cache.
+ */
+const NAMES_TTL_MS = 5 * 60_000
+
+/**
  * The client polls every ~10s to keep the live cell blinking. Without a cache
  * that is one upstream call per visitor per 10s; with it, one per 10s total.
  * Slightly under the poll interval so a caller rarely waits on a refresh.
@@ -30,6 +37,46 @@ interface Cached {
 let cache: Cached | null = null
 /** Collapses concurrent misses into a single upstream request. */
 let inflight: Promise<Cached> | null = null
+
+let names: { map: Record<string, string>; at: number } | null = null
+
+/**
+ * Map each project hash to a display name, and discard everything else.
+ *
+ * `/me/usage/by-project` answers the naming question, but it is a far more
+ * revealing payload than `/me/pixels` — which carries opaque hashes on purpose,
+ * with no names or paths. This one adds `workingDir` (absolute paths exposing a
+ * username and machine layout, e.g. /home/kyle/projects/argus), `machineId`,
+ * `projectId`, per-project token counts and `costUsd` running into thousands of
+ * dollars.
+ *
+ * None of that belongs on a public homepage, so the reduction happens here
+ * rather than in the browser: the response is boiled down to hash -> name and
+ * the rest never crosses the wire. Forwarding this endpoint as-is, or doing the
+ * mapping client-side, would publish all of it.
+ *
+ * `name` is null for a third of entries, where the directory's own basename is
+ * the honest fallback — that is a project name, not a path, and it is the same
+ * word a human would use.
+ */
+async function fetchNames(base: string, key: string): Promise<Record<string, string>> {
+  const res = await fetch(`${base}/me/usage/by-project`, {
+    headers: { 'X-API-Key': key },
+    signal: AbortSignal.timeout(15_000),
+  })
+  if (!res.ok) throw new Error(`argus by-project responded ${res.status}`)
+  const json = (await res.json()) as {
+    projects?: { key?: string; name?: string | null; workingDir?: string }[]
+  }
+  const map: Record<string, string> = {}
+  for (const p of json.projects ?? []) {
+    if (!p.key) continue
+    const fromDir = p.workingDir?.replace(/\/+$/, '').split('/').pop()
+    const name = p.name?.trim() || fromDir?.trim()
+    if (name) map[p.key] = name
+  }
+  return map
+}
 
 const env = (k: string): string | undefined =>
   // Vite's dev server and Node both expose process.env here; this module only
@@ -54,8 +101,25 @@ async function fetchUpstream(): Promise<Cached> {
 
   const json = await res.json()
   // Throws on anything we cannot render truthfully. Deliberately before the
-  // cache write, so a bad payload is never served and never stored.
+  // cache write, so a bad payload is never served and never stored, and before
+  // enrichment so validation only ever sees Argus's own shape.
   validate(json)
+
+  // Names are a nicety, not a requirement. If the lookup fails the board still
+  // works and simply shows hashes, so a failure here must not take the whole
+  // request down with it.
+  if (!names || Date.now() - names.at > NAMES_TTL_MS) {
+    try {
+      names = { map: await fetchNames(base, key), at: Date.now() }
+    } catch {
+      names ??= { map: {}, at: Date.now() }
+    }
+  }
+  for (const project of json.projects) {
+    const name = names.map[project.key]
+    if (name) project.name = name
+  }
+
   return { body: JSON.stringify(json), at: Date.now() }
 }
 

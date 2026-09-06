@@ -85,8 +85,13 @@ export function PixelTooltip() {
                   className="size-2.5 shrink-0 rounded-[2px]"
                   style={{ background: colourFor(s.projectIndex).getStyle() }}
                 />
-                <span className="truncate font-mono text-[10.5px] text-body">
-                  {data.projects[s.projectIndex]?.key ?? '—'}
+                <span className="truncate text-[11px] text-body">
+                  {/* Named where the proxy could resolve one, hash otherwise —
+                      a third of projects have no name upstream and fall back to
+                      their directory basename, and a few may have neither. */}
+                  {data.projects[s.projectIndex]?.name ??
+                    data.projects[s.projectIndex]?.key ??
+                    '—'}
                   {s.projectIndex >= PALETTE_SIZE && (
                     <span className="text-mute"> · tail</span>
                   )}

@@ -18,6 +18,14 @@ export interface PixelProject {
   /** Opaque hash. Deliberately carries no name or path. */
   key: string
   wonSeconds: number
+  /**
+   * Display name, added by our proxy — Argus does not send one here.
+   *
+   * Resolved from /me/usage/by-project and reduced to a bare name server-side;
+   * see fetchNames. Optional because that lookup is allowed to fail without
+   * taking the board down, in which case the UI falls back to the hash.
+   */
+  name?: string
   /** Gone from the live payload; tolerated if it comes back. */
   other?: boolean
 }

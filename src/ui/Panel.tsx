@@ -51,10 +51,10 @@ function ProjectLink({ name }: { name: string }) {
 /**
  * Legend for the wall board.
  *
- * There are no project names to show: Argus returns opaque hashes on purpose,
- * with no paths or labels in the payload. So this reports what the board can
- * honestly say — rank, colour, and hours won — and leaves naming to whoever
- * wants to add a key->label map here later.
+ * Names come from the proxy, which resolves each hash against a second Argus
+ * endpoint and forwards nothing but the name. Falls back to the hash where that
+ * lookup found nothing, since the lookup is allowed to fail without taking the
+ * board down.
  */
 function Signals() {
   const data = usePixels((s) => s.data)
@@ -96,7 +96,7 @@ function Signals() {
               className="size-3 shrink-0 rounded-[3px]"
               style={{ background: colourFor(i).getStyle() }}
             />
-            <span className="font-mono text-[11px] text-mute">{p.key}</span>
+            <span className="truncate text-[13px] text-body">{p.name ?? p.key}</span>
             <span className="ml-auto font-mono text-[11px] tabular-nums text-body">
               {hours(p.wonSeconds)}
             </span>
