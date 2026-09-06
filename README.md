@@ -23,6 +23,38 @@ npm run dev            # http://localhost:5173
 
 `public/room.glb` is committed, so the site runs without touching Blender.
 
+## Environment
+
+Copy `.env.example` to `.env`. Both variables are read only by
+`src/server/api.ts`, and neither is prefixed `VITE_` — that prefix is what would
+inline the credential into the client bundle.
+
+| Variable | Purpose |
+|---|---|
+| `ARGUS` | Base URL of the upstream that feeds the pixel board |
+| `ARGUS_KEY` | Sent as `X-API-Key`. Server-side only |
+
+Without them the site runs fine and the board stays unlit; only `/api/pixels`
+fails. In the cluster they come from a Secret.
+
+**What the proxy publishes is a deliberate subset.** It calls two upstream
+endpoints and forwards a fraction of what they return:
+
+| From | Forwarded | Withheld |
+|---|---|---|
+| `/me/pixels` | the grid, and opaque project hashes | — |
+| `/me/usage/by-project` | `name`, and `tokens` as `in`/`out`/`cached` | `workingDir`, `machineId`, `projectId`, `costUsd`, raw usage keys |
+
+`workingDir` carries an absolute path with a username in it, and `costUsd` runs
+to five figures. Neither belongs on a public page, so the reduction happens in
+the proxy rather than the browser — passing the endpoint through, or doing the
+name lookup client-side, would publish all of it. `node tools/verify-api.mjs`
+asserts against the live response that it stays that way.
+
+Note that project *names* are public by design here: the board says `fluvio`,
+`harbor`, `homepage` rather than hashes. If a name should not be, the place to
+fix it is an alias map in `fetchNames`.
+
 ## Scripts
 
 | Command | Does |
@@ -32,6 +64,7 @@ npm run dev            # http://localhost:5173
 | `npm run preview` | Serve the production build |
 | `npm run lint` | ESLint (flat config) |
 | `npm run typecheck` | `tsc --noEmit` |
+| `npm run verify:api` | Secret containment, proxy disclosure, payload validation |
 | `npm run room` | Re-export `room.glb` from the `.blend` |
 
 ## The asset pipeline
@@ -385,11 +418,14 @@ tools/
 - The DJ controller carries the player. It was deliberately unassigned until
   there was content that suited a mixing desk; the backing track is that
   content, so `hot_djcontroller` is now the `player` hotspot.
-- The `signals` hotspot has no verified node and is hidden from the room and the
-  nav. `hot_hexpanels` turned out to enclose a small wall fixture rather than
-  the light panels; isolating those is a region-tuning pass in `export_glb.py`.
-  The DJ controller was the other candidate, but it is taken now, so this needs
-  a node of its own.
+- The Signals panel measures ~1.02:1 against the lit board behind it, which is
+  the worst contrast in the project. It was recorded at 2.06:1 until the glass
+  gate learned to serve a pixel payload — before that the board behind it was
+  always unlit in the test, so the number described a state that never ships.
+  Nothing regressed; the measurement got honest. Per the project's own rule the
+  fix is the camera, not the CSS: frame this hotspot so the panel lands over a
+  darker part of the room. Until then it sits in `ACCEPTED` alongside `about`
+  and `contact`.
 - The right-hand monitor is wired and empty. Adding an `image` and `href` to the
   `right` entry in `SCREENS` is all it needs.
 - Writing, CV and the stats board are marked placeholders in the UI rather than

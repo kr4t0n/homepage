@@ -26,6 +26,25 @@ export interface PixelProject {
    * taking the board down, in which case the UI falls back to the hash.
    */
   name?: string
+  /**
+   * Token usage, added by our proxy from the same lookup that resolves `name`.
+   *
+   * Same six-week window as the grid, requested explicitly rather than left to
+   * the upstream default — see fetchNames.
+   *
+   * It still does not count the same thing as `wonSeconds`, and that is not a
+   * bug to reconcile. An hour goes to whichever project was busiest in it, so a
+   * project can burn tokens all week and win almost no cells: `researchers` has
+   * two hours won and over a billion tokens. Hours are hours *won*; tokens are
+   * all of them. Any UI showing both owes the reader that sentence.
+   *
+   * Split rather than summed on purpose. Cache reads are ~85% of the raw total,
+   * so one combined figure would be dominated by them and overstate how much
+   * work happened. `in` includes them; `cached` says how much of `in` they are.
+   *
+   * Cost is available upstream and deliberately not carried here.
+   */
+  tokens?: { in: number; out: number; cached: number }
   /** Gone from the live payload; tolerated if it comes back. */
   other?: boolean
 }

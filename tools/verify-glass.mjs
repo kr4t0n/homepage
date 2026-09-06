@@ -44,8 +44,53 @@ const TYPES = {
   '.mp3': 'audio/mpeg',
 }
 
+/**
+ * A stand-in for the pixel proxy.
+ *
+ * This gate serves the built `dist/` and nothing else, so `/api/pixels` used to
+ * 404 — and the Signals panel would quietly render its "board is unlit"
+ * fallback instead of its legend. The gate reported that panel green while
+ * never having seen the text it actually ships: project names, hours won and
+ * token counts, the densest run of small type in the room.
+ *
+ * A fixture rather than a live call, deliberately. This must measure the same
+ * pixels on a laptop with no ARGUS_KEY as it does in CI, and a panel whose
+ * contrast verdict depends on how busy someone was last week is not a gate.
+ * Values are chosen to be the widest realistic case — long names, billions —
+ * since text that overflows lands somewhere the sampler never looked.
+ */
+const PIXEL_FIXTURE = (() => {
+  const slotCount = 1008
+  const names = ['fluvio', 'experiments', 'harbor', 'modal-labs', 'homepage', 'seed',
+    'argus', 'researchers', 'blender', 'climage', 'helm-charts', 'homelab']
+  return JSON.stringify({
+    start: new Date(Date.now() - slotCount * 3600_000).toISOString(),
+    slotMinutes: 60,
+    slotCount,
+    tz: 'Asia/Shanghai',
+    winners: Array.from({ length: slotCount }, (_, i) => (i % 3 === 0 ? null : i % names.length)),
+    intensity: Array.from({ length: slotCount }, (_, i) => i % 101),
+    projects: names.map((name, i) => ({
+      key: `hash${i}`,
+      name,
+      wonSeconds: (86 - i * 7) * 3600,
+      tokens: {
+        in: Math.round(5.7e9 / (i + 1)),
+        out: Math.round(1.07e7 / (i + 1)),
+        cached: Math.round(4.8e9 / (i + 1)),
+      },
+    })),
+    live: [0],
+  })
+})()
+
 const server = createServer(async (req, res) => {
   const url = decodeURIComponent((req.url ?? '/').split('?')[0])
+  if (url === '/api/pixels') {
+    res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
+    res.end(PIXEL_FIXTURE)
+    return
+  }
   const rel = normalize(url === '/' ? '/index.html' : url).replace(/^(\.\.[/\\])+/, '')
   try {
     const buf = await readFile(join('dist', rel))
@@ -107,9 +152,20 @@ const threshold = (px, weight) => (px >= 24 || (px >= 18.66 && weight >= 700) ? 
 const ACCEPTED = {
   about: 1.03,
   contact: 1.09,
-  // Improved from 1.57 when this hotspot moved off the wrongly-guessed
-  // hexpanels node onto the real pixel board, which is darker.
-  signals: 2.06,
+  // 1.02–1.05, and previously recorded as 2.06 for a reason worth keeping in
+  // mind: this gate served dist/ with no /api/pixels, so the board behind this
+  // panel was *unlit* every time it was measured. The old note here claimed the
+  // ratio "improved from 1.57 when the hotspot moved onto the pixel board,
+  // which is darker" — the board is only darker when it has no data. In
+  // production it is the brightest surface in the room, and the worst tile
+  // under this panel is a saturated acid cell at rgb(152,214,15).
+  //
+  // The number below is measured against PIXEL_FIXTURE so it stays
+  // deterministic; the live payload measures 1.02, slightly worse. Either way
+  // this panel is in the same class as `about` and `contact` rather than being
+  // a new failure — but it was never knowingly accepted at this ratio, so it
+  // wants the owner's eye rather than just this line.
+  signals: 1.05,
   writing: 1.64,
   music: 1.78,
   cv: 2.89,

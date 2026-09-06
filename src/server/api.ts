@@ -13,8 +13,14 @@ import { validate } from '../shared/pixels'
  * the built `dist/`. Same handler both sides, so dev cannot drift from prod.
  */
 
+/**
+ * Six weeks, which is the board's 42 columns. Shared by both upstream calls so
+ * the hours and the token counts shown beside them describe the same window.
+ */
+const WINDOW_DAYS = 42
+
 /** Slot 0 of the grid; must stay in step with the board's 24x42 geometry. */
-const QUERY = 'tz=Asia/Shanghai&days=42&slotMinutes=60&clampMinutes=60&breakdown=1'
+const QUERY = `tz=Asia/Shanghai&days=${WINDOW_DAYS}&slotMinutes=60&clampMinutes=60&breakdown=1`
 
 /**
  * Names change far more slowly than activity does, and this is a second
@@ -38,7 +44,13 @@ let cache: Cached | null = null
 /** Collapses concurrent misses into a single upstream request. */
 let inflight: Promise<Cached> | null = null
 
-let names: { map: Record<string, string>; at: number } | null = null
+/** What the proxy is willing to say about a project, beyond its hash. */
+interface ProjectMeta {
+  name?: string
+  tokens: { in: number; out: number; cached: number }
+}
+
+let names: { map: Record<string, ProjectMeta>; at: number } | null = null
 
 /**
  * Map each project hash to a display name, and discard everything else.
@@ -58,22 +70,50 @@ let names: { map: Record<string, string>; at: number } | null = null
  * `name` is null for a third of entries, where the directory's own basename is
  * the honest fallback — that is a project name, not a path, and it is the same
  * word a human would use.
+ *
+ * Token counts come along too, since the owner asked to show them. `costUsd` is
+ * deliberately NOT forwarded: it is in the same `usage` object, it runs to five
+ * figures across these projects, and nobody asked for spend to be public. It
+ * stays server-side unless that changes on purpose rather than by a careless
+ * spread of `...p.usage`.
+ *
+ * `days` is passed explicitly even though 42 is currently this endpoint's own
+ * default. Omitting it reads as equivalent and is not: the tokens are rendered
+ * beside hours won from a 42-day pixel grid, so if that default ever moved, the
+ * two numbers on one row would silently start describing different windows —
+ * a wrong number that still looks right.
  */
-async function fetchNames(base: string, key: string): Promise<Record<string, string>> {
-  const res = await fetch(`${base}/me/usage/by-project`, {
+async function fetchNames(base: string, key: string): Promise<Record<string, ProjectMeta>> {
+  const res = await fetch(`${base}/me/usage/by-project?days=${WINDOW_DAYS}`, {
     headers: { 'X-API-Key': key },
     signal: AbortSignal.timeout(15_000),
   })
   if (!res.ok) throw new Error(`argus by-project responded ${res.status}`)
   const json = (await res.json()) as {
-    projects?: { key?: string; name?: string | null; workingDir?: string }[]
+    projects?: {
+      key?: string
+      name?: string | null
+      workingDir?: string
+      usage?: Record<string, number>
+    }[]
   }
-  const map: Record<string, string> = {}
+  const map: Record<string, ProjectMeta> = {}
   for (const p of json.projects ?? []) {
     if (!p.key) continue
     const fromDir = p.workingDir?.replace(/\/+$/, '').split('/').pop()
     const name = p.name?.trim() || fromDir?.trim()
-    if (name) map[p.key] = name
+    const u = p.usage ?? {}
+    // Cache reads are 85% of the total across these projects, so a single
+    // summed figure would be dominated by them and read as far more work than
+    // actually happened. Kept apart so the UI can be honest about the split.
+    map[p.key] = {
+      ...(name ? { name } : {}),
+      tokens: {
+        in: (u.inputTokens ?? 0) + (u.cacheReadTokens ?? 0) + (u.cacheWriteTokens ?? 0),
+        out: u.outputTokens ?? 0,
+        cached: u.cacheReadTokens ?? 0,
+      },
+    }
   }
   return map
 }
@@ -116,8 +156,10 @@ async function fetchUpstream(): Promise<Cached> {
     }
   }
   for (const project of json.projects) {
-    const name = names.map[project.key]
-    if (name) project.name = name
+    const meta = names.map[project.key]
+    if (!meta) continue
+    if (meta.name) project.name = meta.name
+    project.tokens = meta.tokens
   }
 
   return { body: JSON.stringify(json), at: Date.now() }

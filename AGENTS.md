@@ -27,6 +27,26 @@ room.blend      --[tools/export_glb.py, headless bpy]-->  public/room.glb
 panel kind. Both the 3D room and the 2D fallback read from it, so content cannot
 drift between them.
 
+There is a third, much smaller half: the pixel board is the only surface fed by
+live data, and it has a server.
+
+```
+Argus  /me/pixels            --+
+       /me/usage/by-project   -+--> src/server/api.ts  -->  /api/pixels  -->  usePixels
+       (X-API-Key, never                (Hono)                                    |
+        leaves the server)                                          three/PixelBoard.tsx
+                                                                    ui/Panel.tsx (legend)
+                                                                    ui/PixelTooltip.tsx
+```
+
+One handler, mounted twice: `@hono/vite-dev-server` runs it in `npm run dev` and
+`@hono/node-server` runs it beside `dist/` in the container, so dev cannot drift
+from prod. It exists for exactly one reason — `ARGUS_KEY` must never reach the
+browser — and everything else in it (9s cache, single-flight, strict validation,
+field reduction) serves that hop being cheap and honest.
+`src/shared/pixels.ts` is imported by both sides and holds the payload type, the
+validator and the grid maths.
+
 ## Key design decisions
 
 **The asset is bad and the pipeline compensates rather than the runtime.** The
@@ -165,6 +185,37 @@ ratio per panel, so the gate still fails on a regression, on any panel outside t
 list, and on a stale waiver whose panel now passes. Do not silently widen those
 numbers to make a run go green — the fix is to reframe the camera over a darker
 part of the room, which is why the decks bar passes outright at 5.55:1.
+
+**A contrast gate that serves only `dist/` measures the panels' empty states,
+not the ones that ship.** `verify-glass.mjs` had no `/api/pixels` route, so the
+Signals panel rendered its "board is unlit" fallback on every run: four short
+lines of text in front of an unlit board. The gate called it 2.06:1 and green
+for months. It ships a twelve-row legend in front of 1008 emissive cells, and
+measures 1.02:1. Nothing regressed — the test had never seen the feature.
+`PIXEL_FIXTURE` in that file now stands in for the proxy, deliberately as a
+fixture and not a live call: a contrast verdict that depends on how busy someone
+was last week is not a gate. Apply the same suspicion to any panel whose content
+arrives over the network — if the test has no data source, check what it is
+actually rendering before trusting the number.
+
+**`wonSeconds` and `tokens` on a project count different things, and the legend
+shows both side by side.** An hour on the board goes to whichever project was
+busiest in it, so `wonSeconds` is hours *won*; the token counts are every token
+that project spent in the window, won or lost. `researchers` has two hours and
+over a billion tokens. The two are not reconcilable and should not be made to
+look it — the panel spends a sentence saying so, and that sentence is load
+bearing. Both do at least cover the same six weeks: `WINDOW_DAYS` is passed
+explicitly to `/me/usage/by-project` rather than relying on its default
+happening to be 42.
+
+**Token counts are published; cost is not, and the rename is the guard.** The
+proxy reduces upstream `usage` to `in`/`out`/`cached` rather than spreading it,
+because `costUsd` sits in the same object and runs to five figures. The raw key
+names stay on the `FORBIDDEN` list in `verify-api.mjs` even now that tokens are
+a shipped feature: they can only appear in a response that spread the whole
+object, which is exactly the mistake worth failing on. Note also that `in`
+includes cache reads and they are ~85% of it, so any single summed "tokens"
+figure overstates the work by roughly seven times.
 
 **Translucent panels over this room fail WCAG AA by default, and the failure is
 invisible from a screenshot of the closed page.** The blur averages whole glowing
@@ -509,9 +560,13 @@ does.
 
 ## Technical debt
 
-- The `signals` hotspot is marked `unverified` and hidden from the room. The hex
-  light panels and the upright piano are both stuck inside `static_static`;
-  isolating them means tightening the regions in `export_glb.py`.
+- The Signals panel is the worst contrast surface in the project, at ~1.02:1
+  over the lit board. The waiver in `ACCEPTED` says 1.05 (the deterministic
+  fixture value); the live payload is slightly worse. This was recorded as
+  2.06:1 for as long as the glass gate had no `/api/pixels` to serve, because
+  the board behind the panel was unlit in every measurement. The camera fix
+  applies here more than anywhere: the panel opens directly in front of 1008
+  emissive cells.
 - The sofa is still 42k of the 160k triangles after decimation.
 - No `<Environment>` map. The hemisphere fill in `lighting.ts` approximates one,
   but real image-based lighting would seat the metals and the guitar better, and

@@ -65,12 +65,18 @@ if (!existsSync('dist')) {
 // The naming lookup reads /me/usage/by-project, which is far more revealing
 // than the pixel payload: absolute workingDir paths carrying a username and
 // machine layout, machineId, projectId, per-project token counts and costUsd in
-// the thousands. The proxy reduces all that to a bare name. Forwarding the raw
-// object instead — an easy "just pass it through" change — would publish every
-// one of those fields to any visitor who opens devtools.
+// the thousands. The proxy reduces all that to a name and a token count.
+// Forwarding the raw object instead — an easy "just pass it through" change —
+// would publish every one of those fields to any visitor who opens devtools.
+//
+// The raw usage field names stay forbidden even though tokens are now published
+// deliberately: they only appear in a response that spread `...p.usage`, and
+// that spread carries costUsd out with them. The proxy renames to in/out/cached
+// precisely so a leak of the whole object cannot pass as the intended feature.
 const FORBIDDEN = ['workingDir', 'machineId', 'projectId', 'costUsd', 'inputTokens',
   'outputTokens', 'cacheReadTokens', 'turns', 'cliTypes']
-const ALLOWED_PROJECT_FIELDS = ['key', 'name', 'wonSeconds', 'other']
+const ALLOWED_PROJECT_FIELDS = ['key', 'name', 'wonSeconds', 'tokens', 'other']
+const ALLOWED_TOKEN_FIELDS = ['in', 'out', 'cached']
 
 try {
   const res = await fetch('http://localhost:5173/api/pixels', {
@@ -90,8 +96,30 @@ try {
     extra.length ? `unexpected: ${extra.join(', ')}` : '',
   )
 
+  const extraTokens = [
+    ...new Set(json.projects.flatMap((p) => Object.keys(p.tokens ?? {}))),
+  ].filter((f) => !ALLOWED_TOKEN_FIELDS.includes(f))
+  check(
+    'token objects carry only in/out/cached',
+    extraTokens.length === 0,
+    extraTokens.length ? `unexpected: ${extraTokens.join(', ')}` : '',
+  )
+
   const named = json.projects.filter((p) => p.name).length
   check('hashes resolve to names', named > 0, `${named}/${json.projects.length} named`)
+
+  const withTokens = json.projects.filter((p) => p.tokens)
+  check(
+    'projects carry token counts',
+    withTokens.length > 0,
+    `${withTokens.length}/${json.projects.length} counted`,
+  )
+  // `in` is the sum that includes cache reads, so cached can equal it but never
+  // exceed it. If it does, the two numbers came from different fields and the
+  // panel's "N% of input is cache reads" is above 100.
+  const impossible = withTokens.filter((p) => p.tokens.cached > p.tokens.in)
+  check('cache reads never exceed input', impossible.length === 0,
+    impossible.map((p) => p.name ?? p.key).join(', '))
 } catch (err) {
   console.log(`skip  live proxy checks — dev server not reachable (${err.message.slice(0, 60)})`)
 }
