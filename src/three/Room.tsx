@@ -22,6 +22,7 @@ const GLB = '/room.glb'
 export function Room() {
   const { scene } = useGLTF(GLB)
   const hover = useScene((s) => s.hover)
+  const focus = useScene((s) => s.focus)
   const setHover = useScene((s) => s.setHover)
   const setFocus = useScene((s) => s.setFocus)
 
@@ -117,11 +118,22 @@ export function Room() {
 
     paint(cloned, false)
     const hovered = HOTSPOTS.find((h) => h.id === hover)
-    if (hovered) {
+    // Do not wash the thing you are already looking at. The highlight is an
+    // affordance meaning "clickable, click to focus"; once a hotspot IS focused
+    // that promise has been kept, and the wash is just noise over the subject
+    // the camera has flown to.
+    //
+    // It stopped being merely redundant when the pixel board arrived. That board
+    // encodes data in colour, and the wash lerps the accent into every material
+    // it touches — so hovering the focused board repaints six weeks of activity
+    // in shades of green and destroys the reading. The monitors have always
+    // looked right here for an accidental reason: nothing points a hotspot at
+    // `hot_screens`, so they are never hovered at all.
+    if (hovered && hovered.id !== focus) {
       const node = cloned.getObjectByName(hovered.node)
       if (node) paint(node, true)
     }
-  }, [hover, cloned])
+  }, [hover, focus, cloned])
 
   const pick = (e: ThreeEvent<PointerEvent>): string | null => {
     for (const hit of e.intersections) {
