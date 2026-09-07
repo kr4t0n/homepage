@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import { SpeakerSimpleHigh, SpeakerSimpleSlash } from '@phosphor-icons/react'
 import gsap from 'gsap'
 import { useGSAP } from '@gsap/react'
-import { ROOM_HOTSPOTS, PROFILE, hotspotById } from '../content'
+import { HOTSPOTS, PROFILE, hotspotById } from '../content'
 import { useScene } from '../store'
 import { usePlayer } from '../audio/player'
 import { resetOrbit } from '../three/orbit'
@@ -107,7 +107,7 @@ export function Hud() {
           </p>
 
           <nav data-intro aria-label="Places in the room" className="mt-7 flex flex-wrap gap-2">
-            {ROOM_HOTSPOTS().map((h) => (
+            {HOTSPOTS.map((h) => (
               <button
                 key={h.id}
                 type="button"

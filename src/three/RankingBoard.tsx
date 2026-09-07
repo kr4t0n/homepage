@@ -104,7 +104,6 @@ function planeFromAnchors() {
 
 export function RankingBoard({ root }: { root: THREE.Object3D }) {
   const data = usePixels((s) => s.data)
-  const live = usePixels((s) => s.live)
 
   const rows = useMemo(() => indexRows(root), [root])
   const plane = useMemo(planeFromAnchors, [])
@@ -219,7 +218,7 @@ export function RankingBoard({ root }: { root: THREE.Object3D }) {
     return () => {
       cancelled = true
     }
-  }, [data, live, canvas, texture])
+  }, [data, canvas, texture])
 
   return (
     <mesh

@@ -458,9 +458,7 @@ up. `src/three/NeonSign.tsx` is a worked example.
 
 Everything the page says lives in `src/content.ts`. Add a hotspot by adding an
 entry pointing at a node that exists in `src/scene-manifest.json`, then run the
-verification script to confirm it highlights the object you expect. A hotspot
-marked `unverified: true` is excluded from the 3D room but still renders in the
-2D fallback.
+verification script to confirm it highlights the object you expect.
 
 There is no Work panel. The two projects it listed are on the monitors — click
 the left one for nodex, the centre one for Argus — which is the presentation that

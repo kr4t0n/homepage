@@ -29,9 +29,6 @@ export interface PixelHover {
 
 interface PixelState {
   data: PixelPayload | null
-  /** Set once a fetch has completed, successfully or not. */
-  settled: boolean
-  error: string | null
   /** Index of the slot happening now, or -1. Recomputed on every tick. */
   live: number
   /** Non-null only while the board is focused and the pointer is on a cell. */
@@ -40,8 +37,6 @@ interface PixelState {
 
 export const usePixels = create<PixelState>(() => ({
   data: null,
-  settled: false,
-  error: null,
   live: -1,
   hover: null,
 }))
@@ -69,18 +64,12 @@ async function poll(signal: AbortSignal) {
     // indexes arrays by winner value and reads slot counts as loop bounds; a
     // shape surprise here is an exception inside the render tree.
     validate(json)
-    usePixels.setState({
-      data: json,
-      settled: true,
-      error: null,
-      live: liveSlot(json),
-    })
-  } catch (err) {
-    if (signal.aborted) return
-    const why = err instanceof Error ? err.message : String(err)
+    usePixels.setState({ data: json, live: liveSlot(json) })
+  } catch {
     // Keep whatever we last had. A transient blip should not blank a board that
-    // is already showing six weeks of correct history.
-    usePixels.setState((s) => ({ ...s, settled: true, error: why }))
+    // is already showing six weeks of correct history, and a board that never
+    // lit is the designed outcome when the proxy is down or unconfigured. The
+    // proxy logs the cause server-side; nothing here needs to.
   }
 }
 

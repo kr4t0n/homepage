@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { AdaptiveDpr, Preload } from '@react-three/drei'
+import { Preload } from '@react-three/drei'
 import * as THREE from 'three'
 import { Room } from './Room'
 import { Screens } from './Screens'
@@ -85,7 +85,6 @@ export function Scene() {
         screen={screen}
         idle={focus === null && screen === null}
       />
-      <AdaptiveDpr pixelated />
     </Canvas>
   )
 }

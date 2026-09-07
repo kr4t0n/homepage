@@ -13,8 +13,6 @@ export interface Project {
   tagline: string
   body: string
   href: string
-  repo?: string
-  stack: string[]
   status: 'live' | 'building'
 }
 
@@ -30,9 +28,9 @@ export interface Hotspot {
    * framing follows the asset if the parts move relative to each other.
    */
   nodes?: string[]
-  /** Shown in the hover label. Keep it short. */
+  /** Shown on the nav pill and as the panel heading. Keep it short. */
   label: string
-  /** One line, shown under the label on hover. */
+  /** One line, shown under the heading in the panel. */
   hint: string
   kind: PanelKind
   /**
@@ -62,28 +60,7 @@ export interface Hotspot {
    * anything whose colour carries meaning.
    */
   noHighlight?: boolean
-  /**
-   * Set when the glTF node has not been visually confirmed to be the object the
-   * label claims. Excluded from the room so a click never frames the wrong
-   * prop; the panel is still reachable from the nav and the 2D fallback.
-   */
-  unverified?: boolean
 }
-
-/** Hotspots offered in the nav and the 2D fallback. */
-export const ROOM_HOTSPOTS = () => HOTSPOTS.filter((h) => !h.unverified)
-
-/**
- * Hotspots a click in the 3D room can resolve to.
- *
- * Identical to ROOM_HOTSPOTS now. It used to also exclude `navOnly` entries,
- * which existed for exactly one hotspot: Work, whose object is the monitors, and
- * the monitors have their own two-stage interaction. Work is gone — the projects
- * it listed are on the monitors and linked from About — so the flag went with
- * it. Kept as a separate export because the distinction is real and the next
- * object with its own interaction will need it back.
- */
-export const PICKABLE_HOTSPOTS = () => HOTSPOTS.filter((h) => !h.unverified)
 
 export const PROFILE = {
   handle: 'kr4t0n',
@@ -125,8 +102,6 @@ export const PROJECTS: Project[] = [
     tagline: 'The open-source dashboard for CLI coding agents.',
     body: 'One pane of glass over Claude Code, Codex, Cursor and anything else you drive from a terminal, across every machine you run them on. A self-registering Go sidecar per host, a NestJS and Redis Streams control plane, a React frontend. Real PTY, so vim and htop stay usable.',
     href: 'https://kr4t0n.github.io/argus',
-    repo: 'https://github.com/kr4t0n/argus',
-    stack: ['Go', 'NestJS', 'Redis Streams', 'React', 'Socket.IO'],
     status: 'live',
   },
   {
@@ -134,7 +109,6 @@ export const PROJECTS: Project[] = [
     tagline: 'A component registry organised by design language.',
     body: 'Components that belong to a design language, rather than to a framework or a category. One language, drawn all the way through. Currently in design.',
     href: 'https://nodex.kubitnodes.com',
-    stack: ['TypeScript', 'CLI'],
     status: 'building',
   },
 ]
@@ -205,7 +179,7 @@ export const HOTSPOTS: Hotspot[] = [
     // zone the pointer could cross without the hotspot lighting up.
     nodes: ['hot_ranking'],
     label: 'Signals',
-    hint: 'Agent activity and GitHub',
+    hint: 'Six weeks of agent activity',
     kind: 'stats',
     // The colour on these boards IS the content: hue is which project owned an
     // hour, brightness is how busy it was, and the ranking bars carry a
@@ -297,8 +271,6 @@ export const HOTSPOTS: Hotspot[] = [
  */
 export interface RoomLink {
   id: string
-  label: string
-  hint: string
   href: string
 }
 
@@ -307,8 +279,6 @@ export const ROOM_LINKS: RoomLink[] = [
     // The neon wordmark on the back wall. The same link is real, tab-reachable
     // markup in the Contact panel and in the 2D fallback.
     id: 'neon',
-    label: 'GitHub',
-    hint: 'github.com/kr4t0n',
     href: PROFILE.github,
   },
 ]
@@ -333,9 +303,6 @@ export interface Screen {
   id: string
   /** Source object in the .blend, for traceability back to find_screens.py. */
   source: string
-  label: string
-  /** Shown under the label on hover. */
-  hint: string
   image?: string
   href?: string
   /**
@@ -357,8 +324,6 @@ export const SCREENS: Screen[] = [
     // onto the camera's right vector.
     id: 'nodex',
     source: 'Plane.033',
-    label: 'nodex',
-    hint: 'Click to look closer, again to open',
     image: '/nodex-screenshot.png',
     href: 'https://nodex.kubitnodes.com',
     centre: [-0.1345, 1.302, -1.1292],
@@ -369,8 +334,6 @@ export const SCREENS: Screen[] = [
   {
     id: 'centre',
     source: 'Plane.024',
-    label: 'Argus',
-    hint: 'Click to look closer, again to open',
     image: '/argus-screenshot.jpg',
     href: 'https://kr4t0n.github.io/argus',
     // The screenshot is 1.68:1 against a 2.4:1 panel, so 30% of its height is
@@ -386,8 +349,6 @@ export const SCREENS: Screen[] = [
   {
     id: 'right',
     source: 'Plane.031',
-    label: 'Right display',
-    hint: 'Nothing on this one yet',
     centre: [2.3769, 1.302, -1.0929],
     normal: [-0.7018, 0, 0.7123],
     width: 1.3661,

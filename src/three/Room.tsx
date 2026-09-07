@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { useGLTF } from '@react-three/drei'
 import { type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
-import { HOTSPOTS, PICKABLE_HOTSPOTS, ROOM_HOTSPOTS, hotspotNodes } from '../content'
+import { HOTSPOTS, hotspotNodes } from '../content'
 import { useScene } from '../store'
 import { HIGHLIGHT, highlight } from './highlight'
 import { baseline, clearBaselines, setBaseline } from './materials'
@@ -47,9 +47,10 @@ export function Room() {
   // Node -> hotspot id, so a raycast hit resolves to content in one lookup.
   const nodeToId = useMemo(() => {
     const m = new Map<string, string>()
-    // Only pickable ones: the monitors are handled by Screens.tsx. Every node a
-    // hotspot owns maps to it, so a two-mesh hotspot picks from either half.
-    PICKABLE_HOTSPOTS().forEach((h) => hotspotNodes(h).forEach((n) => m.set(n, h.id)))
+    // The monitors are handled by Screens.tsx and no hotspot claims hot_screens,
+    // so they never reach this map. Every node a hotspot owns maps to it, so a
+    // two-mesh hotspot picks from either half.
+    HOTSPOTS.forEach((h) => hotspotNodes(h).forEach((n) => m.set(n, h.id)))
     return m
   }, [])
 
@@ -65,7 +66,7 @@ export function Room() {
     // one material across unrelated props. Without per-node copies, hovering
     // the desk also lights up a figurine on the far shelf. Give every
     // interactive node its own materials so the wash stays contained.
-    const owned = new Set<string>(ROOM_HOTSPOTS().flatMap(hotspotNodes))
+    const owned = new Set<string>(HOTSPOTS.flatMap(hotspotNodes))
     owned.forEach((nodeName) => {
       const node = root.getObjectByName(nodeName)
       node?.traverse((child) => {

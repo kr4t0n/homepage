@@ -544,9 +544,8 @@ easy to trigger while looking around.
 The framed view is deliberately bare: the screen is the content, and the only
 chrome is a "Back to the room" button. That is a considered trade. Nothing
 states that a second click opens the link, so discoverability rests on the
-pointer cursor over the screen plus the hover readout in the unframed room. If
-the two-stage interaction ever needs to be more obvious, restore a hint rather
-than collapsing it to a single click.
+pointer cursor over the screen. If the two-stage interaction ever needs to be
+more obvious, restore a hint rather than collapsing it to a single click.
 
 **Screen framing distance is computed, not authored.** The panels are 2.4:1, so
 the limiting dimension flips with the viewport: height constrains a wide window,
