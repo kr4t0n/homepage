@@ -336,9 +336,6 @@ const BODY: Record<string, () => React.ReactElement> = {
   player: Player,
   contact: Contact,
   about: About,
-  stats: () => (
-    <Pending what="A live board for agent token usage from Argus, plus GitHub activity. Wiring it up once the Argus metrics endpoint is public." />
-  ),
   writing: () => (
     <Pending what="Notes and longer pieces on agent tooling and evaluation. First few are drafted." />
   ),
@@ -389,6 +386,11 @@ export function Panel() {
   )
 
   if (!spot) return null
+  // A bare hotspot has no panel: the object in the room is the content, and
+  // Hud renders the only chrome, the way back out. Returning null here rather
+  // than filtering upstream keeps one rule in one place -- the panel decides
+  // whether there is a panel.
+  if (spot.bare) return null
   const Body = BODY[spot.kind] ?? (() => null)
   const compact = COMPACT.has(spot.kind)
 

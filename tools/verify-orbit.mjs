@@ -78,19 +78,31 @@ await page.waitForTimeout(1500)
 const before = page.url()
 await drag(-140, 40, '6_drag_no_open')
 const after = page.url()
-console.log(
-  after === before
-    ? 'PASS drag did not open a panel'
-    : `FAIL drag opened ${after}`,
-)
+const fails = []
+const check = (ok, pass, fail) => {
+  console.log(ok ? `PASS ${pass}` : `FAIL ${fail}`)
+  if (!ok) fails.push(pass)
+}
+check(after === before, 'drag did not open a panel', `drag opened ${after}`)
 
-// A plain click on a nav pill must still work.
-await page.click('nav[aria-label="Places in the room"] button:nth-child(1)')
+// A plain click on a nav pill must still work. The expected route comes from
+// the pill itself rather than a hardcoded id: this asserted `#/work` from the
+// first commit, Work was removed later, and because nothing here set an exit
+// code the script printed FAIL and exited 0 for months.
+const first = page.locator('nav[aria-label="Places in the room"] button').first()
+const label = (await first.textContent())?.trim() ?? ''
+await first.click()
 await page.waitForTimeout(1800)
 await page.screenshot({ path: `${OUT}/7_click_still_works.png` })
-console.log(
-  page.url().includes('#/work') ? 'PASS click still opens' : `FAIL url=${page.url()}`,
+check(
+  /#\/.+/.test(page.url()),
+  `click on the first pill (${label}) opened ${page.url().split('#')[1]}`,
+  `click on ${label} left url=${page.url()}`,
 )
 
 console.log(errors.length ? `\nERRORS:\n${[...new Set(errors)].join('\n')}` : '\nno console errors')
 await browser.close()
+if (fails.length) {
+  console.log(`\n${fails.length} FAILED`)
+  process.exit(1)
+}

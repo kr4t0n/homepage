@@ -4,7 +4,9 @@ import { Hud } from './ui/Hud'
 import { Panel } from './ui/Panel'
 import { Preloader } from './ui/Preloader'
 import { Fallback2D } from './ui/Fallback2D'
+import { PixelTooltip } from './ui/PixelTooltip'
 import { bindCursor, bindEscape, bindHistory } from './store'
+import { bindPixels } from './pixels/usePixels'
 import { bindTrack } from './audio/player'
 
 /** One-shot capability probe. A failed context here means no canvas at all. */
@@ -37,6 +39,13 @@ export default function App() {
   // Escape leaves any focused mode, panel or framed screen alike.
   useEffect(() => bindEscape(), [])
 
+  // Live activity for the wall board. Only in the 3D route: the 2D fallback has
+  // no board to light, and polling for it would be pure battery cost.
+  useEffect(() => {
+    if (!gl || !wide) return
+    return bindPixels()
+  }, [gl, wide])
+
   // Only the 3D room gets a soundtrack. The 2D fallback is what phones and
   // WebGL-less browsers see, and unprompted audio on a phone is worse than
   // silence: it is likely to be in public, and the fallback has no player to
@@ -63,6 +72,7 @@ export default function App() {
       </div>
       <Hud />
       <Panel />
+      <PixelTooltip />
       <Preloader />
     </>
   )

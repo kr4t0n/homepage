@@ -1,6 +1,6 @@
-# kr4t0n.github.io
+# kubitnodes homepage
 
-Personal homepage. An explorable 3D diorama of a studio room: click an object,
+Personal homepage, served at `www.kubitnodes.com`. An explorable 3D diorama of a studio room: click an object,
 the camera flies to it, a panel opens with the content that object stands for.
 
 Built from a purchased Blender scene that is converted to a web-ready GLB by a
@@ -23,6 +23,38 @@ npm run dev            # http://localhost:5173
 
 `public/room.glb` is committed, so the site runs without touching Blender.
 
+## Environment
+
+Copy `.env.example` to `.env`. Both variables are read only by
+`src/server/api.ts`, and neither is prefixed `VITE_` — that prefix is what would
+inline the credential into the client bundle.
+
+| Variable | Purpose |
+|---|---|
+| `ARGUS` | Base URL of the upstream that feeds the pixel board |
+| `ARGUS_KEY` | Sent as `X-API-Key`. Server-side only |
+
+Without them the site runs fine and the board stays unlit; only `/api/pixels`
+fails. In the cluster they come from a Secret.
+
+**What the proxy publishes is a deliberate subset.** It calls two upstream
+endpoints and forwards a fraction of what they return:
+
+| From | Forwarded | Withheld |
+|---|---|---|
+| `/me/pixels` | the grid, and opaque project hashes | — |
+| `/me/usage/by-project` | `name`, and `tokens` as `in`/`out`/`cached` | `workingDir`, `machineId`, `projectId`, `costUsd`, raw usage keys |
+
+`workingDir` carries an absolute path with a username in it, and `costUsd` runs
+to five figures. Neither belongs on a public page, so the reduction happens in
+the proxy rather than the browser — passing the endpoint through, or doing the
+name lookup client-side, would publish all of it. `node tools/verify-api.mjs`
+asserts against the live response that it stays that way.
+
+Note that project *names* are public by design here: the board says `fluvio`,
+`harbor`, `homepage` rather than hashes. If a name should not be, the place to
+fix it is an alias map in `fetchNames`.
+
 ## Scripts
 
 | Command | Does |
@@ -32,14 +64,19 @@ npm run dev            # http://localhost:5173
 | `npm run preview` | Serve the production build |
 | `npm run lint` | ESLint (flat config) |
 | `npm run typecheck` | `tsc --noEmit` |
-| `npm run room` | Re-export `room.glb` from the `.blend` |
+| `npm run verify:api` | Secret containment, proxy disclosure, payload and ranking maths |
+| `npm run room` | Re-export `room.glb` and the manifests from `room-v3.blend` |
 
 ## The asset pipeline
 
-The source file is `room.blend`: the purchased isometric studio scene plus a
-pixel board added later on the wall behind the sofa. It supersedes the original
-purchase, `ZEFUHEZF.blend`, which is no longer kept — verified as a strict
-superset first, all 193 original objects present and none moved. It is saved by Blender 5.0.2, which matters twice — the file is
+The source file is `room-v3.blend`: the purchased isometric studio scene plus a
+pixel board and, added beside it, a project ranking board. It supersedes
+`room-v2.blend` and `room.blend` (which superseded the original purchase,
+`ZEFUHEZF.blend`). Each earlier step was a strict superset with nothing moved;
+`room-v3` is not — it slides both wall boards -0.382 along the wall, so 1285
+objects changed position. Diff a new version with `tools/diff_blend.py` before
+trusting the regions, since a move is invisible in an added/removed comparison.
+It is saved by Blender 5.0.2, which matters twice — the file is
 zstd-compressed, and it uses the 17-byte header format, so
 `tools/inspect_blend.py` cannot read it — that parser only understands the legacy
 12-byte header of the 2.82 original. It now says so, with the decompression
@@ -55,8 +92,36 @@ gitignored.
 The purchased half arrives in poor shape: 193 objects all named `Plane.041`-style,
 157 materials named `Material.088`-style, and every texture path pointing at the
 seller's Windows RAR extraction temp folder, so no texture resolves. It is also
-2.8 GB of triangles once the cable curves are tessellated. The pixel board added
-on top brings the scene to 1277 objects — 1008 of those are individual pixels.
+2.8 GB of triangles once the cable curves are tessellated. The two boards added
+on top bring the scene to 1483 objects — 1008 of those are individual pixels and
+160 are individual LED segments.
+
+**The regions in `REGIONS` are hand-authored world-space boxes, and an object
+lands in the first one containing its centre.** Nothing fails when a board is
+nudged in Blender: the strays simply join a neighbouring group, which exports
+as a perfectly valid hotspot containing the wrong things. `room-v3` slid both
+boards -0.382 along the wall, which at the previous numbers would have dropped
+100 pixel-board objects into `shelves` and `static` and folded most of the
+ranking board into the pixel board's hotspot. Both boxes moved with it, and the
+export now asserts that every `Pixel*` and `Ranking*` object landed in its own
+region rather than leaving that to be noticed later.
+
+**Lights in the `.blend` are not exported** (`export_lights=False`); the site
+runs its own rig in `src/three/lighting.ts`, because three.js has no global
+illumination and a direct port of a Cycles setup does not survive the trip. The
+lamp *housings* are ordinary geometry and do sync — `room-v3` went from three to
+four along the shelf rail — but nothing in the room casts light on the site.
+
+**Both boards arrive with their objects selection-locked in the outliner, and
+that silently deletes geometry.** `select_set(True)` on a locked object is a
+no-op that raises nothing, so the group join in step 4 finds only its active
+object, returns `{'CANCELLED'}` rather than an error, and the hotspot exports as
+whatever single mesh happened to be first. The ranking board came out as a
+92-triangle enclosure this way, with its other 15,828 triangles shipped as loose
+top-level nodes — rendered, in the right place, and not part of the hotspot. The
+pixel board had been quietly losing its 74 hour and weekday labels to the same
+thing. Step 1a clears the lock, and the join now compares triangle counts before
+and after and refuses to export if any went missing.
 
 `tools/export_glb.py` fixes all of that headlessly:
 
@@ -81,7 +146,7 @@ on top brings the scene to 1277 objects — 1008 of those are individual pixels.
 6. Exports GLB with Draco compression and writes `src/scene-manifest.json`,
    which carries each group's bounding box in glTF space for camera framing.
 
-Result: **1.6 GB to 3.78 MB, 368,102 triangles.**
+Result: **1.6 GB to 4.14 MB, 389,978 triangles.**
 
 Most of that is the pixel board: `hot_pixelboard` alone is **189,692 triangles**,
 more than the entire rest of the room put together, because it is 1008
@@ -102,6 +167,66 @@ cd .. && npm run room
 ```
 
 No Blender install needed; `bpy` is Blender as a Python module.
+
+## The two wall boards
+
+Both sit on the -x wall and both are driven from the same `/api/pixels` poll.
+They answer different questions, and the difference is not a bug to reconcile:
+
+| Board | Node | Shows | Ordered by |
+|---|---|---|---|
+| Pixel board | `hot_pixelboard` | 1008 hours, coloured by owner, lit by how busy | hours *won* |
+| Ranking board | `hot_ranking` | Top 5 projects, 32-segment bar each | tokens `in + out` |
+
+They are **one hotspot, and it has no panel**. `signals` lists `hot_ranking` in
+its `nodes`, so either board hovers, picks and frames the pair — the camera aims
+at the union of both bounding boxes rather than at the pixel board with the
+ranking board off to one side.
+
+Neither board takes the green hover wash (`noHighlight`): the accent is lerped
+into every material it touches, and on these boards colour *is* the content.
+
+The hotspot is also `bare`, so focusing it opens no glass panel at all — the
+same treatment the framed monitors already had. The boards carry the whole
+readout between them, and a panel restating it in words covered the bottom of
+both to do so. The only chrome is "Back to the room"; Escape works too, and
+per-cell detail is on hover via `PixelTooltip`. Framing is dead-centre at 3.1
+rather than the 4.4 it needed while sharing the frame with a panel, so the hour
+and week labels, the rank rows and the token totals are all legible.
+
+An hour on the heatmap goes to whichever project was busiest in it, so a project
+can burn tokens all week and win almost no cells. `researchers` ranks third by
+tokens while holding a single hour on the board beside it.
+
+**Both are lit by writing emissive on named materials, never by adding
+geometry.** The pixel board finds 1008 `Pixel Light R# C#`; the ranking board
+finds 160 `Ranking - LED Pnn Snn`. Anything that paints a lasting colour must
+also call `setBaseline`, or the hover wash will blank it — see
+`src/three/materials.ts`.
+
+The ranking board's segment materials existed in the `.blend` but were never
+assigned; all 160 objects pointed at `Ranking - LED P01 S01`, and all 160 shared
+one mesh datablock. The export wires each object to its own material, copying
+the mesh first so the assignment does not write through every LED at once.
+
+**Text on the ranking board is not in the GLB.** glTF has no text primitive, and
+the source scene baked `PROJECT 01`..`PROJECT 05`, five frozen score readouts, a
+`SAMPLE PROJECTS` footer and a `SCORE / 100` column head. Every one of those is
+false once real data arrives, so `export_glb.py` deletes them and records their
+world-space boxes to `src/ranking-anchors.json`. `RankingBoard.tsx` draws live
+text into a canvas and maps it onto one transparent plane at those anchors.
+
+The anchors are exported rather than transcribed on purpose: hardcoded
+millimetres would be right once and then rot the first time a row moved, leaving
+the board rendering correctly with its names a few millimetres off the rows they
+label. Everything that stays true regardless of the data — the rank digits,
+`CURRENT RANKING`, `ACTIVE` — stays baked in the mesh.
+
+A canvas rather than drei's `<Text>`: troika needs a `.ttf`/`.otf`/`.woff` and
+only converts WOFF1, while this project ships Geist Mono as WOFF2 only. Using
+`<Text>` would mean committing a duplicate font binary or letting troika fetch
+Roboto from a CDN at runtime. The canvas draws with the webfont the page has
+already loaded, so the board is set in the same face as the rest of the site.
 
 ## Verifying hotspots
 
@@ -325,9 +450,16 @@ with no `tabIndex` and would otherwise be unreachable without a pointer.
 
 ## Deployment
 
-Pushing to `main` builds and publishes to GitHub Pages via
-`.github/workflows/deploy.yml`. For a user page (`kr4t0n.github.io`) keep
-`base: '/'` in `vite.config.ts`; for a project repo set it to `/<repo>/`.
+Deployed into a Kubernetes cluster and exposed through an ingress at
+`www.kubitnodes.com`, alongside `argus-api.kubitnodes.com`. A single container
+serves the built `dist/` and the `/api/pixels` endpoint from one origin, so there
+is no CORS and no credential in the browser.
+
+There is no GitHub Pages workflow. An earlier revision of this repo had one; it
+was never the intended target and has been removed. `base: '/'` in
+`vite.config.ts` stays, because the site serves from a domain root.
+
+The manifests and container build are not written yet — see the pixel board work.
 
 ## Project structure
 
@@ -335,18 +467,31 @@ Pushing to `main` builds and publishes to GitHub Pages via
 src/
   content.ts            all copy, projects, hotspot -> node map
   scene-manifest.json   generated: bounding boxes per group
+  ranking-anchors.json  generated: where the ranking board's live text goes
   store.ts              focus/hover state, hash routing
+  server/
+    api.ts              the /api/pixels proxy; the only holder of ARGUS_KEY
+  shared/
+    pixels.ts           payload type, validator and grid maths, both sides
+  pixels/
+    usePixels.ts        poll, cache, live-slot tracking
+    palette.ts          project colours, cell appearance, cell indexing
+    ranking.ts          top-5 by tokens, scores and segment counts
   three/
     Scene.tsx           canvas, lighting, tone mapping
     Room.tsx            GLB load, raycasting, hover highlight
     CameraDirector.tsx  GSAP camera choreography, orbit, idle drift
     orbit.ts            drag/zoom/pinch input, limits, home-view stash
     highlight.ts        hover accent colour and strength
+    materials.ts        emissive baselines shared by hover and the boards
+    PixelBoard.tsx      lights 1008 cells from live activity
+    RankingBoard.tsx    lights 160 LEDs, draws live text to a canvas
     Screens.tsx         the three monitors, framed on click, link on second
     NeonSign.tsx        canvas-drawn neon wordmark on the back wall
   ui/
     Hud.tsx             hero, hotspot nav, framed-screen exit, sound toggle
     Panel.tsx           focused content panels
+    PixelTooltip.tsx    per-cell readout when the board is focused
     Preloader.tsx       real GLB load progress
     Fallback2D.tsx      no-WebGL / small-screen page
   audio/
@@ -356,15 +501,20 @@ tools/
   export_glb.py         the asset pipeline
   inspect_blend.py      dependency-free .blend parser
   inspect_scene.py      bpy scene report + preview renders
+  diff_blend.py         what changed between two .blend versions
   find_screens.py       measures the monitor panels for SCREENS
   find_walls.py         measures the wall planes
   compare_view.py       source vs export from any camera
   diagnose_keys.py      source vs export vs flat-material render
   diagnose_lighting.py  material colours, neutral vs site light rig
   wall_occupancy.py     lists wall decor and finds clear bands
+  verify-api.mjs        secret containment, proxy disclosure, ranking maths
+  verify-boards.mjs     both wall boards pick as one hotspot, and take no wash
+  verify-glass.mjs      glass contrast gate
   verify-hotspots.mjs   hover verification captures
   verify-orbit.mjs      orbit, zoom, drag-vs-click checks
   verify-view-restore.mjs  camera restore regression test
+  verify-player.mjs     backing-track transport
   sweep-highlight.mjs   hover-accent tuning sweep
   sweep-neon.mjs        neon brightness tuning sweep
   verify-neon-link.mjs  neon wordmark link behaviour
@@ -378,11 +528,26 @@ tools/
 - The DJ controller carries the player. It was deliberately unassigned until
   there was content that suited a mixing desk; the backing track is that
   content, so `hot_djcontroller` is now the `player` hotspot.
-- The `signals` hotspot has no verified node and is hidden from the room and the
-  nav. `hot_hexpanels` turned out to enclose a small wall fixture rather than
-  the light panels; isolating those is a region-tuning pass in `export_glb.py`.
-  The DJ controller was the other candidate, but it is taken now, so this needs
-  a node of its own.
+- The Signals panel measures ~1.02:1 against the lit board behind it, which is
+  the worst contrast in the project. It was recorded at 2.06:1 until the glass
+  gate learned to serve a pixel payload — before that the board behind it was
+  always unlit in the test, so the number described a state that never ships.
+  Nothing regressed; the measurement got honest. Per the project's own rule the
+  fix is the camera, not the CSS: frame this hotspot so the panel lands over a
+  darker part of the room. Until then it sits in `ACCEPTED` alongside `about`
+  and `contact`.
+- Signals has no DOM copy of its data any more. The hotspot is `bare` and the
+  panel legend was removed with it, so the readout exists only as rendered 3D:
+  unreachable to a screen reader, and absent from the 2D fallback, which never
+  had a signals section to begin with. That is the deliberate trade for boards
+  that are legible enough not to need restating — but if that data should be
+  reachable without WebGL, a `Fallback2D` section is the place, not the panel.
+- One bar full and four stubs is what the data looks like. The leader is ~3.5x
+  the runner-up and ~12x fifth place, so a linear bar normalised to the leader
+  leaves the lower rows at 3-9 segments of 32. That is honest and it is also
+  hard to read. A log scale would flatter the lower rows and misrepresent the
+  gap; the alternative worth considering is ranking by output tokens alone,
+  which is a less skewed distribution and arguably a better proxy for work.
 - The right-hand monitor is wired and empty. Adding an `image` and `href` to the
   `right` entry in `SCREENS` is all it needs.
 - Writing, CV and the stats board are marked placeholders in the UI rather than

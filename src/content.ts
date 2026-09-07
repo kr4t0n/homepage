@@ -23,6 +23,13 @@ export interface Hotspot {
   id: string
   /** Mesh node inside room.glb. Must match a key in scene-manifest.json. */
   node: string
+  /**
+   * Further nodes this hotspot covers, if it is one thing made of several
+   * meshes. Picking, hover and camera framing all treat `node` and these as a
+   * single object: the camera frames the union of their bounding boxes, so the
+   * framing follows the asset if the parts move relative to each other.
+   */
+  nodes?: string[]
   /** Shown in the hover label. Keep it short. */
   label: string
   /** One line, shown under the label on hover. */
@@ -37,6 +44,24 @@ export interface Hotspot {
   look: [number, number, number]
   /** Placeholder panels are visibly marked as such rather than faked. */
   placeholder?: boolean
+  /**
+   * Focus this hotspot without opening a panel: the object itself is the
+   * content, and the only chrome is the way back out.
+   *
+   * The framed monitors already worked this way. It suits anything the camera
+   * can put in front of you legibly, where a panel would sit on top of the very
+   * thing you asked to look at and say it again in words.
+   */
+  bare?: boolean
+  /**
+   * Suppress the green hover wash on this hotspot's nodes.
+   *
+   * For a prop the wash is the affordance that says "clickable". For a display
+   * that encodes data in colour it is destructive: the accent is lerped into
+   * every material it touches, so hovering repaints the reading. Set this on
+   * anything whose colour carries meaning.
+   */
+  noHighlight?: boolean
   /**
    * Set when the glTF node has not been visually confirmed to be the object the
    * label claims. Excluded from the room so a click never frames the wrong
@@ -174,22 +199,45 @@ export const HOTSPOTS: Hotspot[] = [
     // which is an activity heatmap and exactly what this hotspot was reserved
     // for.
     node: 'hot_pixelboard',
+    // Signals is both wall boards, not just the heatmap. They are one display
+    // in two pieces -- the same six weeks, ranked two ways -- so framing only
+    // the left one cut the ranking board half out of shot and left it as a dead
+    // zone the pointer could cross without the hotspot lighting up.
+    nodes: ['hot_ranking'],
     label: 'Signals',
     hint: 'Agent activity and GitHub',
     kind: 'stats',
-    // The board is flat on the -x wall: 1.74 wide by 0.91 tall, facing +x. At a
-    // 34-degree lens visible half-width is 0.49x distance and half-height
-    // 0.31x, so 3.2 of standoff puts the board at ~55% of frame width and ~47%
-    // of frame height -- enough that the week labels along its bottom edge clear
-    // the panel, which they did not at 2.2.
+    // The colour on these boards IS the content: hue is which project owned an
+    // hour, brightness is how busy it was, and the ranking bars carry a
+    // designed per-row ramp. The hover wash lerps the acid accent into every
+    // material it touches, which repaints all of that. No affordance is worth
+    // destroying the reading it is advertising.
+    noHighlight: true,
+    // No panel. The boards carry the whole readout -- the heatmap, the legend
+    // colours, the ranking with its token totals -- and the panel restated it
+    // in words while covering the bottom of both boards to do so. Per-cell
+    // detail is on hover, via PixelTooltip, which needs the board visible.
+    bare: true,
+    // Together the boards are 2.39 wide by 0.96 tall on the -x wall, facing +x
+    // -- the pixel board's 1.74 plus the ranking board and the gap between
+    // them. At a 34-degree lens visible half-width is 0.49x distance, so 3.1 of
+    // standoff puts the pair at ~79% of frame width. Framing is taken from the
+    // union of both bounding boxes, so this holds if the boards move again;
+    // they already have once.
     //
-    // The camera sits level with the board's centre rather than above it. This
-    // is a flat wall panel read straight on; lifting the camera and aiming down
-    // keystones the grid, which is very visible on something made of rows and
-    // columns. The upward push comes from `look` alone.
-    offset: [3.2, 0, 0],
-    look: [0, -0.3, 0],
-    placeholder: true,
+    // Dead centre, and close, because there is no panel to share the frame
+    // with. While there was one this sat at 4.4 with `look` pushing the boards
+    // up into the top half so the glass did not cover their bottom edges; that
+    // cost most of the legibility the boards were being framed for. Filling the
+    // frame is the whole point now -- the hour and week labels, the rank rows
+    // and the token totals all have to be readable, because they are the
+    // content rather than an illustration beside it.
+    //
+    // The camera sits level with the boards' centre and looks straight at it.
+    // These are flat wall panels; any vertical offset keystones the grid, which
+    // is very visible on something made of rows and columns.
+    offset: [3.1, 0, 0],
+    look: [0, 0, 0],
   },
   {
     id: 'writing',
@@ -197,8 +245,15 @@ export const HOTSPOTS: Hotspot[] = [
     label: 'Writing',
     hint: 'Notes and longer pieces',
     kind: 'writing',
-    offset: [4.3, 1.1, 2.6],
-    look: [0, -0.2, 0],
+    // Raised and aimed further down than the original [4.3, 1.1, 2.6] /
+    // [0, -0.2, 0]. room-v3 slid both wall boards along this wall and added a
+    // fourth lamp to the shelf rail, which grew `hot_shelves`'s bounding box --
+    // and since the camera is placed relative to that box, the framing shifted
+    // enough to bring the lit pixel board in behind the panel. Contrast fell
+    // from 1.64:1 to 1.11:1 with nothing in the CSS having changed. This puts
+    // the panel back over the sofa and restores 1.64:1 exactly.
+    offset: [4.3, 1.6, 2.6],
+    look: [0, -0.6, 0],
     placeholder: true,
   },
   {
@@ -348,6 +403,13 @@ export const HOME_CAMERA = {
   position: [10.5, 7.4, 10.6] as [number, number, number],
   target: [0.9, 0.55, 0.6] as [number, number, number],
 }
+
+/**
+ * Every glTF node a hotspot owns, primary first. Use this rather than reading
+ * `node` directly, or multi-node hotspots become pickable only by their first
+ * mesh -- which looks like a dead zone over the other half of the object.
+ */
+export const hotspotNodes = (h: Hotspot): string[] => [h.node, ...(h.nodes ?? [])]
 
 export const hotspotById = (id: string | null) =>
   id ? (HOTSPOTS.find((h) => h.id === id) ?? null) : null

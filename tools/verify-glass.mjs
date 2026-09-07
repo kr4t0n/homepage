@@ -44,8 +44,53 @@ const TYPES = {
   '.mp3': 'audio/mpeg',
 }
 
+/**
+ * A stand-in for the pixel proxy.
+ *
+ * This gate serves the built `dist/` and nothing else, so `/api/pixels` used to
+ * 404 — and the Signals panel would quietly render its "board is unlit"
+ * fallback instead of its legend. The gate reported that panel green while
+ * never having seen the text it actually ships: project names, hours won and
+ * token counts, the densest run of small type in the room.
+ *
+ * A fixture rather than a live call, deliberately. This must measure the same
+ * pixels on a laptop with no ARGUS_KEY as it does in CI, and a panel whose
+ * contrast verdict depends on how busy someone was last week is not a gate.
+ * Values are chosen to be the widest realistic case — long names, billions —
+ * since text that overflows lands somewhere the sampler never looked.
+ */
+const PIXEL_FIXTURE = (() => {
+  const slotCount = 1008
+  const names = ['fluvio', 'experiments', 'harbor', 'modal-labs', 'homepage', 'seed',
+    'argus', 'researchers', 'blender', 'climage', 'helm-charts', 'homelab']
+  return JSON.stringify({
+    start: new Date(Date.now() - slotCount * 3600_000).toISOString(),
+    slotMinutes: 60,
+    slotCount,
+    tz: 'Asia/Shanghai',
+    winners: Array.from({ length: slotCount }, (_, i) => (i % 3 === 0 ? null : i % names.length)),
+    intensity: Array.from({ length: slotCount }, (_, i) => i % 101),
+    projects: names.map((name, i) => ({
+      key: `hash${i}`,
+      name,
+      wonSeconds: (86 - i * 7) * 3600,
+      tokens: {
+        in: Math.round(5.7e9 / (i + 1)),
+        out: Math.round(1.07e7 / (i + 1)),
+        cached: Math.round(4.8e9 / (i + 1)),
+      },
+    })),
+    live: [0],
+  })
+})()
+
 const server = createServer(async (req, res) => {
   const url = decodeURIComponent((req.url ?? '/').split('?')[0])
+  if (url === '/api/pixels') {
+    res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
+    res.end(PIXEL_FIXTURE)
+    return
+  }
   const rel = normalize(url === '/' ? '/index.html' : url).replace(/^(\.\.[/\\])+/, '')
   try {
     const buf = await readFile(join('dist', rel))
@@ -64,12 +109,23 @@ const browser = await chromium.launch({
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
 
 /**
- * Every routable panel, by hotspot *id* — not by panel kind, which is what
- * `stats` is. Must match the ids in HOTSPOTS in src/content.ts; `signals` is
- * included even though it is `unverified` and hidden from the room, because it
- * is still reachable by URL and so still has to be legible.
+ * Every routable panel, by hotspot *id* — not by panel kind.
+ *
+ * `signals` is absent because it no longer has a panel: the hotspot is `bare`,
+ * so focusing the wall boards opens nothing. It was the worst surface measured
+ * here, at 1.02:1 against the lit board and 2.06:1 after being reframed, and
+ * the way it was fixed is the one this file keeps recommending taken to its
+ * conclusion — the panel was restating what the boards already showed, so it
+ * went rather than the contrast being waived again. Re-add the id here the
+ * moment anything gives that hotspot a panel back.
  */
-const PANELS = ['music', 'player', 'writing', 'about', 'cv', 'contact', 'signals']
+// A single panel can be measured on its own while tuning a camera:
+//   node tools/verify-glass.mjs writing
+// The waiver comparison only runs over the panels actually measured, so a
+// filtered run reports that panel honestly without claiming the others passed.
+const ALL_PANELS = ['music', 'player', 'writing', 'about', 'cv', 'contact']
+const only = process.argv.slice(2).filter((a) => ALL_PANELS.includes(a))
+const PANELS = only.length ? only : ALL_PANELS
 
 const lin = (c) => {
   const v = c / 255
@@ -107,9 +163,6 @@ const threshold = (px, weight) => (px >= 24 || (px >= 18.66 && weight >= 700) ? 
 const ACCEPTED = {
   about: 1.03,
   contact: 1.09,
-  // Improved from 1.57 when this hotspot moved off the wrongly-guessed
-  // hexpanels node onto the real pixel board, which is darker.
-  signals: 2.06,
   writing: 1.64,
   music: 1.78,
   cv: 2.89,

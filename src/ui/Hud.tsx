@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import { SpeakerSimpleHigh, SpeakerSimpleSlash } from '@phosphor-icons/react'
 import gsap from 'gsap'
 import { useGSAP } from '@gsap/react'
-import { ROOM_HOTSPOTS, PROFILE } from '../content'
+import { ROOM_HOTSPOTS, PROFILE, hotspotById } from '../content'
 import { useScene } from '../store'
 import { usePlayer } from '../audio/player'
 import { resetOrbit } from '../three/orbit'
@@ -36,6 +36,9 @@ export function Hud() {
   const root = useRef<HTMLDivElement>(null)
 
   const open = focus === null && screen === null
+  // A framed screen and a `bare` hotspot are the same situation: the room is
+  // the content and there is no panel, so this is the only way back out.
+  const noPanel = screen !== null || hotspotById(focus)?.bare === true
 
   useGSAP(
     () => {
@@ -138,10 +141,10 @@ export function Hud() {
         </div>
       </div>
 
-      {/* A framed screen has no panel. The only chrome is the way out; the
-          screen itself is the content. Discoverability of the second click
-          rests on the pointer cursor over the screen. */}
-      {screen !== null && (
+      {/* A framed screen and a bare hotspot both have no panel. The only chrome
+          is the way out; the object itself is the content. Discoverability of
+          the second click on a screen rests on the pointer cursor over it. */}
+      {noPanel && (
         <div className="pointer-events-auto absolute inset-x-0 bottom-10 flex justify-center px-6">
           {/* The screen fills the frame at this distance, so the button would
               otherwise sit on whatever the monitor is standing on. */}

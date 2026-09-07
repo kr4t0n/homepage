@@ -27,6 +27,32 @@ room.blend      --[tools/export_glb.py, headless bpy]-->  public/room.glb
 panel kind. Both the 3D room and the 2D fallback read from it, so content cannot
 drift between them.
 
+There is a third, much smaller half: the two wall boards are the only surfaces
+fed by live data, and they have a server.
+```
+Argus  /me/pixels            --+
+       /me/usage/by-project   -+--> src/server/api.ts  -->  /api/pixels  -->  usePixels
+       (X-API-Key, never                (Hono)                                    |
+        leaves the server)                              +-------------------------+
+                                                        |
+                              three/PixelBoard.tsx  <---+---> three/RankingBoard.tsx
+                              (1008 cells, hours won)   |     (5x32 LEDs, tokens)
+                              ui/PixelTooltip.tsx    <---+
+                              (per-cell hover readout)
+
+The boards are the whole readout. The signals hotspot is `bare` -- focusing it
+opens no panel -- so nothing in the DOM restates them.
+```
+
+One handler, mounted twice: `@hono/vite-dev-server` runs it in `npm run dev` and
+`@hono/node-server` runs it beside `dist/` in the container, so dev cannot drift
+from prod. It exists for exactly one reason — `ARGUS_KEY` must never reach the
+browser — and everything else in it (9s cache, single-flight, strict validation,
+field reduction) serves that hop being cheap and honest.
+`src/shared/pixels.ts` is imported by both sides and holds the payload type, the
+validator and the grid maths; `src/pixels/ranking.ts` holds the board ordering,
+kept pure so `verify-api` can assert on it without a GPU.
+
 ## Key design decisions
 
 **The asset is bad and the pipeline compensates rather than the runtime.** The
@@ -155,6 +181,96 @@ emitted later it won. The panel silently detached from `bottom-6` and rendered a
 the top of the viewport. In `components`, utilities on the element always win,
 which is the correct precedence for a base style anyway.
 
+**A hotspot can decline to have a panel.** `bare` on a `Hotspot` focuses the
+camera and opens nothing; `Hud` renders "Back to the room" as the only chrome,
+the same treatment framed monitors already had. Signals uses it because the two
+wall boards carry their whole readout and the panel was restating it in words
+while covering the bottom of both boards to do so. Two consequences worth
+knowing: the framing must then be retuned to fill the frame rather than the top
+half of it (`look` went to 0 and the standoff from 4.4 back to 3.1), and the
+panel's contrast waiver disappears — `signals` is gone from `verify-glass`,
+which is the honest outcome rather than a suppressed one. It also means that
+data has no DOM representation at all, so a screen reader gets nothing; see the
+known gap in README before adding another `bare` hotspot that carries content.
+
+**A hotspot can own several meshes, and everything must agree on which.**
+`nodes` on a `Hotspot` lists extra glTF nodes beyond `node`; picking, hover and
+camera framing all read `hotspotNodes(h)` rather than `h.node`. Signals is both
+wall boards. Reading `node` directly in any one of those three places gives a
+hotspot that highlights but does not pick, or picks but frames only half of
+itself — all of which look like deliberate design rather than bugs. Framing
+takes the union of the boxes, so the shot follows the asset.
+
+**`look` is a world-space offset, not an angle, so it does not survive a change
+of standoff.** Widening Signals from 3.2 to 4.4 to fit both boards left the old
+-0.3 pushing the subject up by proportionally less, and the panel covered the
+pixel board's week labels. Rescale `look` whenever `offset` changes.
+
+**Never assert on pixels to test hover.** Pointer parallax moves the camera, so
+two screenshots taken with the pointer in different places differ almost
+everywhere: a first attempt at testing the hover wash reported 158,000 changed
+pixels for a hotspot that was not washed at all. `Room.tsx` exposes a dev-only
+`__wash()` returning the node names currently washed, and nav pills drive the
+same hover state as pointing at the object, so both can be checked as state.
+
+**A hotspot's camera is placed relative to its bounding box, so growing the
+group re-frames the panel.** `content.ts` stores `offset` and `look` as deltas
+from the node's manifest centre, which means anything that changes a group's
+extent moves the camera without anyone editing a camera value. In room-v3 the
+shelf rail gained a fourth lamp, `hot_shelves` grew, the Writing view shifted,
+and the newly-moved pixel board landed behind that panel: contrast fell from
+1.64:1 to 1.11:1 with no CSS change anywhere. The glass gate caught it. Fixing
+it meant retuning `writing`'s offset, which is the remedy AGENTS already
+prescribes — reframe the camera, do not widen the waiver. `verify-glass.mjs`
+takes a panel name as an argument for exactly this loop.
+
+**Region boxes are hand-authored AABBs and a Blender nudge relocates objects
+silently.** Objects land in the first region containing their centre, so a
+board that slides out of its box joins a neighbour and exports as a valid
+hotspot full of the wrong things. Both board boxes shifted -0.382 for room-v3.
+The export asserts every `Pixel*` and `Ranking*` object landed in its own
+region; extend that check when adding a systematically-named group.
+
+**The .blend's lights never reach the site.** `export_lights=False`, and
+`src/three/lighting.ts` is a hand-tuned rig that deliberately does not mirror
+the Cycles setup. Lamp *housings* are geometry and do sync, so a version bump
+can add a visible lamp that casts nothing. Do not read "the lights changed in
+Blender" as something the pipeline can carry.
+
+**The outliner's selection lock silently deletes geometry at export, and every
+signal it gives you says success.** `select_set(True)` on a `hide_select`
+object does not raise and does not warn — `select_get()` just keeps returning
+False. `bpy.ops.object.join()` then finds only its active object, returns
+`{'CANCELLED'}` rather than raising, and the group becomes whichever single
+mesh happened to be first. The ranking board arrived with 193 of its 205
+objects locked and exported as a 92-triangle enclosure; the other 15,828
+triangles shipped as loose top-level nodes, so the board *rendered correctly*
+and was simply not part of its own hotspot. The pixel board had been losing its
+74 labels the same way for as long as it had existed. `export_glb.py` clears
+the lock in step 1a and compares triangle counts across the join, refusing to
+export when they disagree. Never trust a join operator's return value here.
+
+**Linked duplicates share mesh data, so assigning a material writes through
+every copy.** All 160 ranking LEDs are duplicates of one datablock with 160
+users. `o.data.materials[0] = mat` in a loop over them finishes with all 160
+wearing whichever material the last iteration reached, which exports fine and
+looks plausible in a still. `o.data = o.data.copy()` first.
+
+**Anchors for runtime text are exported, not transcribed.** `export_glb.py`
+deletes the ranking board's baked placeholder labels and writes their
+world-space boxes to `src/ranking-anchors.json`, which `RankingBoard.tsx` reads
+to place its canvas. Hardcoding those millimetres would be correct once and
+then rot the first time a row moved — with the failure being a board that still
+renders, still looks designed, and labels the wrong rows. If you add a live
+readout to a modelled surface, measure it at export.
+
+**Board text is a canvas texture rather than drei `<Text>`, for a font
+reason.** troika only converts WOFF1 and this project ships Geist Mono as WOFF2
+only, so `<Text>` would need a committed duplicate font binary or a runtime CDN
+fetch of Roboto. The canvas draws with the webfont the page already loaded. It
+must wait on `document.fonts.ready`; drawing early falls back to the default
+monospace silently and the board ends up in a different face from the room.
+
 **Six panels ship under WCAG AA on purpose, and the gate encodes that as a
 waiver rather than going permanently red.** Clear glass in front of the lit
 monitors leaves 14px muted text at 1.03:1 to 2.89:1. Dimming each panel's own
@@ -165,6 +281,37 @@ ratio per panel, so the gate still fails on a regression, on any panel outside t
 list, and on a stale waiver whose panel now passes. Do not silently widen those
 numbers to make a run go green — the fix is to reframe the camera over a darker
 part of the room, which is why the decks bar passes outright at 5.55:1.
+
+**A contrast gate that serves only `dist/` measures the panels' empty states,
+not the ones that ship.** `verify-glass.mjs` had no `/api/pixels` route, so the
+Signals panel rendered its "board is unlit" fallback on every run: four short
+lines of text in front of an unlit board. The gate called it 2.06:1 and green
+for months. It ships a twelve-row legend in front of 1008 emissive cells, and
+measures 1.02:1. Nothing regressed — the test had never seen the feature.
+`PIXEL_FIXTURE` in that file now stands in for the proxy, deliberately as a
+fixture and not a live call: a contrast verdict that depends on how busy someone
+was last week is not a gate. Apply the same suspicion to any panel whose content
+arrives over the network — if the test has no data source, check what it is
+actually rendering before trusting the number.
+
+**`wonSeconds` and `tokens` on a project count different things, and the legend
+shows both side by side.** An hour on the board goes to whichever project was
+busiest in it, so `wonSeconds` is hours *won*; the token counts are every token
+that project spent in the window, won or lost. `researchers` has two hours and
+over a billion tokens. The two are not reconcilable and should not be made to
+look it — the panel spends a sentence saying so, and that sentence is load
+bearing. Both do at least cover the same six weeks: `WINDOW_DAYS` is passed
+explicitly to `/me/usage/by-project` rather than relying on its default
+happening to be 42.
+
+**Token counts are published; cost is not, and the rename is the guard.** The
+proxy reduces upstream `usage` to `in`/`out`/`cached` rather than spreading it,
+because `costUsd` sits in the same object and runs to five figures. The raw key
+names stay on the `FORBIDDEN` list in `verify-api.mjs` even now that tokens are
+a shipped feature: they can only appear in a response that spread the whole
+object, which is exactly the mistake worth failing on. Note also that `in`
+includes cache reads and they are ~85% of it, so any single summed "tokens"
+figure overstates the work by roughly seven times.
 
 **Translucent panels over this room fail WCAG AA by default, and the failure is
 invisible from a screenshot of the closed page.** The blur averages whole glowing
@@ -509,9 +656,13 @@ does.
 
 ## Technical debt
 
-- The `signals` hotspot is marked `unverified` and hidden from the room. The hex
-  light panels and the upright piano are both stuck inside `static_static`;
-  isolating them means tightening the regions in `export_glb.py`.
+- The Signals panel is the worst contrast surface in the project, at ~1.02:1
+  over the lit board. The waiver in `ACCEPTED` says 1.05 (the deterministic
+  fixture value); the live payload is slightly worse. This was recorded as
+  2.06:1 for as long as the glass gate had no `/api/pixels` to serve, because
+  the board behind the panel was unlit in every measurement. The camera fix
+  applies here more than anywhere: the panel opens directly in front of 1008
+  emissive cells.
 - The sofa is still 42k of the 160k triangles after decimation.
 - No `<Environment>` map. The hemisphere fill in `lighting.ts` approximates one,
   but real image-based lighting would seat the metals and the guitar better, and
