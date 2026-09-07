@@ -118,6 +118,20 @@ async function fetchNames(base: string, key: string): Promise<Record<string, Pro
   return map
 }
 
+/**
+ * One line for the log. Node's fetch says only "fetch failed" and keeps the
+ * reason (ECONNREFUSED, ENOTFOUND, a timeout) on `cause`, so walk that chain.
+ */
+const describe = (err: unknown): string => {
+  const parts: string[] = []
+  let e: unknown = err
+  while (e instanceof Error && parts.length < 4) {
+    parts.push(e.message)
+    e = (e as { cause?: unknown }).cause
+  }
+  return parts.length ? parts.join(': ') : String(err)
+}
+
 const env = (k: string): string | undefined =>
   // Vite's dev server and Node both expose process.env here; this module only
   // ever runs server-side, so reading the secret is safe. It is deliberately
@@ -151,7 +165,8 @@ async function fetchUpstream(): Promise<Cached> {
   if (!names || Date.now() - names.at > NAMES_TTL_MS) {
     try {
       names = { map: await fetchNames(base, key), at: Date.now() }
-    } catch {
+    } catch (err) {
+      console.warn(`[pixels] project names lookup failed, the board shows hashes: ${describe(err)}`)
       names ??= { map: {}, at: Date.now() }
     }
   }
@@ -178,7 +193,16 @@ api.get('/api/pixels', async (c) => {
       })
       cache = await inflight
     } catch (err) {
-      const why = err instanceof Error ? err.message : String(err)
+      // The cause goes to the server log and only there. Upstream status codes,
+      // validator complaints and whether the credential is even configured are
+      // operational detail, and the browser does the same thing with every
+      // failure regardless, so the public body says nothing specific. None of
+      // these messages carry the key. Single-flight plus the TTL cap this at
+      // about one line per refresh window during an outage.
+      const outcome = cache
+        ? `serving a payload ${Math.round((Date.now() - cache.at) / 1000)}s old`
+        : 'nothing cached, answering 502'
+      console.error(`[pixels] upstream refresh failed, ${outcome}: ${describe(err)}`)
       // Serve stale rather than nothing: a board a few minutes behind beats a
       // board that goes dark because one upstream call timed out.
       if (cache) {
@@ -189,7 +213,7 @@ api.get('/api/pixels', async (c) => {
       }
       // The client treats any non-200 as "stay unlit", which is the honest
       // outcome when we have never had a good payload.
-      return c.json({ error: why }, 502, { 'cache-control': 'no-store' })
+      return c.json({ error: 'upstream unavailable' }, 502, { 'cache-control': 'no-store' })
     }
   }
 

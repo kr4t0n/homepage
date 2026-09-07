@@ -48,7 +48,8 @@ One handler, mounted twice: `@hono/vite-dev-server` runs it in `npm run dev` and
 `@hono/node-server` runs it beside `dist/` in the container, so dev cannot drift
 from prod. It exists for exactly one reason — `ARGUS_KEY` must never reach the
 browser — and everything else in it (9s cache, single-flight, strict validation,
-field reduction) serves that hop being cheap and honest.
+field reduction, a failure log that stays server-side) serves that hop being
+cheap and honest.
 `src/shared/pixels.ts` is imported by both sides and holds the payload type, the
 validator and the grid maths; `src/pixels/ranking.ts` holds the board ordering,
 kept pure so `verify-api` can assert on it without a GPU.

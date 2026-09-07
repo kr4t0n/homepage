@@ -36,7 +36,9 @@ inline the credential into the client bundle.
 | `ARGUS_KEY` | Sent as `X-API-Key`. Server-side only |
 
 Without them the site runs fine and the board stays unlit; only `/api/pixels`
-fails. In the cluster they come from a Secret.
+fails. Every failed refresh is logged server-side with its cause, while the
+public response body says only `upstream unavailable`. In the cluster they come
+from a Secret.
 
 **What the proxy publishes is a deliberate subset.** It calls two upstream
 endpoints and forwards a fraction of what they return:
