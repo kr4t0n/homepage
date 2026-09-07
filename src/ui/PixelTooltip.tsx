@@ -62,8 +62,9 @@ export function PixelTooltip() {
     <div
       // Purely informational and driven by a 3D hover a screen reader cannot
       // perform, so it is hidden from the accessibility tree rather than
-      // announced as orphaned numbers. The panel's legend carries the same data
-      // in a readable form.
+      // announced as orphaned numbers. Nothing in the DOM carries this data any
+      // more; that is the known gap in README, and a Fallback2D section is the
+      // place to close it if it ever needs to be reachable without WebGL.
       aria-hidden
       className="glass pointer-events-none fixed z-40 rounded-[14px] bg-void/92 px-3.5 py-3"
       style={{ left, top: Math.min(y + MARGIN, window.innerHeight - 150), width: W }}

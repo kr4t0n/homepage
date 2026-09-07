@@ -314,18 +314,17 @@ includes cache reads and they are ~85% of it, so any single summed "tokens"
 figure overstates the work by roughly seven times.
 
 **Translucent panels over this room fail WCAG AA by default, and the failure is
-invisible from a screenshot of the closed page.** The blur averages whole glowing
-surfaces, not pixels: in front of the hexagon light wall the backdrop behind the
-Work panel reaches rgb(114,132,92), where body text measured 2.22:1 and muted
-text 1.15:1. The fix that actually works is `brightness()` *inside*
-`backdrop-filter` — it dims only what sits behind the pane, so the room stays lit
-while text gets contrast locally. The first attempt instead darkened the whole
-scene with a 0.78 scrim: it passed AA and looked wrong, because the room went
-flat and the panels stopped reading as panes over anything. Moving the dimming
-into the material took the scrim to 0.15 and the fill to 0.44 at *better*
-measured contrast. `--color-mute` also had to be lifted off `#7b88a8`, a value
-chosen against opaque near-black. `tools/verify-glass.mjs` is the gate; these
-values are tuned together and it exists because none of this can be eyeballed.
+invisible from a screenshot of the closed page.** In front of the hexagon light
+wall the backdrop behind a content panel reaches rgb(114,132,92), where body text
+measured 2.22:1 and muted text 1.15:1. Two remedies were tried before the current
+design. A 0.78 full-screen scrim passed AA and looked wrong, because the room
+went flat and the panels stopped reading as panes over anything. Dimming inside
+each panel's own `backdrop-filter` via `brightness()` passed at better measured
+contrast while keeping the room lit, and was then dropped as well, by choice, for
+the crystal-clear render; see the waiver paragraph above. What survived is
+`--color-mute` lifted off `#7b88a8`, a value chosen against opaque near-black,
+and `tools/verify-glass.mjs` as the gate, which exists because none of this can
+be eyeballed.
 
 **When measuring contrast on a surface, never sample its own chrome.** Two
 separate false failures came from this. First a naive "brightest patch" scan
@@ -338,15 +337,15 @@ the tuning in the wrong direction for two rounds. The gate now insets past the
 padding. Corollary: gloss on the *edge* is free, because the gate correctly
 ignores it; gloss across the *face* is charged for.
 
-**`brightness()` in backdrop-filter cannot rescue a thin panel in front of a
-bright surface.** At 0.34 brightness with 90px blur the backdrop behind the Work
-panel is still rgb(73,84,63), where muted text would have to be *lighter than
-body text* to reach AA. This is why there are two materials: `.glass` for content
-There is now one material, `.glass`, plus a `.glass-dim` modifier that only
-changes how far a panel dims its own backdrop. The decks bar is undimmed because
-it is anchored over the dark floor; content panels are dimmed because they sit in
-front of the light wall and the monitors. A new panel in front of something bright
-needs `.glass-dim`, not a tweak to the base.
+**No filter rescues a thin panel in front of the light wall; the camera does.**
+At 0.34 brightness with a 90px blur the backdrop behind a content panel was still
+rgb(73,84,63), where muted text would have had to be *lighter than body text* to
+reach AA. That measurement is why there is exactly one `.glass` and no dim
+variant: a `.glass-dim` modifier existed for a while and could not close the gap
+on the worst surfaces, so the lever is where each hotspot's camera puts its
+panel. The decks bar passes outright because it is anchored over the dark floor,
+and `writing` was retuned over the sofa for the same reason when room-v3 moved
+its framing.
 
 **Blur is what stopped it reading as glass, not opacity.** Several rounds went
 into making a frosted panel thinner, which never worked, because a thin frosted
@@ -354,8 +353,8 @@ pane is still frosted. Measuring the supplied references settled it: both are
 unfiltered, their backdrops pin-sharp through the glass. Removing the blur also
 *improved* contrast — it pulls bright pixels in from neighbouring areas — so the
 frosting was costing legibility and transparency at once. Do not reintroduce a
-blur to "soften" a panel; dim it with `.glass-dim` instead, which keeps shapes
-sharp and keeps every panel in the same family.
+blur to "soften" a panel; if a panel needs help, move its camera, which keeps
+shapes sharp and keeps every panel in the same family.
 
 **Neither reference meets AA, and that is why they look the way they do.** The
 first puts white text at 1.43:1 where a bright object shows through; the second
@@ -521,9 +520,9 @@ into `hot_screens`, so no individual screen can be addressed, and the source UVs
 did not survive the join. `src/three/Screens.tsx` places an independent plane
 over each panel from geometry measured by `tools/find_screens.py`: a transparent
 hit plane in front for picking, and a drawn plane behind it for the image, which
-sets `raycast={() => null}`. `hot_screens` itself is `navOnly` and therefore
-absent from the pick map, so a click on a monitor resolves to a screen and never
-to the Work hotspot.
+sets `raycast={() => null}`. No hotspot points at `hot_screens`, so it is absent
+from the pick map and a click on a monitor resolves to a screen, never to the
+room behind it.
 
 **Screen images are cover-fitted from the decoded image, not stretched.** The
 panels are 2.4:1 and a page screenshot rarely is; the Argus one is 1.68:1, which
@@ -548,12 +547,6 @@ states that a second click opens the link, so discoverability rests on the
 pointer cursor over the screen plus the hover readout in the unframed room. If
 the two-stage interaction ever needs to be more obvious, restore a hint rather
 than collapsing it to a single click.
-
-**`navOnly` keeps a hotspot in the nav but out of the room.** `work` uses it.
-Its panel holds the only keyboard-reachable Argus and nodex links, so it cannot
-simply be deleted when the monitors take over the 3D interaction. `ROOM_HOTSPOTS`
-feeds the nav and material cloning, `PICKABLE_HOTSPOTS` feeds the raycast map,
-and they are deliberately different sets.
 
 **Screen framing distance is computed, not authored.** The panels are 2.4:1, so
 the limiting dimension flips with the viewport: height constrains a wide window,

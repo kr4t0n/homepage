@@ -9,7 +9,8 @@ plain, fully readable 2D page when WebGL is unavailable or the viewport is small
 
 ## Prerequisites
 
-- Node.js 20+ (developed on 24)
+- Node.js 22.6+ (developed on 24). `npm run verify:api` runs the TypeScript
+  sources directly through Node's type stripping, which is what sets the floor.
 - Python 3.11 exactly, only if you need to re-run the asset pipeline. The `bpy`
   wheel is built against a specific CPython minor version.
 - [uv](https://docs.astral.sh/uv/) for the Python side

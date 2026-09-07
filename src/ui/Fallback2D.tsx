@@ -2,10 +2,9 @@ import { ArrowUpRight } from '@phosphor-icons/react'
 import { HOTSPOTS, PROFILE, PROJECTS } from '../content'
 
 /**
- * Rendered instead of the canvas when WebGL is unavailable, when the device is
- * too small for the hotspots to be hittable, or when the user has asked for
- * reduced data. Same content source as the 3D route, so nothing is hidden
- * behind the requirement to run a GPU.
+ * Rendered instead of the canvas when WebGL is unavailable or when the device is
+ * too small for the hotspots to be hittable. Same content source as the 3D
+ * route, so nothing is hidden behind the requirement to run a GPU.
  */
 export function Fallback2D({ reason }: { reason: 'nogl' | 'small' }) {
   return (

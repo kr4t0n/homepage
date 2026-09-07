@@ -304,8 +304,8 @@ export interface RoomLink {
 
 export const ROOM_LINKS: RoomLink[] = [
   {
-    // The neon wordmark on the back wall. Also in the header and the 2D
-    // fallback, both of which are keyboard reachable.
+    // The neon wordmark on the back wall. The same link is real, tab-reachable
+    // markup in the Contact panel and in the 2D fallback.
     id: 'neon',
     label: 'GitHub',
     hint: 'github.com/kr4t0n',

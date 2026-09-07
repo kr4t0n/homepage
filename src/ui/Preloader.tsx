@@ -8,7 +8,7 @@ gsap.registerPlugin(useGSAP)
 /**
  * Load screen driven by real GLB progress, not a fake timer.
  *
- * The room is a 3.6 MB Draco payload; on a slow connection this is the page for
+ * The room is a 4.1 MB Draco payload; on a slow connection this is the page for
  * a few seconds, so it carries the name rather than a spinner.
  */
 export function Preloader() {
