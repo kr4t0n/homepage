@@ -449,6 +449,16 @@ knowing before chasing it. Suspect the bbox centre not matching the visual mass,
 since these nodes are joined groups that include stands and legs. Either way,
 framing offsets are empirical here: change one, screenshot it, look at it.
 
+**The Draco decoder is served from `public/draco/`, and drei would rather fetch
+it from Google.** `useGLTF` defaults to `www.gstatic.com` for the decoder, and
+`room.glb` cannot be shown without it, so that is a third-party request nothing
+in the page declares and the room simply never appears where that host is
+blocked. `Room.tsx` sets the decoder path once at module level, before the
+preload at the bottom of the file runs; drei keeps one loader for the whole app,
+so this covers every `useGLTF` call. `npm run draco` copies the wrapper and wasm
+out of three's examples, and `tools/verify-draco.mjs` fails the moment any
+request leaves the origin.
+
 **glTF nodes with multiple primitives load as a Group, not a Mesh.** Children get
 suffixed names (`hot_desk_0`, `hot_desk_1`, ...). Matching `mesh.name === node`
 silently never fires. Use `getObjectByName(node)` then traverse its subtree.

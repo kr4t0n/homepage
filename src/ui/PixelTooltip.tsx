@@ -91,7 +91,7 @@ export function PixelTooltip() {
                       their directory basename, and a few may have neither. */}
                   {data.projects[s.projectIndex]?.name ??
                     data.projects[s.projectIndex]?.key ??
-                    '—'}
+                    'unknown'}
                   {s.projectIndex >= PALETTE_SIZE && (
                     <span className="text-mute"> · tail</span>
                   )}

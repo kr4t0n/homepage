@@ -66,6 +66,7 @@ fix it is an alias map in `fetchNames`.
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run verify:api` | Secret containment, proxy disclosure, payload and ranking maths |
 | `npm run room` | Re-export `room.glb` and the manifests from `room-v3.blend` |
+| `npm run draco` | Copy the Draco decoder out of `three` into `public/draco/` |
 
 ## The asset pipeline
 
@@ -168,6 +169,23 @@ cd .. && npm run room
 
 No Blender install needed; `bpy` is Blender as a Python module.
 
+### The Draco decoder
+
+`room.glb` is Draco-compressed, so the browser needs the Draco decoder before it
+can show anything. drei's `useGLTF` fetches that decoder from Google's CDN by
+default, which is a third-party dependency at load time that nothing in the page
+declares: where `gstatic.com` is unreachable, the room never appears.
+
+The decoder is served from `public/draco/` instead, so the site makes no
+third-party request at all. The two files there, `draco_wasm_wrapper.js` and
+`draco_decoder.wasm`, are copied out of three's own examples by `npm run draco`.
+Re-run it after bumping `three`. The asm.js fallback is deliberately not copied;
+every browser this site targets has WebAssembly.
+
+`node tools/verify-draco.mjs` loads the built site in headless Chromium and
+fails if the decoder was fetched from anywhere but the site's own origin, or if
+any request left the origin at all.
+
 ## The two wall boards
 
 Both sit on the -x wall and both are driven from the same `/api/pixels` poll.
@@ -269,9 +287,10 @@ asserts on media loading and needs real MIME types and range requests:
 npm run build
 node tools/verify-player.mjs          # autoplay policy, transport, persistence
 node tools/verify-glass.mjs           # panel text clears WCAG AA on glass
+node tools/verify-draco.mjs           # the decoder is same-origin; nothing leaves the site
 ```
 
-Both exit non-zero on failure. `verify-hotspots.mjs` likewise serves `dist/`.
+All three exit non-zero on failure. `verify-hotspots.mjs` likewise serves `dist/`.
 
 ## The glass panels
 
@@ -515,6 +534,7 @@ tools/
   wall_occupancy.py     lists wall decor and finds clear bands
   verify-api.mjs        secret containment, proxy disclosure, ranking maths
   verify-boards.mjs     both wall boards pick as one hotspot, and take no wash
+  verify-draco.mjs      the Draco decoder is same-origin, and nothing leaves the site
   verify-glass.mjs      glass contrast gate
   verify-hotspots.mjs   hover verification captures
   verify-orbit.mjs      orbit, zoom, drag-vs-click checks

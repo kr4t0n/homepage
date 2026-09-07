@@ -11,6 +11,7 @@
     "lint:fix": "eslint --fix .",
     "typecheck": "tsc --noEmit",
     "room": "tools/.venv/bin/python tools/export_glb.py room-v3.blend public/room.glb",
+    "draco": "mkdir -p public/draco && cp node_modules/three/examples/jsm/libs/draco/gltf/draco_wasm_wrapper.js node_modules/three/examples/jsm/libs/draco/gltf/draco_decoder.wasm public/draco/",
     "verify:api": "node --experimental-strip-types tools/verify-api.mjs"
   },
   "dependencies": {

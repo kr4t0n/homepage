@@ -116,7 +116,7 @@ function Player() {
     return (
       <p className="text-sm leading-relaxed text-mute">
         No track is being served. The audio file is not committed to this repo,
-        so a fresh clone runs the room in silence — drop one in as
+        so a fresh clone runs the room in silence. Drop one in as
         <span className="text-body"> public/track.mp3</span>.
       </p>
     )
