@@ -1,9 +1,9 @@
 /**
  * Glass contrast gate.
  *
- * The frosted panels are only legible because several values were tuned together
- * against measurement: the scrim opacity, each material's fill and
- * `brightness()`, and the text colours. Nudging any one can drop text under WCAG
+ * The clear panels are only legible where they are because two things were tuned
+ * together against measurement: the text colours, and where each hotspot's
+ * camera puts its panel. Nudging either can drop text under WCAG
  * AA with no visible warning, because the failure only appears in front of the
  * room's bright surfaces — the hexagon light wall behind the Work panel is the
  * worst case, and it is off screen when the panel is closed. Before this test

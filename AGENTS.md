@@ -363,11 +363,15 @@ carries no text at all, only glyphs. Both survive on composition — text placed
 over dark areas — which is not available here because the camera moves and the
 light wall can end up behind anything.
 
-**Scrim opacity differs by panel kind for a task reason, not an arithmetic one.**
-Content panels dim harder (you are reading, and the Work panel needs it to clear
-AA); the decks bar dims less, because you have just clicked the DJ controller and
-the camera has flown to frame it, so blacking out the object you asked to look at
-would be perverse.
+**There is no scrim behind a panel, but the panel still waits 0.45s for the
+camera.** A full-screen dimming layer used to lead each panel by that much so the
+glass arrived on a darkened backdrop. It went to zero opacity when the panels
+became clear glass and was then deleted. The delay outlived it on purpose: with
+the panel fading in the instant the flight began, the glass was fully present
+while the room was still moving behind it, and the owner compared both and
+preferred the view change first, then the panel. Whole-room dimming was tried
+first and made the room go flat, so if dimming ever comes back it belongs in the
+panel's own backdrop, not over the scene.
 
 **A looping tween must be built once and paused, never rebuilt per state change.**
 The spinning cover is one `paused: true` tween that `play()`/`pause()` toggle. The
