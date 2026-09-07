@@ -45,6 +45,33 @@ print(f"added={len(added)} removed={len(removed)}\n")
 if removed:
     print("REMOVED:", ", ".join(removed[:40]), "\n")
 
+# Objects that stayed but moved. Added/removed alone misses the most common
+# edit between versions of a scene -- something was nudged -- and a hardcoded
+# export region silently stops containing whatever moved out of it.
+moved = []
+for n in sorted(set(a) & set(b)):
+    ta, mna, mxa, *_ = a[n]
+    tb, mnb, mxb, *_ = b[n]
+    if mna is None or mnb is None:
+        continue
+    d = tuple(round(y - x, 4) for x, y in zip(mna, mnb))
+    if any(abs(v) > 1e-4 for v in d):
+        moved.append((n, d, mna, mnb))
+print(f"MOVED: {len(moved)} objects")
+if moved:
+    from collections import Counter
+    deltas = Counter(m[1] for m in moved)
+    for delta, count in deltas.most_common(8):
+        print(f"  delta {delta}  x{count}")
+        for n, dd, mna, mnb in moved[:200]:
+            if dd == delta:
+                print(f"    e.g. {n}  {mna} -> {mnb}")
+                break
+    gmn = [min(m[3][i] for m in moved) for i in range(3)]
+    gmx = [max(m[3][i] for m in moved) for i in range(3)]
+    print(f"  moved-set new min corner span X[{gmn[0]:.3f}] Y[{gmn[1]:.3f}] Z[{gmn[2]:.3f}]")
+print()
+
 # Group added objects by rounded position so a board of many tiles reads as one.
 print("ADDED:")
 gmn = Vector((1e9,) * 3)

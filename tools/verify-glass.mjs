@@ -114,7 +114,13 @@ const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
  * included even though it is `unverified` and hidden from the room, because it
  * is still reachable by URL and so still has to be legible.
  */
-const PANELS = ['music', 'player', 'writing', 'about', 'cv', 'contact', 'signals']
+// A single panel can be measured on its own while tuning a camera:
+//   node tools/verify-glass.mjs writing
+// The waiver comparison only runs over the panels actually measured, so a
+// filtered run reports that panel honestly without claiming the others passed.
+const ALL_PANELS = ['music', 'player', 'writing', 'about', 'cv', 'contact', 'signals']
+const only = process.argv.slice(2).filter((a) => ALL_PANELS.includes(a))
+const PANELS = only.length ? only : ALL_PANELS
 
 const lin = (c) => {
   const v = c / 255

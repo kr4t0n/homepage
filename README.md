@@ -64,16 +64,19 @@ fix it is an alias map in `fetchNames`.
 | `npm run preview` | Serve the production build |
 | `npm run lint` | ESLint (flat config) |
 | `npm run typecheck` | `tsc --noEmit` |
-| `npm run verify:api` | Secret containment, proxy disclosure, payload validation |
-| `npm run room` | Re-export `room.glb` from the `.blend` |
+| `npm run verify:api` | Secret containment, proxy disclosure, payload and ranking maths |
+| `npm run room` | Re-export `room.glb` and the manifests from `room-v3.blend` |
 
 ## The asset pipeline
 
-The source file is `room-v2.blend`: the purchased isometric studio scene plus a
+The source file is `room-v3.blend`: the purchased isometric studio scene plus a
 pixel board and, added beside it, a project ranking board. It supersedes
-`room.blend` (which superseded the original purchase, `ZEFUHEZF.blend`) —
-verified as a strict superset each time, all original objects present and none
-moved. It is saved by Blender 5.0.2, which matters twice — the file is
+`room-v2.blend` and `room.blend` (which superseded the original purchase,
+`ZEFUHEZF.blend`). Each earlier step was a strict superset with nothing moved;
+`room-v3` is not — it slides both wall boards -0.382 along the wall, so 1285
+objects changed position. Diff a new version with `tools/diff_blend.py` before
+trusting the regions, since a move is invisible in an added/removed comparison.
+It is saved by Blender 5.0.2, which matters twice — the file is
 zstd-compressed, and it uses the 17-byte header format, so
 `tools/inspect_blend.py` cannot read it — that parser only understands the legacy
 12-byte header of the 2.82 original. It now says so, with the decompression
@@ -90,8 +93,24 @@ The purchased half arrives in poor shape: 193 objects all named `Plane.041`-styl
 157 materials named `Material.088`-style, and every texture path pointing at the
 seller's Windows RAR extraction temp folder, so no texture resolves. It is also
 2.8 GB of triangles once the cable curves are tessellated. The two boards added
-on top bring the scene to 1482 objects — 1008 of those are individual pixels and
+on top bring the scene to 1483 objects — 1008 of those are individual pixels and
 160 are individual LED segments.
+
+**The regions in `REGIONS` are hand-authored world-space boxes, and an object
+lands in the first one containing its centre.** Nothing fails when a board is
+nudged in Blender: the strays simply join a neighbouring group, which exports
+as a perfectly valid hotspot containing the wrong things. `room-v3` slid both
+boards -0.382 along the wall, which at the previous numbers would have dropped
+100 pixel-board objects into `shelves` and `static` and folded most of the
+ranking board into the pixel board's hotspot. Both boxes moved with it, and the
+export now asserts that every `Pixel*` and `Ranking*` object landed in its own
+region rather than leaving that to be noticed later.
+
+**Lights in the `.blend` are not exported** (`export_lights=False`); the site
+runs its own rig in `src/three/lighting.ts`, because three.js has no global
+illumination and a direct port of a Cycles setup does not survive the trip. The
+lamp *housings* are ordinary geometry and do sync — `room-v3` went from three to
+four along the shelf rail — but nothing in the room casts light on the site.
 
 **Both boards arrive with their objects selection-locked in the outliner, and
 that silently deletes geometry.** `select_set(True)` on a locked object is a
@@ -127,7 +146,7 @@ and after and refuses to export if any went missing.
 6. Exports GLB with Draco compression and writes `src/scene-manifest.json`,
    which carries each group's bounding box in glTF space for camera framing.
 
-Result: **1.6 GB to 3.78 MB, 368,102 triangles.**
+Result: **1.6 GB to 4.14 MB, 389,978 triangles.**
 
 Most of that is the pixel board: `hot_pixelboard` alone is **189,692 triangles**,
 more than the entire rest of the room put together, because it is 1008

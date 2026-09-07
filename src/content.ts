@@ -196,8 +196,15 @@ export const HOTSPOTS: Hotspot[] = [
     label: 'Writing',
     hint: 'Notes and longer pieces',
     kind: 'writing',
-    offset: [4.3, 1.1, 2.6],
-    look: [0, -0.2, 0],
+    // Raised and aimed further down than the original [4.3, 1.1, 2.6] /
+    // [0, -0.2, 0]. room-v3 slid both wall boards along this wall and added a
+    // fourth lamp to the shelf rail, which grew `hot_shelves`'s bounding box --
+    // and since the camera is placed relative to that box, the framing shifted
+    // enough to bring the lit pixel board in behind the panel. Contrast fell
+    // from 1.64:1 to 1.11:1 with nothing in the CSS having changed. This puts
+    // the panel back over the sofa and restores 1.64:1 exactly.
+    offset: [4.3, 1.6, 2.6],
+    look: [0, -0.6, 0],
     placeholder: true,
   },
   {

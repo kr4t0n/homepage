@@ -38,14 +38,21 @@ REGIONS = [
     # the bottom strip below z=1.70 into static. A hotspot cannot be three
     # meshes. The box also catches Plane.068, a zero-vertex degenerate plane that
     # happens to sit on the same wall; it contributes no geometry either way.
-    ("pixelboard", (-2.05,-1.85, -2.45,-0.55,  1.40, 2.45), True),
+    ("pixelboard", (-2.05,-1.85, -2.83,-0.93,  1.40, 2.45), True),
     # The ranking board, added in room-v2 immediately beside the pixel board on
     # the same -x wall. Same ordering trap as the pixel board and worse: the
     # `wallart` box below contains this one entirely, so listed after it the
-    # whole board would vanish into a static mesh. The y range stops at -0.52
-    # rather than meeting `pixelboard` at -0.55, so the two boxes do not touch
-    # and neither can steal a stray object from the other.
-    ("ranking",    (-2.01,-1.87, -0.52, 0.06,  1.44, 2.40), True),
+    # whole board would vanish into a static mesh. The two y ranges stop short
+    # of each other, so the boxes never touch and neither can steal a stray
+    # object from the other.
+    #
+    # Both y ranges shifted -0.382 for room-v3, which slid both boards along
+    # the wall. These are hand-authored world-space AABBs, so a nudge in
+    # Blender relocates objects into a neighbouring region rather than failing:
+    # left at the v2 numbers, most of the ranking board would have fallen
+    # inside the `pixelboard` box and the two boards would have merged into a
+    # single hotspot. The assertion after the tagging pass makes that loud.
+    ("ranking",    (-2.01,-1.87, -0.90,-0.32,  1.44, 2.40), True),
     ("wallart",   (-2.30,-1.60, -1.00, 1.00,  1.40, 3.10), True),
     ("shelves",   (-2.30,-1.55, -4.20,-0.20,  1.70, 3.10), True),
     ("sofa",      (-2.10,-0.55, -3.00,-0.10, -0.05, 1.20), True),
@@ -186,6 +193,26 @@ for o in props:
             break
     else:
         group_of[o.name] = "static"
+
+# The regions above are hand-authored world-space boxes, and objects land in
+# the first one containing their centre. Nothing about that fails when a board
+# is nudged in Blender -- the strays simply join a neighbouring group, which
+# then exports as a perfectly valid hotspot containing the wrong things. Both
+# boards moved -0.382 in room-v3 and would have done exactly that.
+#
+# Both are named systematically, so assert the mapping rather than eyeball the
+# triangle counts afterwards.
+for prefix, want in (("Pixel", "pixelboard"), ("Ranking", "ranking")):
+    strays = sorted(n for n, g in group_of.items()
+                    if (n.startswith(prefix) or n.startswith(f"{prefix} ")) and g != want)
+    if strays:
+        landed = {group_of[n] for n in strays}
+        raise SystemExit(
+            f"{len(strays)} '{prefix}*' objects fell outside the '{want}' region "
+            f"and landed in {sorted(landed)}, e.g. {strays[:4]}.\n"
+            f"The board moved in the .blend; update the '{want}' box in REGIONS "
+            f"to match. Exporting would merge it into another hotspot.")
+print("every board object landed in its own region")
 
 # --------------------------------- 2b. drop text the frontend will replace --
 # The ranking board ships with placeholder copy baked into FONT objects:

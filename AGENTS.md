@@ -178,6 +178,30 @@ emitted later it won. The panel silently detached from `bottom-6` and rendered a
 the top of the viewport. In `components`, utilities on the element always win,
 which is the correct precedence for a base style anyway.
 
+**A hotspot's camera is placed relative to its bounding box, so growing the
+group re-frames the panel.** `content.ts` stores `offset` and `look` as deltas
+from the node's manifest centre, which means anything that changes a group's
+extent moves the camera without anyone editing a camera value. In room-v3 the
+shelf rail gained a fourth lamp, `hot_shelves` grew, the Writing view shifted,
+and the newly-moved pixel board landed behind that panel: contrast fell from
+1.64:1 to 1.11:1 with no CSS change anywhere. The glass gate caught it. Fixing
+it meant retuning `writing`'s offset, which is the remedy AGENTS already
+prescribes — reframe the camera, do not widen the waiver. `verify-glass.mjs`
+takes a panel name as an argument for exactly this loop.
+
+**Region boxes are hand-authored AABBs and a Blender nudge relocates objects
+silently.** Objects land in the first region containing their centre, so a
+board that slides out of its box joins a neighbour and exports as a valid
+hotspot full of the wrong things. Both board boxes shifted -0.382 for room-v3.
+The export asserts every `Pixel*` and `Ranking*` object landed in its own
+region; extend that check when adding a systematically-named group.
+
+**The .blend's lights never reach the site.** `export_lights=False`, and
+`src/three/lighting.ts` is a hand-tuned rig that deliberately does not mirror
+the Cycles setup. Lamp *housings* are geometry and do sync, so a version bump
+can add a visible lamp that casts nothing. Do not read "the lights changed in
+Blender" as something the pipeline can carry.
+
 **The outliner's selection lock silently deletes geometry at export, and every
 signal it gives you says success.** `select_set(True)` on a `hide_select`
 object does not raise and does not warn — `select_get()` just keeps returning
