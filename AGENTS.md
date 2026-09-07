@@ -37,8 +37,11 @@ Argus  /me/pixels            --+
                                                         |
                               three/PixelBoard.tsx  <---+---> three/RankingBoard.tsx
                               (1008 cells, hours won)   |     (5x32 LEDs, tokens)
-                              ui/Panel.tsx (legend)  <---+
                               ui/PixelTooltip.tsx    <---+
+                              (per-cell hover readout)
+
+The boards are the whole readout. The signals hotspot is `bare` -- focusing it
+opens no panel -- so nothing in the DOM restates them.
 ```
 
 One handler, mounted twice: `@hono/vite-dev-server` runs it in `npm run dev` and
@@ -177,6 +180,18 @@ it landed in the same layer as Tailwind's own `fixed`, and since this file is
 emitted later it won. The panel silently detached from `bottom-6` and rendered at
 the top of the viewport. In `components`, utilities on the element always win,
 which is the correct precedence for a base style anyway.
+
+**A hotspot can decline to have a panel.** `bare` on a `Hotspot` focuses the
+camera and opens nothing; `Hud` renders "Back to the room" as the only chrome,
+the same treatment framed monitors already had. Signals uses it because the two
+wall boards carry their whole readout and the panel was restating it in words
+while covering the bottom of both boards to do so. Two consequences worth
+knowing: the framing must then be retuned to fill the frame rather than the top
+half of it (`look` went to 0 and the standoff from 4.4 back to 3.1), and the
+panel's contrast waiver disappears — `signals` is gone from `verify-glass`,
+which is the honest outcome rather than a suppressed one. It also means that
+data has no DOM representation at all, so a screen reader gets nothing; see the
+known gap in README before adding another `bare` hotspot that carries content.
 
 **A hotspot can own several meshes, and everything must agree on which.**
 `nodes` on a `Hotspot` lists extra glTF nodes beyond `node`; picking, hover and

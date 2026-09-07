@@ -6,9 +6,6 @@ import { PROFILE, PROJECTS, TRACK, hotspotById, type PanelKind } from '../conten
 import { useScene } from '../store'
 import { NOTES, playNote, unlockAudio } from '../audio/synth'
 import { duckTrack, usePlayer } from '../audio/player'
-import { usePixels } from '../pixels/usePixels'
-import { colourFor, PALETTE_SIZE } from '../pixels/palette'
-import type { PixelProject } from '../shared/pixels'
 
 gsap.registerPlugin(useGSAP)
 
@@ -46,118 +43,6 @@ function ProjectLink({ name }: { name: string }) {
     >
       {name}
     </a>
-  )
-}
-
-/**
- * Abbreviate a token count.
- *
- * These span five orders of magnitude across the legend — tens of thousands to
- * billions — so they are abbreviated rather than printed in full. Nobody
- * compares ten-digit token counts exactly, and the full figures would push the
- * two-column layout into one.
- */
-function compact(n: number): string {
-  const [div, unit] =
-    n >= 1e9 ? [1e9, 'B'] : n >= 1e6 ? [1e6, 'M'] : n >= 1e3 ? [1e3, 'K'] : [1, '']
-  const v = n / div
-  // One decimal only below ten, where dropping it would round 1.6B to 2B.
-  return `${v < 10 && div > 1 ? v.toFixed(1) : Math.round(v)}${unit}`
-}
-
-/**
- * Legend for the wall board.
- *
- * Names come from the proxy, which resolves each hash against a second Argus
- * endpoint and forwards nothing but the name and a token count. Falls back to
- * the hash where that lookup found nothing, since the lookup is allowed to fail
- * without taking the board down.
- */
-function Signals() {
-  const data = usePixels((s) => s.data)
-  const settled = usePixels((s) => s.settled)
-  const error = usePixels((s) => s.error)
-
-  if (!data) {
-    return (
-      <Pending
-        what={
-          settled
-            ? `The board is unlit: ${error ?? 'no data'}. It lights itself when Argus answers again.`
-            : 'Reading six weeks of agent activity from Argus.'
-        }
-      />
-    )
-  }
-
-  const lit = data.winners.filter((w) => w !== null).length
-  const hours = (s: number) => `${Math.round(s / 3600)}h`
-
-  // Totals span every project, not just the six with their own colour, so the
-  // footnote stays true when the tail is folded into grey.
-  const counted = data.projects.filter((p) => p.tokens)
-  const sum = (pick: (t: NonNullable<PixelProject['tokens']>) => number) =>
-    counted.reduce((n, p) => n + pick(p.tokens!), 0)
-  const totalIn = sum((t) => t.in)
-  const cachedShare = totalIn ? Math.round((sum((t) => t.cached) / totalIn) * 100) : 0
-
-  return (
-    <div className="space-y-5">
-      <p className="max-w-[58ch] text-body">
-        Every hour of the last six weeks, coloured by whichever project owned it
-        and lit by how busy it was.{' '}
-        <span className="text-bright">{lit}</span> of {data.slotCount} hours had
-        something running.
-        {data.live.length > 0 && (
-          <span className="text-acid"> Something is running right now.</span>
-        )}
-      </p>
-
-      <ul className="grid gap-2.5 sm:grid-cols-2">
-        {data.projects.slice(0, PALETTE_SIZE).map((p, i) => (
-          <li key={p.key} className="flex gap-2.5">
-            <span
-              aria-hidden
-              className="mt-[3px] size-3 shrink-0 rounded-[3px]"
-              style={{ background: colourFor(i).getStyle() }}
-            />
-            <div className="min-w-0 flex-1">
-              <div className="flex items-baseline gap-2">
-                <span className="truncate text-[13px] text-body">{p.name ?? p.key}</span>
-                <span className="ml-auto shrink-0 font-mono text-[11px] tabular-nums text-body">
-                  {hours(p.wonSeconds)}
-                </span>
-              </div>
-              {/* Optional: the lookup that carries these is allowed to fail, and
-                  a project can appear on the board with no usage row upstream.
-                  11px mono to match the hours figure above it — the two are the
-                  same kind of number and read as one block at one size. */}
-              {p.tokens && (
-                <p className="mt-0.5 font-mono text-[11px] tabular-nums text-mute">
-                  {compact(p.tokens.out)} out · {compact(p.tokens.in)} in
-                </p>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
-
-      {counted.length > 0 && (
-        <p className="max-w-[58ch] text-sm text-mute">
-          Tokens cover the same six weeks, and count every hour a project worked,
-          not just the ones it won. That is why a project can hold few cells and
-          a large number. {cachedShare}% of input is cache reads: context
-          replayed to the model rather than written fresh.
-        </p>
-      )}
-
-      {data.projects.length > PALETTE_SIZE && (
-        <p className="text-sm text-mute">
-          {data.projects.length - PALETTE_SIZE} smaller projects share one grey.
-          Six colours is as many as stay apart at this pixel size.
-        </p>
-      )}
-    </div>
   )
 }
 
@@ -451,7 +336,6 @@ const BODY: Record<string, () => React.ReactElement> = {
   player: Player,
   contact: Contact,
   about: About,
-  stats: Signals,
   writing: () => (
     <Pending what="Notes and longer pieces on agent tooling and evaluation. First few are drafted." />
   ),
@@ -502,6 +386,11 @@ export function Panel() {
   )
 
   if (!spot) return null
+  // A bare hotspot has no panel: the object in the room is the content, and
+  // Hud renders the only chrome, the way back out. Returning null here rather
+  // than filtering upstream keeps one rule in one place -- the panel decides
+  // whether there is a panel.
+  if (spot.bare) return null
   const Body = BODY[spot.kind] ?? (() => null)
   const compact = COMPACT.has(spot.kind)
 

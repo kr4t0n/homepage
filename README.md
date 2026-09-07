@@ -178,12 +178,21 @@ They answer different questions, and the difference is not a bug to reconcile:
 | Pixel board | `hot_pixelboard` | 1008 hours, coloured by owner, lit by how busy | hours *won* |
 | Ranking board | `hot_ranking` | Top 5 projects, 32-segment bar each | tokens `in + out` |
 
-They are **one hotspot**. `signals` lists `hot_ranking` in its `nodes`, so
-either board hovers, picks and frames the pair — the camera aims at the union of
-both bounding boxes rather than at the pixel board with the ranking board off to
-one side. Neither board takes the green hover wash (`noHighlight`): the accent
-is lerped into every material it touches, and on these boards colour *is* the
-content.
+They are **one hotspot, and it has no panel**. `signals` lists `hot_ranking` in
+its `nodes`, so either board hovers, picks and frames the pair — the camera aims
+at the union of both bounding boxes rather than at the pixel board with the
+ranking board off to one side.
+
+Neither board takes the green hover wash (`noHighlight`): the accent is lerped
+into every material it touches, and on these boards colour *is* the content.
+
+The hotspot is also `bare`, so focusing it opens no glass panel at all — the
+same treatment the framed monitors already had. The boards carry the whole
+readout between them, and a panel restating it in words covered the bottom of
+both to do so. The only chrome is "Back to the room"; Escape works too, and
+per-cell detail is on hover via `PixelTooltip`. Framing is dead-centre at 3.1
+rather than the 4.4 it needed while sharing the frame with a panel, so the hour
+and week labels, the rank rows and the token totals are all legible.
 
 An hour on the heatmap goes to whichever project was busiest in it, so a project
 can burn tokens all week and win almost no cells. `researchers` ranks third by
@@ -527,12 +536,12 @@ tools/
   fix is the camera, not the CSS: frame this hotspot so the panel lands over a
   darker part of the room. Until then it sits in `ACCEPTED` alongside `about`
   and `contact`.
-- The ranking board has no hotspot of its own. `hot_ranking` is in the GLB and
-  is marked interactive in the manifest, but there is no `content.ts` entry
-  pointing at it, so it is not in the nav, not pickable, and has no panel. It
-  reads as part of the Signals view because it sits beside the pixel board.
-  Giving it its own framing would make its text far more legible than it is at
-  the Signals standoff.
+- Signals has no DOM copy of its data any more. The hotspot is `bare` and the
+  panel legend was removed with it, so the readout exists only as rendered 3D:
+  unreachable to a screen reader, and absent from the 2D fallback, which never
+  had a signals section to begin with. That is the deliberate trade for boards
+  that are legible enough not to need restating — but if that data should be
+  reachable without WebGL, a `Fallback2D` section is the place, not the panel.
 - One bar full and four stubs is what the data looks like. The leader is ~3.5x
   the runner-up and ~12x fifth place, so a linear bar normalised to the leader
   leaves the lower rows at 3-9 segments of 32. That is honest and it is also

@@ -45,6 +45,15 @@ export interface Hotspot {
   /** Placeholder panels are visibly marked as such rather than faked. */
   placeholder?: boolean
   /**
+   * Focus this hotspot without opening a panel: the object itself is the
+   * content, and the only chrome is the way back out.
+   *
+   * The framed monitors already worked this way. It suits anything the camera
+   * can put in front of you legibly, where a panel would sit on top of the very
+   * thing you asked to look at and say it again in words.
+   */
+  bare?: boolean
+  /**
    * Suppress the green hover wash on this hotspot's nodes.
    *
    * For a prop the wash is the affordance that says "clickable". For a display
@@ -204,24 +213,31 @@ export const HOTSPOTS: Hotspot[] = [
     // material it touches, which repaints all of that. No affordance is worth
     // destroying the reading it is advertising.
     noHighlight: true,
+    // No panel. The boards carry the whole readout -- the heatmap, the legend
+    // colours, the ranking with its token totals -- and the panel restated it
+    // in words while covering the bottom of both boards to do so. Per-cell
+    // detail is on hover, via PixelTooltip, which needs the board visible.
+    bare: true,
     // Together the boards are 2.39 wide by 0.96 tall on the -x wall, facing +x
     // -- the pixel board's 1.74 plus the ranking board and the gap between
-    // them. At a 34-degree lens visible half-width is 0.49x distance, so 4.4 of
-    // standoff puts the pair at ~55% of frame width, the same share the pixel
-    // board alone had at 3.2. Framing is taken from the union of both bounding
-    // boxes, so this holds if the boards move again; they already have once.
+    // them. At a 34-degree lens visible half-width is 0.49x distance, so 3.1 of
+    // standoff puts the pair at ~79% of frame width. Framing is taken from the
+    // union of both bounding boxes, so this holds if the boards move again;
+    // they already have once.
     //
-    // The camera sits level with the boards' centre rather than above it. These
-    // are flat wall panels read straight on; lifting the camera and aiming down
-    // keystones the grid, which is very visible on something made of rows and
-    // columns. The upward push comes from `look` alone.
+    // Dead centre, and close, because there is no panel to share the frame
+    // with. While there was one this sat at 4.4 with `look` pushing the boards
+    // up into the top half so the glass did not cover their bottom edges; that
+    // cost most of the legibility the boards were being framed for. Filling the
+    // frame is the whole point now -- the hour and week labels, the rank rows
+    // and the token totals all have to be readable, because they are the
+    // content rather than an illustration beside it.
     //
-    // `look` scales with the standoff: it is an offset in world units, not an
-    // angle, so carrying the old -0.3 over to 4.4 of distance produced a
-    // noticeably weaker push and left the panel covering the pixel board's week
-    // labels and the ranking board's footer. -0.7 clears both.
-    offset: [4.4, 0, 0],
-    look: [0, -0.7, 0],
+    // The camera sits level with the boards' centre and looks straight at it.
+    // These are flat wall panels; any vertical offset keystones the grid, which
+    // is very visible on something made of rows and columns.
+    offset: [3.1, 0, 0],
+    look: [0, 0, 0],
   },
   {
     id: 'writing',

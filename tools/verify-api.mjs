@@ -300,9 +300,20 @@ check('the union framing is not just the pixel board’s',
   Math.abs(unionCentreZ - pixelBox.centre[2]) > 0.1,
   `union z centre ${unionCentreZ.toFixed(3)} vs board ${pixelBox.centre[2].toFixed(3)}`)
 
-// Standoff has to grow with the wider subject, or the pair overflows the frame.
-check('the standoff was widened for the pair', (signals?.offset?.[0] ?? 0) >= 4,
-  `offset x = ${signals?.offset?.[0]}`)
+// The pair has to fit the frame at whatever standoff is set, and fill enough of
+// it to be readable -- these boards ARE the panel now, so the labels have to
+// carry. Asserting a fixed distance was wrong: it went 3.2 -> 4.4 to share the
+// frame with a panel and back to 3.1 once that panel was removed, and the
+// invariant was never the number. At a 34-degree lens visible half-width is
+// 0.49x distance.
+const unionWidth = unionZ[1] - unionZ[0]
+const frameWidth = 2 * 0.49 * (signals?.offset?.[0] ?? 0)
+const fill = unionWidth / frameWidth
+check('both boards fit the frame and fill most of it', fill > 0.5 && fill < 0.92,
+  `${(fill * 100).toFixed(0)}% of frame width at ${signals?.offset?.[0]} standoff`)
+
+// No panel: the boards carry the readout themselves.
+check('the boards hotspot opens no panel', signals?.bare === true)
 
 console.log(`\n${fails.length ? `${fails.length} FAILED: ${fails.join(', ')}` : 'all checks passed'}`)
 process.exit(fails.length ? 1 : 0)

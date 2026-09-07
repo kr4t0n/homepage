@@ -86,6 +86,36 @@ await page.waitForTimeout(1600)
 check('clicking the far board opens Signals', page.url().includes('#/signals'),
   `url=${page.url()} from (${far.x},${far.y})`)
 
+// Focused, the boards are the whole readout: no glass panel, and the only
+// chrome is the way back out. A panel here would cover the bottom of both
+// boards to restate what they already show.
+// The panel is the thing with role="dialog". Counting `.glass` instead would be
+// wrong as well as fragile: PixelTooltip carries that class too, so the
+// assertion would pass or fail on whether the pointer happened to be resting
+// over a cell.
+const dialogs = await page.evaluate(() => document.querySelectorAll('[role="dialog"]').length)
+check('focusing the boards opens no panel', dialogs === 0, `${dialogs} dialog(s)`)
+
+// Per-cell detail moved entirely to hover once the panel went, so the tooltip
+// is now the only place an individual hour can be read.
+await page.mouse.move(500, 450)
+await page.waitForTimeout(500)
+const tip = await page.evaluate(() => {
+  const el = [...document.querySelectorAll('.glass')].find((n) => n.textContent?.trim())
+  return el?.textContent?.trim().slice(0, 40) ?? null
+})
+check('hovering a cell still gives a readout', tip !== null, tip ?? 'nothing shown')
+
+const exit = page.getByRole('button', { name: /back to the room/i })
+check('a way back out is still on screen', await exit.isVisible())
+
+// Escape has to work too: with no panel there is no close button inside a
+// dialog for the keyboard to reach, so this is the keyboard route.
+await page.keyboard.press('Escape')
+await page.waitForTimeout(1400)
+check('Escape leaves the focused boards', !page.url().includes('#/signals'),
+  `url=${page.url()}`)
+
 check('no page errors', errors.length === 0, errors.join('; ').slice(0, 120))
 console.log(`\n${fails.length ? `${fails.length} FAILED: ${fails.join(', ')}` : 'all checks passed'}`)
 await browser.close()

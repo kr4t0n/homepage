@@ -109,16 +109,21 @@ const browser = await chromium.launch({
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
 
 /**
- * Every routable panel, by hotspot *id* — not by panel kind, which is what
- * `stats` is. Must match the ids in HOTSPOTS in src/content.ts; `signals` is
- * included even though it is `unverified` and hidden from the room, because it
- * is still reachable by URL and so still has to be legible.
+ * Every routable panel, by hotspot *id* — not by panel kind.
+ *
+ * `signals` is absent because it no longer has a panel: the hotspot is `bare`,
+ * so focusing the wall boards opens nothing. It was the worst surface measured
+ * here, at 1.02:1 against the lit board and 2.06:1 after being reframed, and
+ * the way it was fixed is the one this file keeps recommending taken to its
+ * conclusion — the panel was restating what the boards already showed, so it
+ * went rather than the contrast being waived again. Re-add the id here the
+ * moment anything gives that hotspot a panel back.
  */
 // A single panel can be measured on its own while tuning a camera:
 //   node tools/verify-glass.mjs writing
 // The waiver comparison only runs over the panels actually measured, so a
 // filtered run reports that panel honestly without claiming the others passed.
-const ALL_PANELS = ['music', 'player', 'writing', 'about', 'cv', 'contact', 'signals']
+const ALL_PANELS = ['music', 'player', 'writing', 'about', 'cv', 'contact']
 const only = process.argv.slice(2).filter((a) => ALL_PANELS.includes(a))
 const PANELS = only.length ? only : ALL_PANELS
 
@@ -158,20 +163,6 @@ const threshold = (px, weight) => (px >= 24 || (px >= 18.66 && weight >= 700) ? 
 const ACCEPTED = {
   about: 1.03,
   contact: 1.09,
-  // 2.06, and the history is worth keeping because the number moved twice for
-  // reasons that had nothing to do with CSS.
-  //
-  // It read 2.06 originally, but only because this gate served dist/ with no
-  // /api/pixels: the board behind the panel was *unlit* in every measurement.
-  // With a real payload it measured 1.02–1.05, since the lit board is the
-  // brightest surface in the room and the worst tile under the panel was a
-  // saturated acid cell.
-  //
-  // It is back at 2.06 honestly now. Framing both boards instead of one pushed
-  // them up and out of the panel's area, so what sits behind the glass is the
-  // sofa rather than live data. Tightened from 1.05 so that gain is defended
-  // rather than left as slack a future reframe could spend without noticing.
-  signals: 2.06,
   writing: 1.64,
   music: 1.78,
   cv: 2.89,
