@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { useGLTF } from '@react-three/drei'
 import { type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
-import { HOTSPOTS, PICKABLE_HOTSPOTS, ROOM_HOTSPOTS } from '../content'
+import { HOTSPOTS, PICKABLE_HOTSPOTS, ROOM_HOTSPOTS, hotspotNodes } from '../content'
 import { useScene } from '../store'
 import { HIGHLIGHT, highlight } from './highlight'
 import { baseline, clearBaselines, setBaseline } from './materials'
@@ -35,8 +35,9 @@ export function Room() {
   // Node -> hotspot id, so a raycast hit resolves to content in one lookup.
   const nodeToId = useMemo(() => {
     const m = new Map<string, string>()
-    // Only pickable ones: the monitors are handled by Screens.tsx.
-    PICKABLE_HOTSPOTS().forEach((h) => m.set(h.node, h.id))
+    // Only pickable ones: the monitors are handled by Screens.tsx. Every node a
+    // hotspot owns maps to it, so a two-mesh hotspot picks from either half.
+    PICKABLE_HOTSPOTS().forEach((h) => hotspotNodes(h).forEach((n) => m.set(n, h.id)))
     return m
   }, [])
 
@@ -52,7 +53,7 @@ export function Room() {
     // one material across unrelated props. Without per-node copies, hovering
     // the desk also lights up a figurine on the far shelf. Give every
     // interactive node its own materials so the wash stays contained.
-    const owned = new Set<string>(ROOM_HOTSPOTS().map((h) => h.node))
+    const owned = new Set<string>(ROOM_HOTSPOTS().flatMap(hotspotNodes))
     owned.forEach((nodeName) => {
       const node = root.getObjectByName(nodeName)
       node?.traverse((child) => {
@@ -135,9 +136,23 @@ export function Room() {
     // in shades of green and destroys the reading. The monitors have always
     // looked right here for an accidental reason: nothing points a hotspot at
     // `hot_screens`, so they are never hovered at all.
-    if (hovered && hovered.id !== focus) {
-      const node = cloned.getObjectByName(hovered.node)
+    //
+    // `noHighlight` extends that from "the focused board" to "these boards,
+    // ever". Both wall boards encode their data in colour, so the wash was
+    // never an affordance there -- it was a hover that scrambled the reading.
+    const washed =
+      hovered && hovered.id !== focus && !hovered.noHighlight ? hotspotNodes(hovered) : []
+    washed.forEach((name) => {
+      const node = cloned.getObjectByName(name)
       if (node) paint(node, true)
+    })
+
+    // Dev-only handle, alongside __hover and __orbit. The wash cannot be
+    // asserted from a screenshot: pointer parallax moves the camera, so any two
+    // frames taken with the pointer in different places differ almost
+    // everywhere. This reports the intent directly.
+    if (import.meta.env.DEV) {
+      ;(window as unknown as Record<string, unknown>).__wash = () => washed
     }
   }, [hover, focus, cloned])
 

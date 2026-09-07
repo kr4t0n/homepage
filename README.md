@@ -178,6 +178,13 @@ They answer different questions, and the difference is not a bug to reconcile:
 | Pixel board | `hot_pixelboard` | 1008 hours, coloured by owner, lit by how busy | hours *won* |
 | Ranking board | `hot_ranking` | Top 5 projects, 32-segment bar each | tokens `in + out` |
 
+They are **one hotspot**. `signals` lists `hot_ranking` in its `nodes`, so
+either board hovers, picks and frames the pair — the camera aims at the union of
+both bounding boxes rather than at the pixel board with the ranking board off to
+one side. Neither board takes the green hover wash (`noHighlight`): the accent
+is lerped into every material it touches, and on these boards colour *is* the
+content.
+
 An hour on the heatmap goes to whichever project was busiest in it, so a project
 can burn tokens all week and win almost no cells. `researchers` ranks third by
 tokens while holding a single hour on the board beside it.
@@ -493,6 +500,7 @@ tools/
   diagnose_lighting.py  material colours, neutral vs site light rig
   wall_occupancy.py     lists wall decor and finds clear bands
   verify-api.mjs        secret containment, proxy disclosure, ranking maths
+  verify-boards.mjs     both wall boards pick as one hotspot, and take no wash
   verify-glass.mjs      glass contrast gate
   verify-hotspots.mjs   hover verification captures
   verify-orbit.mjs      orbit, zoom, drag-vs-click checks

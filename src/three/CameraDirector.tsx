@@ -3,16 +3,30 @@ import { useFrame, useThree } from '@react-three/fiber'
 import gsap from 'gsap'
 import * as THREE from 'three'
 import manifest from '../scene-manifest.json'
-import { HOME_CAMERA, hotspotById, screenById, type Hotspot } from '../content'
+import { HOME_CAMERA, hotspotById, hotspotNodes, screenById, type Hotspot } from '../content'
 import { LIMITS, attachOrbit, homeView, orbit, rememberHomeView } from './orbit'
 import { useScene } from '../store'
 
 type ManifestEntry = { node: string; centre: number[]; min: number[]; max: number[] }
 const NODES = Object.values(manifest as unknown as Record<string, ManifestEntry>)
 
-/** Look up a hotspot's exported bounding box by its glTF node name. */
-const entryFor = (h: Hotspot): ManifestEntry | undefined =>
-  NODES.find((n) => n.node === h.node)
+/**
+ * Where to aim for a hotspot: the centre of every node it owns, together.
+ *
+ * A hotspot made of two meshes framed on its first one puts the rest of itself
+ * off to the side, or off screen. Taking the union means the framing is a
+ * property of the asset, so moving the parts relative to each other re-frames
+ * the shot instead of quietly decentring it.
+ */
+const centreFor = (h: Hotspot): number[] => {
+  const boxes = hotspotNodes(h)
+    .map((name) => NODES.find((n) => n.node === name))
+    .filter((n): n is ManifestEntry => Boolean(n))
+  if (boxes.length === 0) return [0, 1, 0]
+  const min = [0, 1, 2].map((i) => Math.min(...boxes.map((b) => b.min[i])))
+  const max = [0, 1, 2].map((i) => Math.max(...boxes.map((b) => b.max[i])))
+  return [0, 1, 2].map((i) => (min[i] + max[i]) / 2)
+}
 
 /**
  * Authored camera pose, expressed as an orbit rather than a point.
@@ -52,7 +66,7 @@ const poseBetween = (
 const poseForHotspot = (id: string | null): Pose | null => {
   const h = hotspotById(id)
   if (!h) return null
-  const c = entryFor(h)?.centre ?? [0, 1, 0]
+  const c = centreFor(h)
   return poseBetween(
     [c[0] + h.offset[0], c[1] + h.offset[1], c[2] + h.offset[2]],
     [c[0] + h.look[0], c[1] + h.look[1], c[2] + h.look[2]],

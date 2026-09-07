@@ -23,6 +23,13 @@ export interface Hotspot {
   id: string
   /** Mesh node inside room.glb. Must match a key in scene-manifest.json. */
   node: string
+  /**
+   * Further nodes this hotspot covers, if it is one thing made of several
+   * meshes. Picking, hover and camera framing all treat `node` and these as a
+   * single object: the camera frames the union of their bounding boxes, so the
+   * framing follows the asset if the parts move relative to each other.
+   */
+  nodes?: string[]
   /** Shown in the hover label. Keep it short. */
   label: string
   /** One line, shown under the label on hover. */
@@ -37,6 +44,15 @@ export interface Hotspot {
   look: [number, number, number]
   /** Placeholder panels are visibly marked as such rather than faked. */
   placeholder?: boolean
+  /**
+   * Suppress the green hover wash on this hotspot's nodes.
+   *
+   * For a prop the wash is the affordance that says "clickable". For a display
+   * that encodes data in colour it is destructive: the accent is lerped into
+   * every material it touches, so hovering repaints the reading. Set this on
+   * anything whose colour carries meaning.
+   */
+  noHighlight?: boolean
   /**
    * Set when the glTF node has not been visually confirmed to be the object the
    * label claims. Excluded from the room so a click never frames the wrong
@@ -174,21 +190,38 @@ export const HOTSPOTS: Hotspot[] = [
     // which is an activity heatmap and exactly what this hotspot was reserved
     // for.
     node: 'hot_pixelboard',
+    // Signals is both wall boards, not just the heatmap. They are one display
+    // in two pieces -- the same six weeks, ranked two ways -- so framing only
+    // the left one cut the ranking board half out of shot and left it as a dead
+    // zone the pointer could cross without the hotspot lighting up.
+    nodes: ['hot_ranking'],
     label: 'Signals',
     hint: 'Agent activity and GitHub',
     kind: 'stats',
-    // The board is flat on the -x wall: 1.74 wide by 0.91 tall, facing +x. At a
-    // 34-degree lens visible half-width is 0.49x distance and half-height
-    // 0.31x, so 3.2 of standoff puts the board at ~55% of frame width and ~47%
-    // of frame height -- enough that the week labels along its bottom edge clear
-    // the panel, which they did not at 2.2.
+    // The colour on these boards IS the content: hue is which project owned an
+    // hour, brightness is how busy it was, and the ranking bars carry a
+    // designed per-row ramp. The hover wash lerps the acid accent into every
+    // material it touches, which repaints all of that. No affordance is worth
+    // destroying the reading it is advertising.
+    noHighlight: true,
+    // Together the boards are 2.39 wide by 0.96 tall on the -x wall, facing +x
+    // -- the pixel board's 1.74 plus the ranking board and the gap between
+    // them. At a 34-degree lens visible half-width is 0.49x distance, so 4.4 of
+    // standoff puts the pair at ~55% of frame width, the same share the pixel
+    // board alone had at 3.2. Framing is taken from the union of both bounding
+    // boxes, so this holds if the boards move again; they already have once.
     //
-    // The camera sits level with the board's centre rather than above it. This
-    // is a flat wall panel read straight on; lifting the camera and aiming down
+    // The camera sits level with the boards' centre rather than above it. These
+    // are flat wall panels read straight on; lifting the camera and aiming down
     // keystones the grid, which is very visible on something made of rows and
     // columns. The upward push comes from `look` alone.
-    offset: [3.2, 0, 0],
-    look: [0, -0.3, 0],
+    //
+    // `look` scales with the standoff: it is an offset in world units, not an
+    // angle, so carrying the old -0.3 over to 4.4 of distance produced a
+    // noticeably weaker push and left the panel covering the pixel board's week
+    // labels and the ranking board's footer. -0.7 clears both.
+    offset: [4.4, 0, 0],
+    look: [0, -0.7, 0],
   },
   {
     id: 'writing',
@@ -354,6 +387,13 @@ export const HOME_CAMERA = {
   position: [10.5, 7.4, 10.6] as [number, number, number],
   target: [0.9, 0.55, 0.6] as [number, number, number],
 }
+
+/**
+ * Every glTF node a hotspot owns, primary first. Use this rather than reading
+ * `node` directly, or multi-node hotspots become pickable only by their first
+ * mesh -- which looks like a dead zone over the other half of the object.
+ */
+export const hotspotNodes = (h: Hotspot): string[] => [h.node, ...(h.nodes ?? [])]
 
 export const hotspotById = (id: string | null) =>
   id ? (HOTSPOTS.find((h) => h.id === id) ?? null) : null

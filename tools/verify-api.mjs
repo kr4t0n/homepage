@@ -16,6 +16,8 @@ import { join } from 'node:path'
 import { validate, liveSlot, gridPos } from '../src/shared/pixels.ts'
 import { rankByTokens, shortTokens, ROWS, SEGMENTS } from '../src/pixels/ranking.ts'
 import anchors from '../src/ranking-anchors.json' with { type: 'json' }
+import manifest from '../src/scene-manifest.json' with { type: 'json' }
+import { HOTSPOTS, hotspotNodes } from '../src/content.ts'
 
 const fails = []
 const check = (name, ok, detail = '') => {
@@ -266,6 +268,41 @@ check('every anchor row carries a name and a score box',
   anchors.rows.every((row) => row.name?.min && row.score?.min))
 check('the text plane has real extent',
   anchors.screen.max[1] > anchors.screen.min[1] && anchors.screen.max[2] > anchors.screen.min[2])
+
+// ------------------------------------------------- signals covers both boards --
+// Signals is one hotspot over two meshes. Everything about that is data in
+// content.ts, so it is checked here rather than by sweeping a pointer across a
+// screenshot -- which is slow, and which pointer parallax makes unreliable
+// anyway (moving the mouse moves the camera, so two frames differ everywhere).
+const signals = HOTSPOTS.find((h) => h.id === 'signals')
+const nodes = signals ? hotspotNodes(signals) : []
+check('signals covers both wall boards',
+  nodes.includes('hot_pixelboard') && nodes.includes('hot_ranking'), nodes.join(', '))
+
+const known = new Set(Object.values(manifest).map((e) => e.node))
+const unknown = nodes.filter((n) => !known.has(n))
+check('every node signals claims exists in the manifest', unknown.length === 0,
+  unknown.join(', '))
+
+// The wash lerps the acid accent into every material it touches, and both
+// boards encode their data in colour.
+check('the boards are exempt from the hover wash', signals?.noHighlight === true)
+
+// Framing is the union of both boxes. If it silently fell back to the first
+// node the camera would centre on the pixel board and push the ranking board
+// to the edge of frame -- which is what it did before, and which still looks
+// like a deliberate composition.
+const boxes = nodes.map((n) => Object.values(manifest).find((e) => e.node === n)).filter(Boolean)
+const unionZ = [Math.min(...boxes.map((b) => b.min[2])), Math.max(...boxes.map((b) => b.max[2]))]
+const pixelBox = Object.values(manifest).find((e) => e.node === 'hot_pixelboard')
+const unionCentreZ = (unionZ[0] + unionZ[1]) / 2
+check('the union framing is not just the pixel board’s',
+  Math.abs(unionCentreZ - pixelBox.centre[2]) > 0.1,
+  `union z centre ${unionCentreZ.toFixed(3)} vs board ${pixelBox.centre[2].toFixed(3)}`)
+
+// Standoff has to grow with the wider subject, or the pair overflows the frame.
+check('the standoff was widened for the pair', (signals?.offset?.[0] ?? 0) >= 4,
+  `offset x = ${signals?.offset?.[0]}`)
 
 console.log(`\n${fails.length ? `${fails.length} FAILED: ${fails.join(', ')}` : 'all checks passed'}`)
 process.exit(fails.length ? 1 : 0)

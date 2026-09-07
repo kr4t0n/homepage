@@ -178,6 +178,26 @@ emitted later it won. The panel silently detached from `bottom-6` and rendered a
 the top of the viewport. In `components`, utilities on the element always win,
 which is the correct precedence for a base style anyway.
 
+**A hotspot can own several meshes, and everything must agree on which.**
+`nodes` on a `Hotspot` lists extra glTF nodes beyond `node`; picking, hover and
+camera framing all read `hotspotNodes(h)` rather than `h.node`. Signals is both
+wall boards. Reading `node` directly in any one of those three places gives a
+hotspot that highlights but does not pick, or picks but frames only half of
+itself — all of which look like deliberate design rather than bugs. Framing
+takes the union of the boxes, so the shot follows the asset.
+
+**`look` is a world-space offset, not an angle, so it does not survive a change
+of standoff.** Widening Signals from 3.2 to 4.4 to fit both boards left the old
+-0.3 pushing the subject up by proportionally less, and the panel covered the
+pixel board's week labels. Rescale `look` whenever `offset` changes.
+
+**Never assert on pixels to test hover.** Pointer parallax moves the camera, so
+two screenshots taken with the pointer in different places differ almost
+everywhere: a first attempt at testing the hover wash reported 158,000 changed
+pixels for a hotspot that was not washed at all. `Room.tsx` exposes a dev-only
+`__wash()` returning the node names currently washed, and nav pills drive the
+same hover state as pointing at the object, so both can be checked as state.
+
 **A hotspot's camera is placed relative to its bounding box, so growing the
 group re-frames the panel.** `content.ts` stores `offset` and `look` as deltas
 from the node's manifest centre, which means anything that changes a group's

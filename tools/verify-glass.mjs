@@ -158,20 +158,20 @@ const threshold = (px, weight) => (px >= 24 || (px >= 18.66 && weight >= 700) ? 
 const ACCEPTED = {
   about: 1.03,
   contact: 1.09,
-  // 1.02–1.05, and previously recorded as 2.06 for a reason worth keeping in
-  // mind: this gate served dist/ with no /api/pixels, so the board behind this
-  // panel was *unlit* every time it was measured. The old note here claimed the
-  // ratio "improved from 1.57 when the hotspot moved onto the pixel board,
-  // which is darker" — the board is only darker when it has no data. In
-  // production it is the brightest surface in the room, and the worst tile
-  // under this panel is a saturated acid cell at rgb(152,214,15).
+  // 2.06, and the history is worth keeping because the number moved twice for
+  // reasons that had nothing to do with CSS.
   //
-  // The number below is measured against PIXEL_FIXTURE so it stays
-  // deterministic; the live payload measures 1.02, slightly worse. Either way
-  // this panel is in the same class as `about` and `contact` rather than being
-  // a new failure — but it was never knowingly accepted at this ratio, so it
-  // wants the owner's eye rather than just this line.
-  signals: 1.05,
+  // It read 2.06 originally, but only because this gate served dist/ with no
+  // /api/pixels: the board behind the panel was *unlit* in every measurement.
+  // With a real payload it measured 1.02–1.05, since the lit board is the
+  // brightest surface in the room and the worst tile under the panel was a
+  // saturated acid cell.
+  //
+  // It is back at 2.06 honestly now. Framing both boards instead of one pushed
+  // them up and out of the panel's area, so what sits behind the glass is the
+  // sofa rather than live data. Tightened from 1.05 so that gain is defended
+  // rather than left as slack a future reframe could spend without noticing.
+  signals: 2.06,
   writing: 1.64,
   music: 1.78,
   cv: 2.89,
