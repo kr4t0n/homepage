@@ -26,8 +26,6 @@ tsconfig.tsbuildinfo
 tools/.venv/
 tools/shots/
 tools/preview/
-tools/clusters.json
-tools/regions.json
 tools/screens.json
 tools/walls.json
 *.local

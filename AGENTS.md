@@ -271,7 +271,7 @@ fetch of Roboto. The canvas draws with the webfont the page already loaded. It
 must wait on `document.fonts.ready`; drawing early falls back to the default
 monospace silently and the board ends up in a different face from the room.
 
-**Six panels ship under WCAG AA on purpose, and the gate encodes that as a
+**Five panels ship under WCAG AA on purpose, and the gate encodes that as a
 waiver rather than going permanently red.** Clear glass in front of the lit
 monitors leaves 14px muted text at 1.03:1 to 2.89:1. Dimming each panel's own
 backdrop with `brightness(0.16)` cleared AA everywhere at a tightest 5.17:1, but
@@ -656,13 +656,6 @@ does.
 
 ## Technical debt
 
-- The Signals panel is the worst contrast surface in the project, at ~1.02:1
-  over the lit board. The waiver in `ACCEPTED` says 1.05 (the deterministic
-  fixture value); the live payload is slightly worse. This was recorded as
-  2.06:1 for as long as the glass gate had no `/api/pixels` to serve, because
-  the board behind the panel was unlit in every measurement. The camera fix
-  applies here more than anywhere: the panel opens directly in front of 1008
-  emissive cells.
 - The sofa is still 42k of the 160k triangles after decimation.
 - No `<Environment>` map. The hemisphere fill in `lighting.ts` approximates one,
   but real image-based lighting would seat the metals and the guitar better, and

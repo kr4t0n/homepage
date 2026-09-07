@@ -286,7 +286,7 @@ per-panel variant. It is optically clear: no blur, no tint, no fill. The room
 passes through sharp and unmodified, and the edge does the work — a sub-pixel
 hairline border, two faint inset catches and a drop shadow.
 
-**Six panels knowingly ship under WCAG AA, and that was a deliberate choice.**
+**Five panels knowingly ship under WCAG AA, and that was a deliberate choice.**
 Content panels sit in front of the lit monitors and the hexagon light wall, and
 clear glass there leaves 14px muted text between 1.03:1 and 2.89:1 against a
 4.5:1 requirement. An earlier version dimmed each panel's own backdrop with
@@ -459,6 +459,11 @@ There is no GitHub Pages workflow. An earlier revision of this repo had one; it
 was never the intended target and has been removed. `base: '/'` in
 `vite.config.ts` stays, because the site serves from a domain root.
 
+`index.html` carries no `rel="canonical"` link and no `og:url`, deliberately.
+The public domain is not final, and the previous values pointed at the GitHub
+Pages host, which told crawlers the canonical copy lived somewhere it never did.
+Add both back once the domain is settled.
+
 The manifests and container build are not written yet — see the pixel board work.
 
 ## Project structure
@@ -528,14 +533,6 @@ tools/
 - The DJ controller carries the player. It was deliberately unassigned until
   there was content that suited a mixing desk; the backing track is that
   content, so `hot_djcontroller` is now the `player` hotspot.
-- The Signals panel measures ~1.02:1 against the lit board behind it, which is
-  the worst contrast in the project. It was recorded at 2.06:1 until the glass
-  gate learned to serve a pixel payload — before that the board behind it was
-  always unlit in the test, so the number described a state that never ships.
-  Nothing regressed; the measurement got honest. Per the project's own rule the
-  fix is the camera, not the CSS: frame this hotspot so the panel lands over a
-  darker part of the room. Until then it sits in `ACCEPTED` alongside `about`
-  and `contact`.
 - Signals has no DOM copy of its data any more. The hotspot is `bare` and the
   panel legend was removed with it, so the readout exists only as rendered 3D:
   unreachable to a screen reader, and absent from the 2D fallback, which never

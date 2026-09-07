@@ -92,20 +92,28 @@ export function bindPixels() {
   const ac = new AbortController()
   void poll(ac.signal)
 
-  const id = window.setInterval(() => {
+  const tick = () => {
     // Recompute the live slot every tick even if the payload has not changed:
     // the grid advances an hour at a time on its own, and a visitor who leaves
     // the page open should watch the live cell move rather than stick.
     const { data } = usePixels.getState()
     if (data) usePixels.setState({ live: liveSlot(data) })
     void poll(ac.signal)
+  }
+
+  const id = window.setInterval(() => {
+    // Polling a hidden tab burns the visitor's battery and a proxy hit to update
+    // pixels nobody is looking at, so the tick is skipped outright. The
+    // visibility handler below catches up the moment the tab is shown again.
+    if (document.visibilityState !== 'visible') return
+    tick()
   }, POLL_MS)
 
-  // Polling a hidden tab burns the visitor's battery to update pixels nobody is
-  // looking at. Catch up immediately on return so the board is never stale in
-  // front of someone.
+  // Catch up immediately on return, live slot included: the tab may have been
+  // hidden for hours, and the first visible frame should not show the live cell
+  // where it was when the visitor left.
   const onVisible = () => {
-    if (document.visibilityState === 'visible') void poll(ac.signal)
+    if (document.visibilityState === 'visible') tick()
   }
   document.addEventListener('visibilitychange', onVisible)
 
