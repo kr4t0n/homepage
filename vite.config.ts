@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import devServer from '@hono/vite-dev-server'
 
-// Served from the root of www.kubitnodes.com, so the base stays '/'.
+// Served from the root of a domain rather than a subpath, so the base stays '/'.
 export default defineConfig(({ mode }) => {
   // Vite only injects VITE_-prefixed vars, and only into the *client*. The proxy
   // needs ARGUS and ARGUS_KEY server-side, so load them explicitly with an empty
