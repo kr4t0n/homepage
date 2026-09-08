@@ -46,7 +46,11 @@ opens no panel -- so nothing in the DOM restates them.
 
 One handler, mounted twice: `@hono/vite-dev-server` runs it in `npm run dev` and
 `@hono/node-server` runs it beside `dist/` in the container, so dev cannot drift
-from prod. It exists for exactly one reason — `ARGUS_KEY` must never reach the
+from prod. `src/server/serve.ts` is that second mount and nothing more — it adds
+the static tree, a cache policy and a shutdown path, which is exactly the set of
+things Vite provides in dev and nothing provides in a container. Adding a route
+to `api.ts` gets it in both places; adding one to `serve.ts` gets it only in
+production, which is almost never what is wanted. It exists for exactly one reason — `ARGUS_KEY` must never reach the
 browser — and everything else in it (9s cache, single-flight, strict validation,
 field reduction, a failure log that stays server-side) serves that hop being
 cheap and honest.
@@ -142,6 +146,51 @@ The two diverge in exactly the window that matters, between page load and the
 first gesture, when intent is yes and the browser's answer is still no. A
 control that rendered intent there showed a lit "sound is on" speaker over
 silence; see the trap in Non-obvious behaviours.
+
+**The licensing guard has to be repeated per packaging mechanism, because
+nothing carries it across.** `*.mp3` and `public/cover.webp` are gitignored so
+the commercial track cannot be committed. That says nothing about `docker
+build`, which reads the working tree rather than the index: on the machine that
+owns those files, Vite copies `public/` into `dist/` verbatim and the recording
+ends up in the image. CI never reproduces it, because a fresh checkout has no
+track in it, so the only build that ships the file is a local one — the exact
+case least likely to be checked. `.dockerignore` now carries the same two rules.
+Any future packaging path needs them again, and the way to confirm is to list
+the artefact rather than to reason about it.
+
+**`.dockerignore` is not `.gitignore`.** It matches with Go's `filepath.Match`,
+where `*` does not cross a path separator. `*.mp3` therefore matches only the
+context root, and `public/track.mp3` sails straight through. Patterns that need
+to match at any depth have to say `**/`. This was got wrong here first and only
+showed up by listing the built image.
+
+**Closing an HTTP server is not the same as draining it.** `server.close()`
+stops new connections and then waits for every existing socket to go idle by
+itself, which for a keep-alive connection means waiting out `keepAliveTimeout`.
+Measured here, that turned a shutdown that should be instant into a five second
+one, and under real traffic it walks into the 10s backstop and exits non-zero,
+so Kubernetes records a routine rolling deploy as a crash.
+`server.closeIdleConnections()` alongside it drops the sockets merely being held
+open and leaves the ones mid-request: 5000ms to 5ms. It is guarded with an `in`
+check rather than a cast because `serve()` is typed as the union of every server
+it can build and the HTTP/2 members do not declare the method.
+
+**A missing file must not be answered with HTML.** The SPA fallback serves
+`index.html` only to requests that accept `text/html`; everything else gets a
+genuine 404. The room is loaded by `GLTFLoader` and the Draco decoder is
+instantiated from a `.wasm`, and both fail with a parse error several layers
+from the cause when handed an HTML body with a 200 on it. Routing is hash-based
+anyway, so the fallback exists only so a stray URL is not a dead end, not to
+serve real routes.
+
+**Static caching is split by whether the filename is content-hashed, not by file
+type.** `/assets/*` is hashed by Vite and immutable; anything copied from
+`public/` keeps its name across builds and so gets an hour; `index.html` gets
+`no-cache` because it carries the hashed URLs and a stale copy points at assets a
+redeploy has deleted. The hour is deliberate rather than a revalidation:
+`serve-static` sends `Last-Modified` but never answers `If-Modified-Since`, so a
+revalidating client is served all 4 MB of `room.glb` again instead of a 304,
+which makes "always check" the expensive option here rather than the cheap one.
 
 ## Non-obvious behaviours
 

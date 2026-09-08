@@ -5,7 +5,9 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['dist', 'tools/**', 'node_modules'] },
+  // dist-server holds the esbuild bundle of the production server, which is
+  // generated output like dist and must not be linted as source.
+  { ignores: ['dist', 'dist-server', 'tools/**', 'node_modules'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],

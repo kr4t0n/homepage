@@ -1,0 +1,55 @@
+# What never enters the build context.
+#
+# This is not only a size list. `COPY . .` in the build stage would otherwise
+# pull .env — which holds ARGUS_KEY — into an image layer. The runtime stage
+# copies only dist/ and dist-server/, so it would not reach the published image,
+# but the build stage is still a layer that can be tagged, cached and pushed.
+# Keep the secret out of the context entirely rather than relying on which stage
+# gets published.
+.env
+.env.*
+!.env.example
+
+# Rights-encumbered media, excluded for the same reason .gitignore excludes it
+# and with the same reasoning: shipping it should be impossible by default
+# rather than dependent on someone remembering.
+#
+# These are gitignored, so a CI build checking the repo out never sees them --
+# but a `docker build` on the machine that owns the files does, and Vite copies
+# public/ into dist/ verbatim. Without these two lines a local build bakes a
+# commercial release into an image and a push publishes it. Verified: they were
+# in the image before this was added.
+#
+# If you have swapped in a track and artwork you own, delete these two lines.
+#
+# Note the `**/`. Unlike .gitignore, .dockerignore matches with Go's
+# filepath.Match, where `*` does not cross a path separator: a bare `*.mp3`
+# matches only the context root and silently leaves public/track.mp3 in the
+# build. That exact mistake was made here first and caught by listing the image.
+**/*.mp3
+public/cover.webp
+
+# Bulk that has no business in a build. The .blend files are ~6.5 MB each and
+# the tools venv holds bpy at ~357 MB; neither is used to build the site, since
+# public/room.glb is committed already built.
+*.blend
+*.blend1
+tools/.venv/
+tools/shots/
+tools/preview/
+
+# Rebuilt inside the image, so copying them in would only risk a stale or
+# host-arch-specific result being reused.
+node_modules/
+dist/
+dist-server/
+tsconfig.tsbuildinfo
+
+.git/
+.github/
+.gitignore
+.dockerignore
+Dockerfile
+*.md
+.DS_Store
+*.local

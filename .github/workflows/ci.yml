@@ -18,3 +18,6 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run build
+      # The production server is bundled separately from the site, so a break in
+      # it would otherwise surface only in the image build.
+      - run: npm run build:server

@@ -22,6 +22,7 @@ public/cover.webp
 
 node_modules/
 dist/
+dist-server/
 tsconfig.tsbuildinfo
 tools/.venv/
 tools/shots/

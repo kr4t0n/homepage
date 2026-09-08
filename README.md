@@ -1,6 +1,6 @@
-# kubitnodes homepage
+# homepage
 
-Personal homepage, served at `www.kubitnodes.com`. An explorable 3D diorama of a studio room: click an object,
+A personal homepage: an explorable 3D diorama of a studio room. Click an object,
 the camera flies to it, a panel opens with the content that object stands for.
 
 Built from a purchased Blender scene that is converted to a web-ready GLB by a
@@ -64,6 +64,8 @@ fix it is an alias map in `fetchNames`.
 |---|---|
 | `npm run dev` | Vite dev server |
 | `npm run build` | Typecheck then production build to `dist/` |
+| `npm run build:server` | Bundle the production server to `dist-server/server.mjs` |
+| `npm run start` | Run that server against `dist/`. Needs both builds first |
 | `npm run preview` | Serve the production build |
 | `npm run lint` | ESLint (flat config) |
 | `npm run typecheck` | `tsc --noEmit` |
@@ -470,10 +472,91 @@ with no `tabIndex` and would otherwise be unreachable without a pointer.
 
 ## Deployment
 
-Deployed into a Kubernetes cluster and exposed through an ingress at
-`www.kubitnodes.com`, alongside `argus-api.kubitnodes.com`. A single container
-serves the built `dist/` and the `/api/pixels` endpoint from one origin, so there
-is no CORS and no credential in the browser.
+Deployed into a Kubernetes cluster and exposed through an ingress, alongside the
+Argus API it reads from. A single container serves the built `dist/` and the
+`/api/pixels` endpoint from one origin, so there is no CORS and no credential in
+the browser.
+
+That container is built by this repo. `src/server/serve.ts` is the whole of it:
+it mounts the same Hono app `npm run dev` runs, puts a static tree in front of
+it, and listens. Everything it adds beyond that is the part Vite supplies in dev
+and nothing supplies in a container.
+
+```bash
+npm run build && npm run build:server
+npm run start                     # http://localhost:8080
+```
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `PORT` | `8080` | Listen port |
+| `HOST` | `0.0.0.0` | Bind address. Every interface, because a pod's own localhost is unreachable from the cluster |
+| `DIST_DIR` | `dist` | Where the built site is. Resolved to an absolute path before use |
+
+It exits non-zero at startup if there is no build at `DIST_DIR`, rather than
+serving 404s and looking like a routing fault. If `ARGUS`/`ARGUS_KEY` are absent
+it logs one line and runs anyway, because an unlit board is a supported state.
+
+**Cache policy is split three ways**, and the split is what keeps a redeploy from
+serving a half-stale page. Vite content-hashes `/assets/*`, so those are
+immutable for a year. Files copied from `public/` keep their names across builds,
+so `room.glb`, the Draco decoder and the screenshots get an hour. `index.html`
+gets `no-cache`, because it holds the hashed URLs and a stale copy points at
+assets that no longer exist. `/api/*` sets its own `no-store` and is mounted
+first, so nothing above ever rewrites it.
+
+An hour rather than revalidation for the unhashed files is deliberate:
+`serve-static` sends `Last-Modified` but does not answer `If-Modified-Since`, so
+a revalidating client is handed all 4 MB of `room.glb` again instead of a 304.
+
+**Unknown paths return the app only for browsers.** A request that accepts
+`text/html` gets `index.html`, so a mistyped URL lands in the room. Anything else
+gets a real 404. That distinction matters more than it looks: the room is loaded
+by `GLTFLoader` and the Draco decoder is instantiated from a `.wasm`, and
+answering either with HTML turns a missing file into a parse error several layers
+from its cause.
+
+### The image
+
+```bash
+docker build -t homepage .
+docker run --rm -p 8080:8080 --env-file .env homepage
+```
+
+Two stages. The first installs, builds the site and bundles the server; the
+second copies only `dist/` and `dist-server/`. Because the server is bundled,
+**the runtime stage carries no `node_modules` at all** — it is the Node base
+image plus about 10 MB of site. It runs as the base image's unprivileged `node`
+user and drains on SIGTERM, so a rolling deploy does not drop requests.
+
+**`.dockerignore` is load-bearing, not housekeeping.** It keeps `.env` out of the
+build context entirely, rather than relying on the runtime stage happening not to
+copy it. It also excludes `public/track.mp3` and `public/cover.webp` for exactly
+the reason `.gitignore` does: they are gitignored, so CI never sees them, but a
+`docker build` on the machine that owns those files does, and Vite copies
+`public/` into `dist/` verbatim. Without those lines a local build bakes a
+commercial release into an image and a push publishes it. Verified by listing the
+image, which is the only way to see it.
+
+Note that `.dockerignore` matches with Go's `filepath.Match`, where `*` does not
+cross a path separator. `*.mp3` matches only the context root and silently leaves
+`public/track.mp3` in the build; the pattern has to be `**/*.mp3`.
+
+`.github/workflows/image.yml` builds and pushes to Docker Hub on every push to
+`main`, on `v*` tags, and on demand. Pull requests build without pushing, so a
+broken Dockerfile is caught before merge. It needs `DOCKERHUB_USERNAME` and
+`DOCKERHUB_TOKEN` as repository secrets, and publishes
+`<DOCKERHUB_USERNAME>/homepage` tagged `latest` on main, the branch or PR name,
+the version on a `v*` tag, and the commit SHA every time. Deploy by SHA; `latest`
+is for convenience, not for rollbacks.
+
+The build is `linux/amd64` only. Adding `linux/arm64` is a one-line change to
+`platforms:`, but it builds under QEMU emulation and an `npm ci` plus a Vite
+build of this scene is slow enough there to dominate the run.
+
+Lint is not a gate on the image. The Dockerfile runs `npm run build`, which runs
+`tsc -b` first, so a type error does fail the image; `ci.yml` covers lint in
+parallel on the same commit.
 
 There is no GitHub Pages workflow. An earlier revision of this repo had one; it
 was never the intended target and has been removed. `base: '/'` in
@@ -484,7 +567,11 @@ The public domain is not final, and the previous values pointed at the GitHub
 Pages host, which told crawlers the canonical copy lived somewhere it never did.
 Add both back once the domain is settled.
 
-The manifests and container build are not written yet — see the pixel board work.
+The Kubernetes manifests are not written yet. The image is, and it takes its
+configuration entirely from environment variables, so a Deployment needs little
+more than the image, `PORT`, a Secret supplying `ARGUS` and `ARGUS_KEY`, and
+probes pointed at `/api/health` — which deliberately does not touch Argus, so an
+upstream outage cannot make the pod look dead and get it restarted.
 
 ## Project structure
 
@@ -496,6 +583,7 @@ src/
   store.ts              focus/hover state, hash routing
   server/
     api.ts              the /api/pixels proxy; the only holder of ARGUS_KEY
+    serve.ts            production entry: static tree + api, one origin
   shared/
     pixels.ts           payload type, validator and grid maths, both sides
   pixels/
@@ -547,6 +635,11 @@ tools/
   verify-keyboard.mjs   keyboard-only reachability
   verify-screens.mjs    two-stage monitor interaction
   shoot.mjs             full walkthrough captures
+Dockerfile              two-stage build; runtime stage has no node_modules
+.dockerignore           keeps .env and the licensed media out of the context
+.github/workflows/
+  ci.yml                lint, typecheck, both builds
+  image.yml             build and push to Docker Hub
 ```
 
 ## Known gaps
