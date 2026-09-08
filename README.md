@@ -54,6 +54,17 @@ the proxy rather than the browser — passing the endpoint through, or doing the
 name lookup client-side, would publish all of it. `node tools/verify-api.mjs`
 asserts against the live response that it stays that way.
 
+Those disclosure checks need this project's own server answering, and the script
+takes the base URL as an argument or in `VERIFY_BASE`, defaulting to
+`http://localhost:5173`. It probes `/api/health` first to establish that what is
+on that port is actually us, so a stale container or another project's dev
+server is reported as such instead of being tested as though it were the proxy.
+
+**Run it with `VERIFY_STRICT=1` anywhere the result is a gate.** Without it, a
+section that could not run is a note and the script still exits 0 — convenient
+locally, useless as a gate. See the entry in AGENTS.md for what that cost before
+it was fixed.
+
 Note that project *names* are public by design here: the board says `fluvio`,
 `harbor`, `homepage` rather than hashes. If a name should not be, the place to
 fix it is an alias map in `fetchNames`.
