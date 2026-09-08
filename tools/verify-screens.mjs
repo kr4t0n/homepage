@@ -10,8 +10,12 @@
  */
 import { mkdirSync } from 'node:fs'
 import { chromium } from 'playwright'
+import { BASE, requireOurServer } from './base.mjs'
 
-const BASE = process.argv[2] ?? 'http://localhost:5173'
+// Identify the target before launching a browser at it: aimed at a port
+// something else owns, this would otherwise time out hunting for a canvas.
+await requireOurServer()
+
 const OUT = 'tools/shots/screens'
 mkdirSync(OUT, { recursive: true })
 

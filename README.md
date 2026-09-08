@@ -296,6 +296,23 @@ node tools/verify-screens.mjs        # the two-stage monitor interaction
 `verify-view-restore`, `verify-neon-link`, `verify-keyboard` and
 `verify-screens` exit non-zero on failure, so all four are usable as gates.
 
+**They all take the base URL the same way**, from `tools/base.mjs`: an argument
+first, then `VERIFY_BASE`, then `http://localhost:5173`. So one variable points
+the whole suite at a dev server on another port or another machine, rather than
+threading an argument through every invocation.
+
+```bash
+node tools/verify-keyboard.mjs http://100.64.0.2:5174
+VERIFY_BASE=http://100.64.0.2:5174 node tools/verify-boards.mjs
+```
+
+Each one identifies the target before launching a browser at it, by asking
+`/api/health` whether it is this project. Aimed at a port something else owns,
+they now say so in under a second instead of spending two minutes hunting for a
+canvas that was never going to be there. `verify-boards` used to have the port
+written into it with no way to override, which on a machine running more than
+one Vite project meant it silently tested the wrong one.
+
 One more runs against a production build rather than the dev server, because it
 asserts on media loading and needs real MIME types and range requests:
 
@@ -632,6 +649,7 @@ tools/
   diagnose_keys.py      source vs export vs flat-material render
   diagnose_lighting.py  material colours, neutral vs site light rig
   wall_occupancy.py     lists wall decor and finds clear bands
+  base.mjs              shared target URL, strict flag, and "is this us?" probe
   verify-api.mjs        secret containment, proxy disclosure, ranking maths
   verify-boards.mjs     both wall boards pick as one hotspot, and take no wash
   verify-draco.mjs      the Draco decoder is same-origin, and nothing leaves the site

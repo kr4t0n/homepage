@@ -28,6 +28,7 @@ import { rankByTokens, shortTokens, ROWS, SEGMENTS } from '../src/pixels/ranking
 import anchors from '../src/ranking-anchors.json' with { type: 'json' }
 import manifest from '../src/scene-manifest.json' with { type: 'json' }
 import { HOTSPOTS, hotspotNodes } from '../src/content.ts'
+import { BASE, STRICT, describe, identify } from './base.mjs'
 
 const fails = []
 const check = (name, ok, detail = '') => {
@@ -92,20 +93,6 @@ const FORBIDDEN = ['workingDir', 'machineId', 'projectId', 'costUsd', 'inputToke
 const ALLOWED_PROJECT_FIELDS = ['key', 'name', 'wonSeconds', 'tokens', 'other']
 const ALLOWED_TOKEN_FIELDS = ['in', 'out', 'cached']
 
-const BASE = process.argv[2] ?? process.env.VERIFY_BASE ?? 'http://localhost:5173'
-const STRICT = process.env.VERIFY_STRICT === '1'
-
-/** Node's fetch says only "fetch failed" and keeps the reason on `cause`. */
-const describe = (err) => {
-  const parts = []
-  let e = err
-  while (e instanceof Error && parts.length < 3) {
-    parts.push(e.message)
-    e = e.cause
-  }
-  return parts.join(': ') || String(err)
-}
-
 /**
  * Work out what is answering at BASE before asserting anything against it.
  *
@@ -118,30 +105,12 @@ const describe = (err) => {
  * server being unreachable. A security assertion passing against a different
  * application is worse than one that does not run.
  *
- * /api/health is the identity probe because it is ours, it is cheap, and it
- * deliberately does not touch Argus, so it separates "our server is not there"
- * from "our server is there and upstream is down".
+ * `identify` in base.mjs settles which server it is. This adds the part specific
+ * to these checks: whether that server is actually serving a payload.
  */
 async function reachProxy() {
-  let health
-  try {
-    health = await fetch(`${BASE}/api/health`, { signal: AbortSignal.timeout(10_000) })
-  } catch (err) {
-    return { state: 'absent', why: `nothing answering at ${BASE} (${describe(err).slice(0, 60)})` }
-  }
-
-  let ours = false
-  try {
-    ours = health.ok && (await health.json())?.ok === true
-  } catch {
-    // Not JSON, so not our health route. Falls through to the foreign branch.
-  }
-  if (!ours) {
-    return {
-      state: 'foreign',
-      why: `something is answering at ${BASE}, but /api/health did not return {ok:true}, so it is not this project`,
-    }
-  }
+  const found = await identify(BASE)
+  if (found.state !== 'ours') return found
 
   let res, body
   try {

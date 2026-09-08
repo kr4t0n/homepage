@@ -12,9 +12,14 @@
  * and an early version of this test reported 158,000 changed pixels for a
  * hotspot that was not washed at all.
  *
- * Run against a dev server: npm run dev, then node tools/verify-boards.mjs
+ * Run against a dev server: npm run dev, then node tools/verify-boards.mjs [url]
  */
 import { chromium } from 'playwright'
+import { BASE, requireOurServer } from './base.mjs'
+
+// Identify the target before launching a browser at it: aimed at a port
+// something else owns, this would otherwise time out hunting for a canvas.
+await requireOurServer()
 
 /** Between the one-board and two-board measurements. See the sweep below. */
 const SPAN_FLOOR = 150
@@ -32,7 +37,7 @@ const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, red
 const errors = []
 page.on('pageerror', (e) => errors.push(e.message))
 
-await page.goto('http://localhost:5173/', { waitUntil: 'networkidle', timeout: 120_000 })
+await page.goto(`${BASE}/`, { waitUntil: 'networkidle', timeout: 120_000 })
 await page.waitForFunction(() => !document.querySelector('[role="status"]'), { timeout: 120_000 })
 await page.waitForTimeout(3000)
 
