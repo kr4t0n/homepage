@@ -332,6 +332,33 @@ list, and on a stale waiver whose panel now passes. Do not silently widen those
 numbers to make a run go green — the fix is to reframe the camera over a darker
 part of the room, which is why the decks bar passes outright at 5.55:1.
 
+**A check that skips is a check that passes, and this repo has now been bitten
+by it twice.** `verify-api` fetched `/api/pixels` inside a `try`/`catch` and
+reported every failure as `skip live proxy checks — dev server not reachable`,
+then exited 0. With no dev server that silently dropped the six disclosure
+assertions the file exists for: the ones proving `workingDir`, `machineId` and
+`costUsd` never cross the wire. In CI, where nothing is on that port, they would
+have been green on every run without ever executing.
+
+The message was also capable of being false, and was. With an unrelated app on
+port 5173 the fetch *succeeded*, the body parsed, `the proxy discloses no path,
+machine or cost fields` was evaluated against that app's response and **passed**,
+and the run only stopped when `json.projects` came back undefined — which the
+catch then reported as the server being unreachable. A security assertion
+passing against a different application is worse than one that does not run.
+
+The fix has two halves and both matter. `reachProxy()` identifies what is on the
+port via `/api/health` before asserting anything, separating "nothing there",
+"not us", "us but upstream is down" and "live" into distinct reported outcomes.
+And `VERIFY_STRICT=1` turns a section that could not run into a failure, so a
+gate cannot pass by not executing. The assertions themselves are deliberately
+no longer inside a `try`/`catch`: if one throws, that is a real defect and it
+should crash rather than be laundered into a connection error.
+
+Apply the same suspicion to every other script here. Any of them pointed at a
+port something else happens to own will describe what it found in terms of this
+project, because that is the only thing it knows how to describe.
+
 **A contrast gate that serves only `dist/` measures the panels' empty states,
 not the ones that ship.** `verify-glass.mjs` had no `/api/pixels` route, so the
 Signals panel rendered its "board is unlit" fallback on every run: four short
@@ -353,6 +380,27 @@ look it — the panel spends a sentence saying so, and that sentence is load
 bearing. Both do at least cover the same six weeks: `WINDOW_DAYS` is passed
 explicitly to `/me/usage/by-project` rather than relying on its default
 happening to be 42.
+
+**Everything crossing to the public is built from named fields, and the two
+halves of this proxy did not always agree on that.** `fetchNames` constructs its
+output field by field, which is the only reason `costUsd` -- sitting in the same
+upstream object as the token counts it does publish -- has never been able to
+leak. The pixel payload was `JSON.stringify` of whatever Argus returned, so
+anything added to `/me/pixels` upstream would have been published silently, with
+no change here and nothing to notice it. `validate()` did not help: it is
+`asserts p is PixelPayload`, so it checks and throws, and strips nothing.
+
+`publish` closes that. Two invented fields planted in a stubbed upstream used to
+arrive intact in the response and now do not, which is the assertion that drove
+the change.
+
+The rule when extending it: explicit at every level where upstream data can
+carry unknown keys. Scalars and arrays of scalars are safe once named, because
+there is nothing to hide in. Objects are not -- `breakdown` is rebuilt rather
+than copied for exactly that reason, since naming a key whose contents you have
+not examined moves the problem one level down while feeling like a fix. The cost
+is that a genuinely new upstream field needs a line adding here before it can be
+used, which is the correct trade for a public endpoint.
 
 **Token counts are published; cost is not, and the rename is the guard.** The
 proxy reduces upstream `usage` to `in`/`out`/`cached` rather than spreading it,

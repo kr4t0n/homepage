@@ -40,8 +40,20 @@ fails. Every failed refresh is logged server-side with its cause, while the
 public response body says only `upstream unavailable`. In the cluster they come
 from a Secret.
 
-**What the proxy publishes is a deliberate subset.** It calls two upstream
-endpoints and forwards a fraction of what they return:
+**What the proxy publishes is built, not forwarded.** `publish` in
+`src/server/api.ts` constructs the response out of named fields, so nothing
+reaches a visitor because it happened to arrive from upstream. Adding a field to
+the public payload takes an edit there.
+
+That was not always true, and the asymmetry is worth knowing about. `fetchNames`
+always constructed its output, which is why `costUsd` sitting in the same
+upstream object as the token counts could never leak. The pixel payload was the
+opposite: `JSON.stringify` of whatever Argus returned, so a field added upstream
+would have been published silently with no change on our side. Two invented
+fields planted in a stubbed upstream arrived intact in the response, which is how
+this got found.
+
+It calls two upstream endpoints and publishes a fraction of what they return:
 
 | From | Forwarded | Withheld |
 |---|---|---|
@@ -53,6 +65,17 @@ to five figures. Neither belongs on a public page, so the reduction happens in
 the proxy rather than the browser — passing the endpoint through, or doing the
 name lookup client-side, would publish all of it. `node tools/verify-api.mjs`
 asserts against the live response that it stays that way.
+
+Those disclosure checks need this project's own server answering, and the script
+takes the base URL as an argument or in `VERIFY_BASE`, defaulting to
+`http://localhost:5173`. It probes `/api/health` first to establish that what is
+on that port is actually us, so a stale container or another project's dev
+server is reported as such instead of being tested as though it were the proxy.
+
+**Run it with `VERIFY_STRICT=1` anywhere the result is a gate.** Without it, a
+section that could not run is a note and the script still exits 0 — convenient
+locally, useless as a gate. See the entry in AGENTS.md for what that cost before
+it was fixed.
 
 Note that project *names* are public by design here: the board says `fluvio`,
 `harbor`, `homepage` rather than hashes. If a name should not be, the place to
@@ -70,6 +93,7 @@ fix it is an alias map in `fetchNames`.
 | `npm run lint` | ESLint (flat config) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run verify:api` | Secret containment, proxy disclosure, payload and ranking maths |
+| `npm run verify:proxy` | Proxy contract tests against a stubbed upstream. No credential needed |
 | `npm run room` | Re-export `room.glb` and the manifests from `room-v3.blend` |
 | `npm run draco` | Copy the Draco decoder out of `three` into `public/draco/` |
 
@@ -284,6 +308,23 @@ node tools/verify-screens.mjs        # the two-stage monitor interaction
 
 `verify-view-restore`, `verify-neon-link`, `verify-keyboard` and
 `verify-screens` exit non-zero on failure, so all four are usable as gates.
+
+**They all take the base URL the same way**, from `tools/base.mjs`: an argument
+first, then `VERIFY_BASE`, then `http://localhost:5173`. So one variable points
+the whole suite at a dev server on another port or another machine, rather than
+threading an argument through every invocation.
+
+```bash
+node tools/verify-keyboard.mjs http://100.64.0.2:5174
+VERIFY_BASE=http://100.64.0.2:5174 node tools/verify-boards.mjs
+```
+
+Each one identifies the target before launching a browser at it, by asking
+`/api/health` whether it is this project. Aimed at a port something else owns,
+they now say so in under a second instead of spending two minutes hunting for a
+canvas that was never going to be there. `verify-boards` used to have the port
+written into it with no way to override, which on a machine running more than
+one Vite project meant it silently tested the wrong one.
 
 One more runs against a production build rather than the dev server, because it
 asserts on media loading and needs real MIME types and range requests:
@@ -621,7 +662,9 @@ tools/
   diagnose_keys.py      source vs export vs flat-material render
   diagnose_lighting.py  material colours, neutral vs site light rig
   wall_occupancy.py     lists wall decor and finds clear bands
+  base.mjs              shared target URL, strict flag, and "is this us?" probe
   verify-api.mjs        secret containment, proxy disclosure, ranking maths
+  verify-proxy.mjs      proxy contract tests against a stubbed upstream
   verify-boards.mjs     both wall boards pick as one hotspot, and take no wash
   verify-draco.mjs      the Draco decoder is same-origin, and nothing leaves the site
   verify-glass.mjs      glass contrast gate

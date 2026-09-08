@@ -9,7 +9,17 @@
  * src/server/api.ts from client code, and the key ships to every visitor with no
  * warning from any tool. This test is that warning.
  *
- * Run: npm run build && node tools/verify-api.mjs
+ * Run: npm run build && node tools/verify-api.mjs [base-url]
+ *
+ * The live proxy section needs this project's own server answering at
+ * `base-url` (default http://localhost:5173, or VERIFY_BASE). When it is not
+ * there the section is skipped with the actual reason -- unless VERIFY_STRICT=1,
+ * under which a section that could not run is a failure.
+ *
+ * CI must set VERIFY_STRICT=1. Without it these checks pass by never executing,
+ * which is precisely how they behaved before: with nothing of ours on the port
+ * the run printed "all checks passed" and exited 0, having tested none of the
+ * disclosure invariants that are the reason this file exists.
  */
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
@@ -18,6 +28,7 @@ import { rankByTokens, shortTokens, ROWS, SEGMENTS } from '../src/pixels/ranking
 import anchors from '../src/ranking-anchors.json' with { type: 'json' }
 import manifest from '../src/scene-manifest.json' with { type: 'json' }
 import { HOTSPOTS, hotspotNodes } from '../src/content.ts'
+import { BASE, STRICT, describe, identify } from './base.mjs'
 
 const fails = []
 const check = (name, ok, detail = '') => {
@@ -82,12 +93,71 @@ const FORBIDDEN = ['workingDir', 'machineId', 'projectId', 'costUsd', 'inputToke
 const ALLOWED_PROJECT_FIELDS = ['key', 'name', 'wonSeconds', 'tokens', 'other']
 const ALLOWED_TOKEN_FIELDS = ['in', 'out', 'cached']
 
-try {
-  const res = await fetch('http://localhost:5173/api/pixels', {
-    signal: AbortSignal.timeout(20_000),
-  })
-  const body = await res.text()
-  const json = JSON.parse(body)
+/**
+ * Work out what is answering at BASE before asserting anything against it.
+ *
+ * The previous version fetched /api/pixels inside a try/catch and reported every
+ * failure as "dev server not reachable". That message was capable of being
+ * false, and was: with an unrelated app on port 5173 the fetch succeeded, the
+ * body parsed, `the proxy discloses no path, machine or cost fields` was
+ * evaluated against that app's response and PASSED, and the run only stopped
+ * when `json.projects` came back undefined -- which was then reported as the
+ * server being unreachable. A security assertion passing against a different
+ * application is worse than one that does not run.
+ *
+ * `identify` in base.mjs settles which server it is. This adds the part specific
+ * to these checks: whether that server is actually serving a payload.
+ */
+async function reachProxy() {
+  const found = await identify(BASE)
+  if (found.state !== 'ours') return found
+
+  let res, body
+  try {
+    res = await fetch(`${BASE}/api/pixels`, { signal: AbortSignal.timeout(20_000) })
+    body = await res.text()
+  } catch (err) {
+    return { state: 'unlit', why: `/api/pixels could not be read (${describe(err).slice(0, 60)})` }
+  }
+  if (!res.ok) {
+    return {
+      state: 'unlit',
+      why: `our proxy is up but /api/pixels answered ${res.status}; ARGUS and ARGUS_KEY are probably unset`,
+    }
+  }
+
+  let json
+  try {
+    json = JSON.parse(body)
+  } catch {
+    return { state: 'malformed', why: '/api/pixels did not return JSON' }
+  }
+  // Shape-checked here rather than inside the assertions, so a payload we cannot
+  // read is reported as such instead of crashing an assertion and being caught
+  // as a connection problem.
+  if (!Array.isArray(json?.projects)) {
+    return { state: 'malformed', why: '/api/pixels returned JSON with no projects array' }
+  }
+  return { state: 'live', body, json }
+}
+
+const proxy = await reachProxy()
+
+if (proxy.state !== 'live') {
+  // Deliberately a failure under STRICT rather than a note. These are the
+  // checks the file exists for; silently not running them is the failure mode
+  // this branch was written to remove.
+  if (STRICT) {
+    check('the live proxy checks ran', false, proxy.why)
+  } else {
+    console.log(`skip  live proxy checks - ${proxy.why}`)
+    console.log('      (VERIFY_STRICT=1 makes this a failure; CI sets it)')
+  }
+} else {
+  // Note the absence of a try/catch around the assertions themselves. If one of
+  // these throws it is a real defect in the payload or in this file, and it
+  // should surface as a crash rather than be swallowed as "server unreachable".
+  const { body, json } = proxy
   const leaked = FORBIDDEN.filter((f) => body.includes(f))
   check('the proxy discloses no path, machine or cost fields', leaked.length === 0, leaked.join(', '))
 
@@ -124,8 +194,6 @@ try {
   const impossible = withTokens.filter((p) => p.tokens.cached > p.tokens.in)
   check('cache reads never exceed input', impossible.length === 0,
     impossible.map((p) => p.name ?? p.key).join(', '))
-} catch (err) {
-  console.log(`skip  live proxy checks — dev server not reachable (${err.message.slice(0, 60)})`)
 }
 
 // ------------------------------------------------------------- validation --

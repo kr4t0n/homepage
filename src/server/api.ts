@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { validate } from '../shared/pixels'
+import type { PixelPayload } from '../shared/pixels'
 
 /**
  * The `/api/pixels` proxy.
@@ -119,6 +120,75 @@ async function fetchNames(base: string, key: string): Promise<Record<string, Pro
 }
 
 /**
+ * Rebuild the sparse per-slot breakdown from scalars.
+ *
+ * Shape is slot index -> project index -> seconds, and every key and value in it
+ * is a number. Copying the object wholesale would be one line, but it would also
+ * be the one place a nested upstream value could still ride through unexamined,
+ * which is exactly what `publish` exists to stop. Non-numeric entries are
+ * dropped rather than passed on: this feeds a tooltip, and a value we cannot
+ * account for has no business being rendered or published.
+ */
+function republishBreakdown(
+  raw: Record<string, Record<string, number>>,
+): Record<string, Record<string, number>> {
+  const out: Record<string, Record<string, number>> = {}
+  for (const [slot, byProject] of Object.entries(raw)) {
+    if (!byProject || typeof byProject !== 'object') continue
+    const cell: Record<string, number> = {}
+    for (const [index, seconds] of Object.entries(byProject)) {
+      if (typeof seconds === 'number' && Number.isFinite(seconds)) cell[index] = seconds
+    }
+    if (Object.keys(cell).length) out[slot] = cell
+  }
+  return out
+}
+
+/**
+ * Build the public payload out of named fields.
+ *
+ * The point is that nothing reaches a visitor because it happened to arrive.
+ * `fetchNames` already worked this way -- it constructs its output, which is why
+ * `costUsd` sitting in the same upstream object as the token counts has never
+ * been able to leak. The pixel payload did not: it was `JSON.stringify` of
+ * whatever Argus returned, so any field added upstream would have been published
+ * silently, with no change on our side and nothing to notice it. A test proved
+ * it: two invented fields planted in a stubbed upstream arrived intact in the
+ * response.
+ *
+ * That asymmetry is now gone. Adding a field to this response takes an edit
+ * here, which is the property worth having on the boundary between a private
+ * upstream and a public page.
+ *
+ * The cost is that a genuinely new upstream field needs a line adding before it
+ * can be used. That is the correct trade for a public endpoint, and it is the
+ * one `fetchNames` has always made.
+ */
+function publish(p: PixelPayload, meta: Record<string, ProjectMeta>): PixelPayload {
+  return {
+    start: p.start,
+    slotMinutes: p.slotMinutes,
+    slotCount: p.slotCount,
+    tz: p.tz,
+    // Arrays of numbers, already checked element by element by `validate`, so
+    // naming them is the whole job -- there is no nested object to hide in.
+    winners: p.winners,
+    intensity: p.intensity,
+    live: p.live,
+    ...(p.breakdown ? { breakdown: republishBreakdown(p.breakdown) } : {}),
+    projects: p.projects.map((project) => {
+      const m = meta[project.key]
+      return {
+        key: project.key,
+        wonSeconds: project.wonSeconds,
+        ...(m?.name ? { name: m.name } : {}),
+        ...(m?.tokens ? { tokens: m.tokens } : {}),
+      }
+    }),
+  }
+}
+
+/**
  * One line for the log. Node's fetch says only "fetch failed" and keeps the
  * reason (ECONNREFUSED, ENOTFOUND, a timeout) on `cause`, so walk that chain.
  */
@@ -170,14 +240,9 @@ async function fetchUpstream(): Promise<Cached> {
       names ??= { map: {}, at: Date.now() }
     }
   }
-  for (const project of json.projects) {
-    const meta = names.map[project.key]
-    if (!meta) continue
-    if (meta.name) project.name = meta.name
-    project.tokens = meta.tokens
-  }
-
-  return { body: JSON.stringify(json), at: Date.now() }
+  // Built rather than mutated-and-forwarded. See `publish`: this is the line
+  // that decides what a visitor can see, and it should be readable as a list.
+  return { body: JSON.stringify(publish(json, names.map)), at: Date.now() }
 }
 
 export const api = new Hono()
