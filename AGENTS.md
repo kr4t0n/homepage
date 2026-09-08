@@ -381,6 +381,27 @@ bearing. Both do at least cover the same six weeks: `WINDOW_DAYS` is passed
 explicitly to `/me/usage/by-project` rather than relying on its default
 happening to be 42.
 
+**Everything crossing to the public is built from named fields, and the two
+halves of this proxy did not always agree on that.** `fetchNames` constructs its
+output field by field, which is the only reason `costUsd` -- sitting in the same
+upstream object as the token counts it does publish -- has never been able to
+leak. The pixel payload was `JSON.stringify` of whatever Argus returned, so
+anything added to `/me/pixels` upstream would have been published silently, with
+no change here and nothing to notice it. `validate()` did not help: it is
+`asserts p is PixelPayload`, so it checks and throws, and strips nothing.
+
+`publish` closes that. Two invented fields planted in a stubbed upstream used to
+arrive intact in the response and now do not, which is the assertion that drove
+the change.
+
+The rule when extending it: explicit at every level where upstream data can
+carry unknown keys. Scalars and arrays of scalars are safe once named, because
+there is nothing to hide in. Objects are not -- `breakdown` is rebuilt rather
+than copied for exactly that reason, since naming a key whose contents you have
+not examined moves the problem one level down while feeling like a fix. The cost
+is that a genuinely new upstream field needs a line adding here before it can be
+used, which is the correct trade for a public endpoint.
+
 **Token counts are published; cost is not, and the rename is the guard.** The
 proxy reduces upstream `usage` to `in`/`out`/`cached` rather than spreading it,
 because `costUsd` sits in the same object and runs to five figures. The raw key

@@ -21,3 +21,7 @@ jobs:
       # The production server is bundled separately from the site, so a break in
       # it would otherwise surface only in the image build.
       - run: npm run build:server
+      # Contract tests for the /api/pixels proxy against a stubbed upstream.
+      # Deliberately needs no credential and no network, so it runs on every
+      # pull request including ones from forks, where secrets are unavailable.
+      - run: npm run verify:proxy

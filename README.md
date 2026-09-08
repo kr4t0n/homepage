@@ -40,8 +40,20 @@ fails. Every failed refresh is logged server-side with its cause, while the
 public response body says only `upstream unavailable`. In the cluster they come
 from a Secret.
 
-**What the proxy publishes is a deliberate subset.** It calls two upstream
-endpoints and forwards a fraction of what they return:
+**What the proxy publishes is built, not forwarded.** `publish` in
+`src/server/api.ts` constructs the response out of named fields, so nothing
+reaches a visitor because it happened to arrive from upstream. Adding a field to
+the public payload takes an edit there.
+
+That was not always true, and the asymmetry is worth knowing about. `fetchNames`
+always constructed its output, which is why `costUsd` sitting in the same
+upstream object as the token counts could never leak. The pixel payload was the
+opposite: `JSON.stringify` of whatever Argus returned, so a field added upstream
+would have been published silently with no change on our side. Two invented
+fields planted in a stubbed upstream arrived intact in the response, which is how
+this got found.
+
+It calls two upstream endpoints and publishes a fraction of what they return:
 
 | From | Forwarded | Withheld |
 |---|---|---|
@@ -81,6 +93,7 @@ fix it is an alias map in `fetchNames`.
 | `npm run lint` | ESLint (flat config) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run verify:api` | Secret containment, proxy disclosure, payload and ranking maths |
+| `npm run verify:proxy` | Proxy contract tests against a stubbed upstream. No credential needed |
 | `npm run room` | Re-export `room.glb` and the manifests from `room-v3.blend` |
 | `npm run draco` | Copy the Draco decoder out of `three` into `public/draco/` |
 
@@ -651,6 +664,7 @@ tools/
   wall_occupancy.py     lists wall decor and finds clear bands
   base.mjs              shared target URL, strict flag, and "is this us?" probe
   verify-api.mjs        secret containment, proxy disclosure, ranking maths
+  verify-proxy.mjs      proxy contract tests against a stubbed upstream
   verify-boards.mjs     both wall boards pick as one hotspot, and take no wash
   verify-draco.mjs      the Draco decoder is same-origin, and nothing leaves the site
   verify-glass.mjs      glass contrast gate
