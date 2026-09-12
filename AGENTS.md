@@ -224,6 +224,23 @@ recognise. Every other glass property applied, the computed value read `none`,
 and the panels rendered translucent but completely unblurred. Nothing warns you.
 Write the standard property alone and let the build add prefixes.
 
+**A gradient scrim has to be anchored to the viewport, not to whatever it sits
+inside.** These gradients reach full opacity at their own bottom edge, so that
+edge is a hard line wherever it lands. The `noPanel` scrim was nested inside the
+"Back to the room" button's container, which is `bottom-10` -- so its `bottom-0`
+meant the button's bottom, 40px up from the screen. The bottom 40px of the room
+stayed undimmed beneath an opaque band, and the seam ran the full width of the
+frame in both focused modes, reading as a grey border with the room showing
+brighter below it. Measured at rgb(7,10,18) on y=859 against rgb(11,14,25) on
+y=860.
+
+It is invisible in the obvious place to look: with the panel closed the block
+does not render at all, and the hero scrim next to it is fine because its own
+container is already at `bottom-0`. So the same class name is correct in one
+place and wrong in the other, and only a focused screenshot shows it. If you
+move a scrim, check its measured `getBoundingClientRect().bottom` equals
+`innerHeight`; a full-width horizontal step in a screenshot is the symptom.
+
 **Component base styles belong in `@layer components`, not `@layer utilities`.**
 `.glass` sets `position: relative` for its specular pseudo-element. As a utility
 it landed in the same layer as Tailwind's own `fixed`, and since this file is

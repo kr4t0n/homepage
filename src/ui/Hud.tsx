@@ -145,21 +145,33 @@ export function Hud() {
           is the way out; the object itself is the content. Discoverability of
           the second click on a screen rests on the pointer cursor over it. */}
       {noPanel && (
-        <div className="pointer-events-auto absolute inset-x-0 bottom-10 flex justify-center px-6">
+        <>
           {/* The screen fills the frame at this distance, so the button would
-              otherwise sit on whatever the monitor is standing on. */}
+              otherwise sit on whatever the monitor is standing on.
+
+              Anchored to this root, which is the viewport, and deliberately not
+              nested inside the button's container below. The gradient reaches
+              full opacity at its own bottom edge, so wherever that edge lands is
+              a hard line -- and inside a `bottom-10` container, `bottom-0` means
+              the button's bottom, leaving the last 40px of the room undimmed
+              under an opaque band. That seam ran the full width of the screen in
+              both focused modes and read as a grey border with the room showing
+              brighter beneath it. Measured before the fix: rgb(7,10,18) at
+              y=859 against rgb(11,14,25) at y=860. */}
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-40 bg-gradient-to-t from-void via-void/75 to-transparent"
+            className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-48 bg-gradient-to-t from-void via-void/75 to-transparent"
           />
-          <button
-            type="button"
-            onClick={() => clearFocus()}
-            className="hairline rounded-full border px-3.5 py-1.5 text-sm text-mute transition-colors hover:text-bright active:scale-[0.98]"
-          >
-            Back to the room
-          </button>
-        </div>
+          <div className="pointer-events-auto absolute inset-x-0 bottom-10 flex justify-center px-6">
+            <button
+              type="button"
+              onClick={() => clearFocus()}
+              className="hairline rounded-full border px-3.5 py-1.5 text-sm text-mute transition-colors hover:text-bright active:scale-[0.98]"
+            >
+              Back to the room
+            </button>
+          </div>
+        </>
       )}
 
       {/* Bottom-right controls. Reset appears only once the view has moved. */}
