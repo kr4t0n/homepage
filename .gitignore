@@ -20,6 +20,11 @@
 # it like any other image in public/.
 public/cover.webp
 
+# Scratch space for files handed to an agent working on this repo, mostly
+# screenshots of bugs. Tool-managed and local to whoever is working, so it is
+# the same case as the capture directories below: generated input, not source.
+.argus/
+
 node_modules/
 dist/
 dist-server/
