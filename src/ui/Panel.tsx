@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowUpRight, MusicNote, Pause, Play, X } from '@phosphor-icons/react'
+import { MusicNote, Pause, Play, X } from '@phosphor-icons/react'
 import gsap from 'gsap'
 import { useGSAP } from '@gsap/react'
-import { PROFILE, PROJECTS, TRACK, hotspotById, type PanelKind } from '../content'
+import { PROJECTS, TRACK, hotspotById, type PanelKind } from '../content'
 import { useScene } from '../store'
 import { NOTES, playNote, unlockAudio } from '../audio/synth'
 import { duckTrack, usePlayer } from '../audio/player'
@@ -290,26 +290,6 @@ function Keys() {
   )
 }
 
-function Contact() {
-  return (
-    <div className="space-y-5">
-      <p className="max-w-[54ch] text-body">
-        Best way to reach me is a GitHub issue or discussion on whichever
-        project you are here about. I read all of them.
-      </p>
-      <a
-        href={PROFILE.github}
-        target="_blank"
-        rel="noreferrer noopener"
-        className="inline-flex items-center gap-1.5 rounded-full bg-acid px-4 py-2 text-sm font-medium text-void transition-transform active:scale-[0.98]"
-      >
-        github.com/kr4t0n
-        <ArrowUpRight size={15} weight="bold" />
-      </a>
-    </div>
-  )
-}
-
 function About() {
   return (
     <div className="space-y-4 text-body">
@@ -334,7 +314,6 @@ function About() {
 const BODY: Record<string, () => React.ReactElement> = {
   music: Keys,
   player: Player,
-  contact: Contact,
   about: About,
   writing: () => (
     <Pending what="Notes and longer pieces on agent tooling and evaluation. First few are drafted." />

@@ -120,8 +120,9 @@ anyone had looked at it. The only discovery cues left are in the scene: the
 accent wash on hover and the pointer cursor.
 
 The index was not deleted, because it is the only keyboard route into the room.
-Without it no hotspot can be focused, and the GitHub, Argus and nodex anchors
-inside the panels become pointer-only. So the `<nav>` in `Hud.tsx` is `sr-only`
+Without it no hotspot can be focused, the Argus and nodex anchors inside About
+become pointer-only, and so does GitHub, whose only keyboard route is the
+index's own link entry (see `ROOM_LINKS` below). So the `<nav>` in `Hud.tsx` is `sr-only`
 until a pill takes focus (`focus-within:not-sr-only`), then shows in place, so
 a keyboard visitor sees what they are tabbing through (WCAG 2.4.7). A pointer
 never focuses it, so a mouse visitor never sees it. It stays mounted and fades
@@ -374,7 +375,7 @@ fetch of Roboto. The canvas draws with the webfont the page already loaded. It
 must wait on `document.fonts.ready`; drawing early falls back to the default
 monospace silently and the board ends up in a different face from the room.
 
-**Five panels ship under WCAG AA on purpose, and the gate encodes that as a
+**Four panels ship under WCAG AA on purpose, and the gate encodes that as a
 waiver rather than going permanently red.** Clear glass in front of the lit
 monitors leaves 14px muted text at 1.03:1 to 2.89:1. Dimming each panel's own
 backdrop with `brightness(0.16)` cleared AA everywhere at a tightest 5.17:1, but
@@ -721,13 +722,22 @@ obstructions, search by the x and y span you care about and leave depth open.
 
 **Objects in the room that open URLs live in `ROOM_LINKS`, not `HOTSPOTS`.**
 They are not glTF nodes, so putting them in `HOTSPOTS` would break the raycast
-map and add phantom nav pills. Every such object must also be reachable some
-other way: a click target that exists only in the 3D scene cannot be tabbed to
-or announced by a screen reader, so it can decorate a route but never be the
-only one. The neon wordmark links to GitHub; the pointer-free route to the same
-place is Tab to the Contact hotspot, Enter, then Tab to the anchor inside the
-panel. There is no header, so that panel anchor and the 2D fallback are the only
-non-pointer routes left. `tools/verify-keyboard.mjs` guards them; run it before
+map and add pills that try to open a panel. Every such object must also be
+reachable some other way: a click target that exists only in the 3D scene cannot
+be tabbed to or announced by a screen reader, so it can decorate a route but
+never be the only one.
+
+That second route is structural rather than remembered. The keyboard index in
+`Hud.tsx` renders every `ROOM_LINKS` entry as a real anchor after the hotspot
+pills, labelled by its `label`, and focusing it sets `hover` to the link's id,
+so the object it stands for lights up exactly as it does under the pointer.
+Adding a room link therefore adds its keyboard route in the same edit.
+
+This matters most for the neon wordmark, because that anchor is now the only
+keyboard route to GitHub outside the 2D fallback. It used to be a Contact panel
+on the sofa, which was removed as redundant once the sign existed; the Contact
+anchor was the route `verify-keyboard.mjs` walked, and it now walks the index
+to the GitHub entry instead and asserts the sign lights on focus. Run it before
 removing any anchor.
 
 **A clickable object needs a padded, separate hit mesh.** The visible neon plane

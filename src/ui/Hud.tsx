@@ -1,8 +1,8 @@
 import { useRef } from 'react'
-import { SpeakerSimpleHigh, SpeakerSimpleSlash } from '@phosphor-icons/react'
+import { ArrowUpRight, SpeakerSimpleHigh, SpeakerSimpleSlash } from '@phosphor-icons/react'
 import gsap from 'gsap'
 import { useGSAP } from '@gsap/react'
-import { HOTSPOTS, hotspotById } from '../content'
+import { HOTSPOTS, ROOM_LINKS, hotspotById } from '../content'
 import { useScene } from '../store'
 import { usePlayer } from '../audio/player'
 import { resetOrbit } from '../three/orbit'
@@ -64,9 +64,9 @@ export function Hud() {
   return (
     <div ref={root} className="pointer-events-none fixed inset-0 z-20">
       {/* No chrome across the top. The wordmark moved to the neon sign on the
-          back wall, which is itself the GitHub link, and the Contact panel
-          carries the same link as real tab-reachable markup. A header holding
-          one duplicate link was costing the room its whole upper edge.
+          back wall, which is itself the GitHub link, and the keyboard index
+          below carries the same link as real tab-reachable markup. A header
+          holding one duplicate link was costing the room its whole upper edge.
 
           Nor across the bottom-left, where the hero and a visible hotspot
           index used to be. What remains is the keyboard route into the room:
@@ -101,6 +101,28 @@ export function Hud() {
             >
               {h.label}
             </button>
+          ))}
+          {/* The room's links, after its places. Each is the keyboard twin of
+              a 3D click target, and focusing one lights that object the same
+              way a pill washes its hotspot, so the visitor is shown where the
+              link lives. Real anchors, so they open like any other link. */}
+          {ROOM_LINKS.map((l) => (
+            <a
+              key={l.id}
+              href={l.href}
+              target="_blank"
+              rel="noreferrer noopener"
+              onFocus={() => setHover(l.id)}
+              onBlur={() => setHover(null)}
+              className={`hairline inline-flex items-center gap-1 rounded-full border bg-void/50 px-3.5 py-1.5 text-sm backdrop-blur-sm transition-colors active:scale-[0.98] ${
+                hover === l.id
+                  ? 'border-acid text-acid'
+                  : 'text-mute hover:text-bright'
+              }`}
+            >
+              {l.label}
+              <ArrowUpRight size={13} weight="bold" aria-hidden />
+            </a>
           ))}
         </nav>
       </div>
