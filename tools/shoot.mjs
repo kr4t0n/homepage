@@ -93,7 +93,9 @@ const spots = await page.evaluate(() =>
 console.log('hotspots:', spots.join(', ') || '(none found)')
 
 for (const [i, name] of spots.entries()) {
-  await page.click(`nav[aria-label="Places in the room"] button:nth-child(${i + 1})`)
+  // By keyboard: the index is hidden from a pointer. The pressed pill keeps
+  // focus, but the index fades while a panel is open, so it is not in the shot.
+  await page.press(`nav[aria-label="Places in the room"] button:nth-child(${i + 1})`, 'Enter')
   await page.waitForTimeout(2400)
   await page.screenshot({
     path: `${OUT}/${String(i + 1).padStart(2, '0')}_${name.toLowerCase()}.png`,

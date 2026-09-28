@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import { SpeakerSimpleHigh, SpeakerSimpleSlash } from '@phosphor-icons/react'
 import gsap from 'gsap'
 import { useGSAP } from '@gsap/react'
-import { HOTSPOTS, PROFILE, hotspotById } from '../content'
+import { HOTSPOTS, hotspotById } from '../content'
 import { useScene } from '../store'
 import { usePlayer } from '../audio/player'
 import { resetOrbit } from '../three/orbit'
@@ -10,11 +10,19 @@ import { resetOrbit } from '../three/orbit'
 gsap.registerPlugin(useGSAP)
 
 /**
- * Hero copy and the hotspot index.
+ * The page chrome over the room, which is deliberately almost none.
  *
- * Both fade out once a hotspot is focused so the room and the panel own the
- * frame. The index doubles as the keyboard path into the scene: every hotspot
- * is a real button, tab-reachable, so the page is navigable without a pointer.
+ * There is no hero copy, no visible hotspot index and no "drag to look around"
+ * hint. The room is meant to be explored: every object that opens something is
+ * an easter egg for the visitor to find by pointing at it, and a row of labelled
+ * pills in the corner answered that question before anyone could ask it.
+ *
+ * The index still exists, for the keyboard only. A 3D object has no tabIndex,
+ * so without it nothing in the room is reachable without a pointer, and the
+ * GitHub, Argus and nodex links inside the panels go with it. It is visually
+ * hidden until something inside it takes focus, then appears where the hero
+ * used to be. A pointer never lands on it, so the room stays unlabelled for
+ * anyone who can explore it directly.
  *
  * There is no hover readout. Hovering is communicated in the scene itself, by
  * the accent wash on the object and the pointer cursor, which is enough and
@@ -23,7 +31,6 @@ gsap.registerPlugin(useGSAP)
 export function Hud() {
   const focus = useScene((s) => s.focus)
   const hover = useScene((s) => s.hover)
-  const ready = useScene((s) => s.ready)
   const setFocus = useScene((s) => s.setFocus)
   const setHover = useScene((s) => s.setHover)
   const screen = useScene((s) => s.screen)
@@ -39,29 +46,6 @@ export function Hud() {
   // A framed screen and a `bare` hotspot are the same situation: the room is
   // the content and there is no panel, so this is the only way back out.
   const noPanel = screen !== null || hotspotById(focus)?.bare === true
-
-  useGSAP(
-    () => {
-      if (!ready) return
-      // gsap.from() writes its start state immediately, so gating it behind
-      // matchMedia matters for correctness and not just for taste: under
-      // reduced motion the tween must never be created, otherwise the hero and
-      // nav are left parked at opacity 0 and the page reads as empty.
-      const mm = gsap.matchMedia()
-      mm.add('(prefers-reduced-motion: no-preference)', () => {
-        gsap.from('[data-intro]', {
-          opacity: 0,
-          y: 20,
-          duration: 0.8,
-          stagger: 0.09,
-          delay: 0.25,
-          ease: 'power3.out',
-        })
-      })
-      return () => mm.revert()
-    },
-    { dependencies: [ready], scope: root },
-  )
 
   useGSAP(
     () => {
@@ -82,63 +66,43 @@ export function Hud() {
       {/* No chrome across the top. The wordmark moved to the neon sign on the
           back wall, which is itself the GitHub link, and the Contact panel
           carries the same link as real tab-reachable markup. A header holding
-          one duplicate link was costing the room its whole upper edge. */}
-      <div
-        data-fade
-        className="absolute bottom-0 left-0 right-0 px-6 pb-8 sm:px-10 sm:pb-10"
-      >
-        {/* Scrim. The diorama sits low in frame, so the hero copy needs a
-            floor to stay legible against the desk and DJ deck behind it. */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-[26rem] bg-gradient-to-t from-void via-void/85 to-transparent"
-        />
-        <div className="pointer-events-auto max-w-[38rem]">
-          <h1
-            data-intro
-            className="text-[2.5rem] font-medium leading-[1.06] tracking-tight text-bright sm:text-[3rem]"
-          >
-            AI engineer,
-            <br />
-            and the room it happens in.
-          </h1>
-          <p data-intro className="mt-4 max-w-[42ch] text-body">
-            {PROFILE.intro}
-          </p>
+          one duplicate link was costing the room its whole upper edge.
 
-          <nav data-intro aria-label="Places in the room" className="mt-7 flex flex-wrap gap-2">
-            {HOTSPOTS.map((h) => (
-              <button
-                key={h.id}
-                type="button"
-                onClick={() => setFocus(h.id)}
-                onPointerEnter={() => setHover(h.id)}
-                onPointerLeave={() => setHover(null)}
-                onFocus={() => setHover(h.id)}
-                onBlur={() => setHover(null)}
-                className={`hairline rounded-full border px-3.5 py-1.5 text-sm transition-colors active:scale-[0.98] ${
-                  hover === h.id
-                    ? 'border-acid text-acid'
-                    : 'text-mute hover:text-bright'
-                }`}
-              >
-                {h.label}
-              </button>
-            ))}
-          </nav>
+          Nor across the bottom-left, where the hero and a visible hotspot
+          index used to be. What remains is the keyboard route into the room:
+          `sr-only` until a pill takes focus, shown in place while one has it.
+          Focusing a pill washes its object exactly as pointing at it does, so
+          a keyboard visitor is still shown where each thing is.
 
-          {/* Drag and zoom are not discoverable on a canvas, so say so once and
-              then get out of the way permanently. */}
-          <p
-            data-intro
-            aria-hidden
-            className={`mt-4 font-mono text-[11px] tracking-wide text-mute transition-opacity duration-500 ${
-              orbited ? 'opacity-0' : 'opacity-70'
-            }`}
-          >
-            Drag to look around, scroll to zoom
-          </p>
-        </div>
+          It stays mounted and fades when a panel opens rather than unmounting.
+          The pill that was just pressed keeps focus underneath the panel, so the
+          next Tab moves forward into the panel's own links instead of starting
+          over from the top of the page. The wrapper has no size of its own and
+          inherits `pointer-events-none`, so hidden or not, it never takes a
+          pointer event away from the room. */}
+      <div className="absolute bottom-8 left-6 max-w-[38rem] sm:bottom-10 sm:left-10">
+        <nav
+          data-fade
+          aria-label="Places in the room"
+          className="sr-only flex flex-wrap gap-2 focus-within:not-sr-only"
+        >
+          {HOTSPOTS.map((h) => (
+            <button
+              key={h.id}
+              type="button"
+              onClick={() => setFocus(h.id)}
+              onFocus={() => setHover(h.id)}
+              onBlur={() => setHover(null)}
+              className={`hairline rounded-full border bg-void/50 px-3.5 py-1.5 text-sm backdrop-blur-sm transition-colors active:scale-[0.98] ${
+                hover === h.id
+                  ? 'border-acid text-acid'
+                  : 'text-mute hover:text-bright'
+              }`}
+            >
+              {h.label}
+            </button>
+          ))}
+        </nav>
       </div>
 
       {/* A framed screen and a bare hotspot both have no panel. The only chrome

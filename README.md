@@ -2,6 +2,8 @@
 
 A personal homepage: an explorable 3D diorama of a studio room. Click an object,
 the camera flies to it, a panel opens with the content that object stands for.
+Nothing is labelled: there is no hero copy and no visible list of places, so
+which objects open something is left for the visitor to find.
 
 Built from a purchased Blender scene that is converted to a web-ready GLB by a
 headless Blender pipeline, then rendered with React Three Fiber. Falls back to a
@@ -505,6 +507,13 @@ Everything the page says lives in `src/content.ts`. Add a hotspot by adding an
 entry pointing at a node that exists in `src/scene-manifest.json`, then run the
 verification script to confirm it highlights the object you expect.
 
+A new hotspot is not announced anywhere a pointer visitor can see. The room has
+no visible index, on purpose, so the hover wash and the pointer cursor are the
+only way anyone finds it. It does get a pill in the keyboard index in `Hud.tsx`
+automatically, which is hidden until a keyboard visitor tabs into it. That index
+is the only way into the room without a pointer, so it stays; see AGENTS.md
+before changing how it hides.
+
 There is no Work panel. The two projects it listed are on the monitors — click
 the left one for nodex, the centre one for Argus — which is the presentation that
 was wanted, so a panel repeating it was redundant. `PROJECTS` still drives the 2D
@@ -643,7 +652,7 @@ src/
     Screens.tsx         the three monitors, framed on click, link on second
     NeonSign.tsx        canvas-drawn neon wordmark on the back wall
   ui/
-    Hud.tsx             hero, hotspot nav, framed-screen exit, sound toggle
+    Hud.tsx             keyboard-only hotspot index, framed-screen exit, reset, sound
     Panel.tsx           focused content panels
     PixelTooltip.tsx    per-cell readout when the board is focused
     Preloader.tsx       real GLB load progress
@@ -687,6 +696,11 @@ Dockerfile              two-stage build; runtime stage has no node_modules
 
 ## Known gaps
 
+- Nothing tells a pointer visitor that the room is interactive, or how to move
+  around it. The hero, the visible hotspot list and the "drag to look around"
+  hint were removed so the room can be explored rather than read. A visitor who
+  never hovers an object, drags or scrolls sees a static picture. That is the
+  intended trade.
 - The DJ controller carries the player. It was deliberately unassigned until
   there was content that suited a mixing desk; the backing track is that
   content, so `hot_djcontroller` is now the `player` hotspot.

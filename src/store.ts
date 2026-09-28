@@ -8,7 +8,7 @@ const SCREEN_IDS = new Set(SCREENS.map((s) => s.id))
  * The page has two mutually exclusive focused modes, both of which live in the
  * URL so that browser back closes them and a view can be linked to.
  *
- *   #/work            a content panel
+ *   #/about           a content panel
  *   #/screen/nodex    a monitor, framed dead-on, no panel
  */
 type Route =
@@ -42,14 +42,11 @@ interface SceneState {
   screen: string | null
   /** Hotspot, link or screen id under the pointer. */
   hover: string | null
-  /** GLB finished loading and the intro camera move has played. */
-  ready: boolean
-  /** User has dragged or zoomed at least once; hides the affordance hint. */
+  /** User has dragged or zoomed since the last reset; shows the reset control. */
   orbited: boolean
   setFocus: (id: string | null) => void
   setScreen: (id: string | null) => void
   setHover: (id: string | null) => void
-  setReady: (v: boolean) => void
   setOrbited: (v: boolean) => void
   /** Leave whichever focused mode is active. */
   clearFocus: () => void
@@ -61,7 +58,6 @@ export const useScene = create<SceneState>((set, get) => ({
   focus: initial.kind === 'panel' ? initial.id : null,
   screen: initial.kind === 'screen' ? initial.id : null,
   hover: null,
-  ready: false,
   orbited: false,
 
   setFocus: (id) => {
@@ -78,7 +74,6 @@ export const useScene = create<SceneState>((set, get) => ({
   },
 
   setHover: (id) => set({ hover: id }),
-  setReady: (v) => set({ ready: v }),
   setOrbited: (v) => set({ orbited: v }),
 
   clearFocus: () => {

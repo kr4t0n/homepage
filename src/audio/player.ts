@@ -22,7 +22,7 @@ import { TRACK } from '../content'
  * HUD still claiming the sound was on. Both controls now write `on`.
  */
 
-/** Playing at full tilt under the hero copy is obnoxious; this is a bed. */
+/** Playing at full tilt while someone explores the room is obnoxious; this is a bed. */
 const TARGET_VOLUME = 0.42
 
 /** Volume while the Music panel is open, so the playable keys stay audible. */

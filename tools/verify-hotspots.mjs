@@ -1,7 +1,12 @@
 /**
- * Hotspot verification. From the home camera, hovers each nav item in turn and
+ * Hotspot verification. From the home camera, focuses each nav item in turn and
  * captures the emissive highlight, so it is unambiguous which physical object
  * each hotspot actually owns.
+ *
+ * Focus rather than hover: the index is hidden from a pointer and appears only
+ * while a pill has keyboard focus, and focusing a pill drives the same hover
+ * state that pointing at its object does. The revealed index is therefore in
+ * every capture, bottom left.
  *
  * Run: node tools/verify-hotspots.mjs
  */
@@ -58,9 +63,9 @@ const spots = await page.evaluate(() =>
 )
 
 for (const [i, name] of spots.entries()) {
-  // Hover only. No click, so the camera stays on the home framing and every
+  // Focus only. No Enter, so the camera stays on the home framing and every
   // capture is directly comparable.
-  await page.hover(`nav[aria-label="Places in the room"] button:nth-child(${i + 1})`)
+  await page.focus(`nav[aria-label="Places in the room"] button:nth-child(${i + 1})`)
   await page.waitForTimeout(700)
   await page.screenshot({
     path: `${OUT}/${String(i + 1).padStart(2, '0')}_${name.toLowerCase()}.png`,

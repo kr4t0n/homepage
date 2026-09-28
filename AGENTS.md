@@ -112,6 +112,30 @@ rather than disappearing, and `verify-screens.mjs` now asserts they are present
 there. Any future content that lives only on a 3D object needs the same
 treatment.
 
+**The room is unlabelled on purpose, and the hotspot index is for the keyboard
+only.** There is no hero copy, no visible row of hotspot pills and no "drag to
+look around" hint. Every object that opens something is meant to be found by
+exploring, and a labelled index in the corner gave the whole room away before
+anyone had looked at it. The only discovery cues left are in the scene: the
+accent wash on hover and the pointer cursor.
+
+The index was not deleted, because it is the only keyboard route into the room.
+Without it no hotspot can be focused, and the GitHub, Argus and nodex anchors
+inside the panels become pointer-only. So the `<nav>` in `Hud.tsx` is `sr-only`
+until a pill takes focus (`focus-within:not-sr-only`), then shows in place, so
+a keyboard visitor sees what they are tabbing through (WCAG 2.4.7). A pointer
+never focuses it, so a mouse visitor never sees it. It stays mounted and fades
+while a panel is open rather than unmounting, because the pressed pill has to
+keep focus underneath the panel for the next Tab to move into the panel instead
+of restarting from the top of the page. `verify-keyboard.mjs` asserts both
+halves: hidden at rest, visible once focused.
+
+Two consequences for anyone changing it. Tests cannot hover or click a pill,
+because a clipped element takes no pointer events; they `focus()` it or `press`
+Enter on it, which is the real route anyway. And do not hide it with `opacity-0`
+instead: an invisible pill that still takes pointer events is a dead zone over
+the room, and one that is invisible *while focused* fails focus visibility.
+
 **glTF has no text, and the exporter's silence about it is the danger.** A
 `FONT` object is neither converted nor warned about — it simply does not appear
 in the GLB. The pixel board's hour, weekday and week labels are all text, so the
@@ -235,11 +259,22 @@ brighter below it. Measured at rgb(7,10,18) on y=859 against rgb(11,14,25) on
 y=860.
 
 It is invisible in the obvious place to look: with the panel closed the block
-does not render at all, and the hero scrim next to it is fine because its own
-container is already at `bottom-0`. So the same class name is correct in one
-place and wrong in the other, and only a focused screenshot shows it. If you
+does not render at all, and the hero scrim that used to sit beside it was fine
+because its own container was already at `bottom-0`. So the same class name was
+correct in one place and wrong in the other, and only a focused screenshot
+showed it. If you
 move a scrim, check its measured `getBoundingClientRect().bottom` equals
 `innerHeight`; a full-width horizontal step in a screenshot is the symptom.
+
+**A GSAP `pointerEvents` write on a layout wrapper claims its whole box.** The
+`Hud` fade tween writes `pointer-events: auto` inline to whatever carries
+`data-fade`, which overrides the root's `pointer-events-none`. It used to sit on
+the hero's full-width wrapper, so the entire bottom band of the viewport never
+reached the canvas: at 1440x900, all 2,160 points probed in the bottom 300px hit
+that wrapper, and 0 do now. Nothing looked wrong. Objects in that band simply
+could not be hovered or clicked, and a pill was the only way in. Put
+`data-fade` on the element that is itself interactive, and check with
+`document.elementFromPoint` that the room is what answers where you expect.
 
 **Component base styles belong in `@layer components`, not `@layer utilities`.**
 `.glass` sets `position: relative` for its specular pseudo-element. As a utility
@@ -277,8 +312,9 @@ pixel board's week labels. Rescale `look` whenever `offset` changes.
 two screenshots taken with the pointer in different places differ almost
 everywhere: a first attempt at testing the hover wash reported 158,000 changed
 pixels for a hotspot that was not washed at all. `Room.tsx` exposes a dev-only
-`__wash()` returning the node names currently washed, and nav pills drive the
-same hover state as pointing at the object, so both can be checked as state.
+`__wash()` returning the node names currently washed, and focusing a nav pill
+drives the same hover state as pointing at the object, so both can be checked
+as state.
 
 **A hotspot's camera is placed relative to its bounding box, so growing the
 group re-frames the panel.** `content.ts` stores `offset` and `look` as deltas
@@ -737,14 +773,16 @@ decision.
 
 **Hover feedback lives in the scene, not in a label.** There is no hover
 readout. A hovered object gets the accent wash from `highlight.ts`, the cursor
-becomes a pointer via `bindCursor`, and the matching nav pill lights up. That is
-three channels without putting floating text over the room.
+becomes a pointer via `bindCursor`. That is two channels without putting
+floating text over the room. The matching nav pill lights up as a third, but
+only for a keyboard visitor, since the index is hidden until focused.
 
 **`gsap.from()` under reduced motion will hide your UI.** `from()` writes its
 start state to the element immediately and animates away from it. If the tween
 is skipped or never runs, the element is left parked at that start state, so an
-ungated `gsap.from({opacity: 0})` renders the whole hero and nav invisible for
-anyone with `prefers-reduced-motion: reduce`. The CSS reduced-motion block does
+ungated `gsap.from({opacity: 0})` once rendered the whole hero and nav invisible
+for anyone with `prefers-reduced-motion: reduce`, and the panel entrance in
+`Panel.tsx` would do the same today. The CSS reduced-motion block does
 not help; it only caps CSS animations and transitions, and GSAP writes inline
 styles. Wrap every `from()` in `gsap.matchMedia()` keyed on
 `(prefers-reduced-motion: no-preference)` so the tween is never created. For
@@ -758,10 +796,12 @@ existing emissive and takes `Math.max` of the intensities. Tune it with
 `tools/sweep-highlight.mjs`, which renders a sweep against the three cases that
 fail differently: a light prop, a dark prop, and an emissive prop.
 
-**Hovering a nav pill does not reliably drive the 3D hover state in tests.**
-The canvas-to-HTML pointer handoff races. Verification scripts should move the
-pointer over the object in the canvas instead, which is also what a visitor
-does.
+**A nav pill cannot be hovered or clicked in a test.** The index is `sr-only`
+until focused, so its pills take no pointer events. To drive hover state, either
+`focus()` a pill or move the pointer over the object in the canvas, which is
+what a visitor does. To open a hotspot, `press` Enter on a pill or click the
+object. Hovering a pill never drove the 3D hover state reliably anyway: the
+canvas-to-HTML pointer handoff raced.
 
 ## Conventions
 

@@ -1,10 +1,11 @@
 /**
  * Signals is one hotspot over two wall boards, and neither takes the hover wash.
  *
- * Two of these assertions are cheap because nav pills drive the same room hover
- * state that pointing at the object does (`Hud.tsx` calls `setHover` on
- * pointer enter), so the wash can be checked without hunting for the boards on
- * screen at all.
+ * Two of these assertions are cheap because focusing a nav pill drives the same
+ * room hover state that pointing at the object does (`Hud.tsx` calls
+ * `setHover` on focus), so the wash can be checked without hunting for the
+ * boards on screen at all. Focus rather than hover, because the index is hidden
+ * from a pointer and only appears while a pill has keyboard focus.
  *
  * The wash is read from the dev-only `__wash` hook rather than from pixels.
  * A screenshot cannot answer this: pointer parallax moves the camera, so two
@@ -43,7 +44,7 @@ await page.waitForTimeout(3000)
 
 const pill = async (label) => {
   const b = page.locator('nav[aria-label="Places in the room"] button', { hasText: label }).first()
-  await b.hover()
+  await b.focus()
   await page.waitForTimeout(400)
   return page.evaluate(() => ({ hover: window.__hover?.(), wash: window.__wash?.() }))
 }

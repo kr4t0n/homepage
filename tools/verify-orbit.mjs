@@ -89,20 +89,43 @@ const check = (ok, pass, fail) => {
 }
 check(after === before, 'drag did not open a panel', `drag opened ${after}`)
 
-// A plain click on a nav pill must still work. The expected route comes from
-// the pill itself rather than a hardcoded id: this asserted `#/work` from the
-// first commit, Work was removed later, and because nothing here set an exit
-// code the script printed FAIL and exited 0 for months.
-const first = page.locator('nav[aria-label="Places in the room"] button').first()
-const label = (await first.textContent())?.trim() ?? ''
-await first.click()
-await page.waitForTimeout(1800)
-await page.screenshot({ path: `${OUT}/7_click_still_works.png` })
-check(
-  /#\/.+/.test(page.url()),
-  `click on the first pill (${label}) opened ${page.url().split('#')[1]}`,
-  `click on ${label} left url=${page.url()}`,
-)
+// A plain click on an object must still open it, straight after a drag that
+// set `suppressClick`. This used to click a nav pill, which never exercised the
+// canvas at all, and the pills are keyboard-only now anyway.
+//
+// The target is found rather than hardcoded, because framing moves whenever the
+// asset does: sweep the frame, take whichever hotspot owns the most points, and
+// click the middle of its run. The expected route is that hotspot's own id.
+// Hardcoding it is how this once asserted `#/work` for months after Work was
+// removed, printing FAIL and exiting 0. `neon` is skipped because it opens a
+// tab rather than changing the route. The grid is coarse on purpose: every
+// probe is a pointer move under software GL, and the largest hotspot on the
+// home view is far wider than 80px.
+await page.click('text=Reset view').catch(() => {})
+await page.waitForTimeout(1500)
+const found = new Map()
+for (let y = 120; y <= 680; y += 80) {
+  for (let x = 80; x <= 1200; x += 80) {
+    await page.mouse.move(x, y)
+    const id = await page.evaluate(() => window.__hover?.())
+    if (id && id !== 'neon') found.set(id, [...(found.get(id) ?? []), { x, y }])
+  }
+}
+const [target, points] = [...found].sort((a, b) => b[1].length - a[1].length)[0] ?? []
+if (!target) {
+  check(false, '', 'no hotspot found under the pointer anywhere (is __hover exposed?)')
+} else {
+  const p = points[Math.floor(points.length / 2)]
+  await page.mouse.click(p.x, p.y)
+  await page.waitForTimeout(1800)
+  await page.screenshot({ path: `${OUT}/7_click_still_works.png` })
+  const route = page.url().split('#')[1] ?? ''
+  check(
+    route === `/${target}` || route === `/screen/${target}`,
+    `a plain click on ${target} at (${p.x},${p.y}) opened #${route}`,
+    `click on ${target} at (${p.x},${p.y}) left url=${page.url()}`,
+  )
+}
 
 console.log(errors.length ? `\nERRORS:\n${[...new Set(errors)].join('\n')}` : '\nno console errors')
 await browser.close()
