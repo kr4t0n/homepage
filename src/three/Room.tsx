@@ -54,23 +54,60 @@ export function Room() {
   const cloned = useMemo(() => {
     const root = scene.clone(true)
 
-    // Object3D.clone() shares material instances, and the source asset reuses
-    // one material across unrelated props. Every hotspot node gets its own
-    // copies. This used to contain the hover wash, which is gone; it stays for
-    // two reasons. The wall boards write live emissive into their materials,
-    // which should land in this room's copies rather than the cached GLTF. And
-    // the roughness lift below runs once per mesh, so a material shared by
-    // several meshes is lifted once for each of them: dropping these copies
-    // would change how every hotspot prop looks.
-    const owned = new Set<string>(HOTSPOTS.flatMap(hotspotNodes))
-    owned.forEach((nodeName) => {
-      const node = root.getObjectByName(nodeName)
-      node?.traverse((child) => {
-        if (!(child instanceof THREE.Mesh)) return
-        child.material = Array.isArray(child.material)
-          ? child.material.map((m) => m.clone())
-          : child.material.clone()
-      })
+    // Every material in the clone is a copy, so nothing below can write into
+    // the cached GLTF. Object3D.clone() shares material instances with it, and
+    // the adjustments that follow are in-place edits. Under <StrictMode> this
+    // memo runs twice in development, so while only hotspots were copied, both
+    // runs edited the same cached materials and every other surface got the
+    // wall-and-floor darkening twice: dev rendered the floor at rgb(19,25,37)
+    // against production's rgb(52,63,88), from the first commit onwards, in the
+    // environment lighting.ts is tuned in. A hot reload of this file compounded
+    // it again, because the cache outlives the module.
+    //
+    // How the copies are made is load-bearing for production, which only ever
+    // ran this once and must render exactly as it did. The roughness lift below
+    // runs once per mesh, so a material shared by k meshes has always been
+    // lifted k times; sharing has to survive the copy. Hotspot meshes get one
+    // copy per mesh, as they always have, which also gives the wall boards
+    // their own materials to write live emissive into. Everything else gets one
+    // copy per material, shared by exactly the meshes that shared the original.
+    //
+    // The order the copies are made in is load-bearing too. three.js sorts
+    // opaque draws by material id, and where two surfaces are exactly coplanar
+    // the one drawn last wins the pixel. Copying in traversal order renumbered
+    // the room and flipped a coplanar pixel on the desk in production. So the
+    // copies are made to keep the old relative order: shared copies first, in
+    // the originals' own id order, then hotspot copies in the order they were
+    // always made. Measured against the previous build, the home view is
+    // pixel-identical.
+    const hotspotMeshes: THREE.Mesh[] = []
+    new Set(HOTSPOTS.flatMap(hotspotNodes)).forEach((name) =>
+      root.getObjectByName(name)?.traverse((o) => {
+        if (o instanceof THREE.Mesh) hotspotMeshes.push(o)
+      }),
+    )
+    const isHotspot = new Set<THREE.Object3D>(hotspotMeshes)
+    const originals = new Set<THREE.Material>()
+    root.traverse((o) => {
+      if (o instanceof THREE.Mesh && !isHotspot.has(o)) {
+        ;[o.material].flat().forEach((m: THREE.Material) => originals.add(m))
+      }
+    })
+    // `id` is the sequential number WebGLRenderLists sorts by. three.js sets it
+    // at runtime and @types/three does not declare it.
+    const idOf = (m: THREE.Material) => (m as THREE.Material & { id: number }).id
+    const shared = new Map<THREE.Material, THREE.Material>()
+    ;[...originals].sort((a, b) => idOf(a) - idOf(b)).forEach((m) => shared.set(m, m.clone()))
+    hotspotMeshes.forEach((o) => {
+      o.material = Array.isArray(o.material)
+        ? o.material.map((m) => m.clone())
+        : o.material.clone()
+    })
+    root.traverse((o) => {
+      if (!(o instanceof THREE.Mesh) || isHotspot.has(o)) return
+      o.material = Array.isArray(o.material)
+        ? o.material.map((m) => shared.get(m)!)
+        : shared.get(o.material)!
     })
 
     root.traverse((o) => {
