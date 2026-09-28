@@ -622,14 +622,44 @@ silently never fires. Use `getObjectByName(node)` then traverse its subtree.
 This once made the hover highlight invisible while raycasting still worked,
 because raycasting walks up the parent chain.
 
-**`Object3D.clone()` shares material instances.** The source asset reuses one
-material across unrelated props, so mutating one in place changes objects on
-the other side of the room, and also writes into the cached GLTF itself.
-Hotspot nodes get their materials cloned explicitly in `Room.tsx`. That clone
-originally contained the hover wash and outlived it on purpose: the roughness
-lift that follows runs once per mesh, so removing the copies would change how
-the hotspot props look. `verify-hotspots.mjs` tints through material copies
-for the same reason.
+**`Object3D.clone()` shares material instances, including with drei's cache.**
+The source asset reuses one material across unrelated props, so mutating one in
+place changes objects on the other side of the room. It also writes into the
+cached GLTF, which outlives the component. `verify-hotspots.mjs` tints
+through material copies for that reason.
+
+**The scene-clone memo in `Room.tsx` must be pure, because development runs it
+twice.** `<StrictMode>` calls a `useMemo` function twice and keeps the first
+result. From the first commit, that memo copied only hotspot materials and
+then darkened the walls and lifted roughness *in place*, so both runs edited
+the same cached materials. Development rendered every non-hotspot surface with
+the adjustment applied twice. The floor measured rgb(19,25,37) in dev against
+rgb(52,63,88) in production at the home view, and a hot reload of `Room.tsx`
+compounded it again. Production was never affected. `lighting.ts` says to tune
+in dev, so anything judged by eye there before this fix was judged against a
+darker room than visitors saw. The hover wash died of the same cause (see
+"There is no hover highlight").
+
+Every material in the clone is now a copy, so no run can write into the cache.
+Two properties of *how* they are copied keep production pixel-identical, and
+both are load-bearing:
+
+- **Sharing survives the copy.** The roughness lift runs once per mesh, so a
+  material shared by k meshes has always been lifted k times. Hotspot meshes
+  get one copy per mesh, as before, which also gives the wall boards their own
+  materials to write live emissive into. Everything else gets one copy per
+  material, shared by exactly the meshes that shared the original.
+- **Material ids keep their relative order.** `WebGLRenderLists` sorts opaque
+  draws by `material.id`, and where two surfaces are exactly coplanar the
+  later draw wins the pixel. Copying in traversal order renumbered the room
+  and flipped one pixel on the desk. The shared copies are therefore made
+  first, in the originals' own id order, then the hotspot copies, in their old
+  order. `id` is set at runtime and is absent from `@types/three`, hence the
+  accessor.
+
+Measured against the build before the fix: 0 of 1,024,000 pixels differ at the
+home view and at the focused desk view, and dev now matches production
+everywhere outside the live wall boards.
 
 **`bpy.ops.object.join()` silently discards every non-active object's
 modifiers.** In this asset that deletes real geometry, because several props are
