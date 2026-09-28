@@ -353,7 +353,7 @@ per-panel variant. It is optically clear: no blur, no tint, no fill. The room
 passes through sharp and unmodified, and the edge does the work — a sub-pixel
 hairline border, two faint inset catches and a drop shadow.
 
-**Five panels knowingly ship under WCAG AA, and that was a deliberate choice.**
+**Four panels knowingly ship under WCAG AA, and that was a deliberate choice.**
 Content panels sit in front of the lit monitors and the hexagon light wall, and
 clear glass there leaves 14px muted text between 1.03:1 and 2.89:1 against a
 4.5:1 requirement. An earlier version dimmed each panel's own backdrop with
@@ -519,6 +519,12 @@ the left one for nodex, the centre one for Argus — which is the presentation t
 was wanted, so a panel repeating it was redundant. `PROJECTS` still drives the 2D
 fallback, and About links both by name, because the monitors are raycast targets
 with no `tabIndex` and would otherwise be unreachable without a pointer.
+
+There is no Contact panel either, and the sofa does nothing. Its panel existed to
+hold a GitHub link, and the neon `kr4t0n` wordmark on the back wall is that link
+now. The same reasoning as the monitors applies: the sign is a 3D click target,
+so every entry in `ROOM_LINKS` also appears as a real anchor at the end of the
+keyboard index, and focusing it lights the sign.
 
 ## Deployment
 

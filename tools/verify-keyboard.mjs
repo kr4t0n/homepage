@@ -3,8 +3,10 @@
  *
  * The neon wordmark links to GitHub, but a 3D click target cannot be tabbed to
  * or announced, so it can only ever be a redundant affordance. This asserts the
- * non-pointer route still exists: tab to a hotspot, open it, and reach a real
- * anchor. Removing the header link made this the last such route, so it is
+ * non-pointer routes still exist: tab through every place in the room to the
+ * GitHub link at the end of the index, then open a hotspot and reach a real
+ * anchor inside its panel. The link used to live in a Contact panel on the
+ * sofa; when that went, the index became its only keyboard route, so it is
  * worth a test rather than an assumption.
  *
  * The hotspot index is also the one piece of chrome that is hidden from a
@@ -50,8 +52,21 @@ const active = () =>
       tag: el.tagName.toLowerCase(),
       text: (el.textContent ?? '').trim().slice(0, 40),
       href: el.getAttribute('href'),
+      inNav: !!el.closest('nav[aria-label="Places in the room"]'),
+      inDialog: !!el.closest('[role="dialog"]'),
     }
   })
+
+/** Press Tab (or Shift+Tab) until `match` accepts the focused element. */
+const tabTo = async (match, { back = false, limit = 25 } = {}) => {
+  for (let i = 0; i < limit; i++) {
+    await page.keyboard.press(back ? 'Shift+Tab' : 'Tab')
+    await page.waitForTimeout(90)
+    const a = await active()
+    if (a && match(a)) return a
+  }
+  return null
+}
 
 /** Rendered size of the hotspot index, and whether the focused pill is on screen. */
 const navBox = () =>
@@ -75,39 +90,38 @@ check(
   `the hotspot index is hidden until focused (${rest.w}x${rest.h})`,
 )
 
-// Tab until a hotspot button takes focus, proving the room is enterable
-// without a pointer.
-let reachedNav = false
-for (let i = 0; i < 20 && !reachedNav; i++) {
-  await page.keyboard.press('Tab')
-  await page.waitForTimeout(90)
-  const a = await active()
-  if (a?.tag === 'button' && a.text === 'Contact') reachedNav = true
-}
-check(reachedNav, 'a hotspot button is reachable by Tab alone')
+// Tab through the index to the GitHub link at its end. Every hotspot pill comes
+// first, so the same walk proves the places in the room are reachable too.
+const pills = new Set()
+const github = await tabTo((a) => {
+  if (a.tag === 'button' && a.inNav) pills.add(a.text)
+  return a.tag === 'a' && a.inNav && a.href?.startsWith('https://github.com/kr4t0n')
+})
+check(pills.size > 0, `hotspot buttons are reachable by Tab alone (${[...pills].join(', ')})`)
+check(github !== null, `GitHub is reachable by keyboard (${github?.href ?? 'not found'})`)
 
 const shown = await navBox()
 check(
   shown.w > 100 && shown.focusedOnScreen,
-  `the index is visible while a pill has focus (${shown.w}x${shown.h})`,
+  `the index is visible while it has focus (${shown.w}x${shown.h})`,
 )
 
-// Open it with the keyboard.
+// The link stands in for the neon sign, so focusing it lights the sign, the
+// same way focusing a pill washes its object.
+const lit = await page.evaluate(() => window.__hover?.())
+check(lit === 'neon', `focusing the GitHub link lights the neon sign (hover=${lit})`)
+
+// Back to a place, and open it with the keyboard.
+const about = await tabTo((a) => a.tag === 'button' && a.text === 'About', { back: true })
+check(about !== null, 'Shift+Tab walks back to a hotspot')
 await page.keyboard.press('Enter')
 await page.waitForTimeout(1600)
-check(page.url().includes('#/contact'), 'Enter opens the focused hotspot')
+check(page.url().includes('#/about'), 'Enter opens the focused hotspot')
 
-// Reach a real GitHub anchor inside the panel.
-let githubHref = null
-for (let i = 0; i < 25 && !githubHref; i++) {
-  await page.keyboard.press('Tab')
-  await page.waitForTimeout(90)
-  const a = await active()
-  if (a?.tag === 'a' && a.href?.startsWith('https://github.com/kr4t0n')) {
-    githubHref = a.href
-  }
-}
-check(githubHref !== null, `GitHub is reachable by keyboard (${githubHref ?? 'not found'})`)
+// Reach a real anchor inside the panel. About carries the Argus and nodex
+// links, which the monitors otherwise hold behind a pointer.
+const inPanel = await tabTo((a) => a.tag === 'a' && a.inDialog)
+check(inPanel !== null, `a panel's links are reachable by keyboard (${inPanel?.href ?? 'not found'})`)
 
 // Escape returns to the room.
 await page.keyboard.press('Escape')

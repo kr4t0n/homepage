@@ -14,7 +14,8 @@ export const HIGHLIGHT = new THREE.Color('#9ef01a')
  *
  * These values were picked by rendering the sweep in tools/sweep-highlight.mjs
  * against three cases that fail differently: a light prop (the sofa, where a
- * strong wash flattens the cushion forms into a silhouette), a dark prop (the
+ * strong wash flattens the cushion forms into a silhouette; no longer a
+ * hotspot, so the sweep now hovers the desk), a dark prop (the
  * DJ controller, where too little is invisible), and an emissive prop (the
  * monitors, where replacing emissive kills the glow).
  *

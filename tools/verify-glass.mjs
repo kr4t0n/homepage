@@ -123,7 +123,7 @@ const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
 //   node tools/verify-glass.mjs writing
 // The waiver comparison only runs over the panels actually measured, so a
 // filtered run reports that panel honestly without claiming the others passed.
-const ALL_PANELS = ['music', 'player', 'writing', 'about', 'cv', 'contact']
+const ALL_PANELS = ['music', 'player', 'writing', 'about', 'cv']
 const only = process.argv.slice(2).filter((a) => ALL_PANELS.includes(a))
 const PANELS = only.length ? only : ALL_PANELS
 
@@ -160,9 +160,10 @@ const threshold = (px, weight) => (px >= 24 || (px >= 18.66 && weight >= 700) ? 
  * hotspots over darker parts of the room, the way the decks bar already is, and
  * clear glass becomes affordable. Delete an entry the moment its panel passes.
  */
+// `contact` sat here at 1.09 until the sofa stopped being a hotspot; its panel
+// went with it, so the waiver went too rather than going stale.
 const ACCEPTED = {
   about: 1.03,
-  contact: 1.09,
   writing: 1.64,
   music: 1.78,
   cv: 2.89,

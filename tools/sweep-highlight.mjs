@@ -48,10 +48,12 @@ if (!hasHook) {
   process.exit(1)
 }
 
-// Hover the sofa directly in the canvas rather than via its nav pill: a large,
-// mid-tone, non-emissive prop is the worst case for an accent wash, and going
-// through the canvas exercises the same path a visitor does.
-const SOFA = [470, 360]
+// Hover the desk directly in the canvas: a large non-emissive prop is the worst
+// case for an accent wash, and going through the canvas exercises the same path
+// a visitor does. This was the sofa until the sofa stopped being a hotspot, at
+// which point hovering it washed nothing and the sweep would have rendered five
+// identical unwashed frames. So the point is now checked, not trusted.
+const TARGET = { id: 'cv', at: [800, 360] }
 
 const unhover = async () => {
   await page.mouse.move(1180, 640)
@@ -72,8 +74,14 @@ for (const [i, v] of VARIANTS.entries()) {
   )
   // The paint runs in a hover-change effect, so re-trigger it.
   await unhover()
-  await page.mouse.move(SOFA[0], SOFA[1])
+  await page.mouse.move(TARGET.at[0], TARGET.at[1])
   await page.waitForTimeout(600)
+  const hovered = await page.evaluate(() => window.__hover?.())
+  if (hovered !== TARGET.id) {
+    console.log(`FAIL (${TARGET.at}) hovers ${hovered ?? 'nothing'}, not ${TARGET.id}; the framing moved`)
+    await browser.close()
+    process.exit(1)
+  }
   const name = `${i + 1}_mix${String(v.mix).replace('.', '')}_int${String(v.intensity).replace('.', '')}`
   await page.screenshot({ path: `${OUT}/${name}.png` })
   console.log(`captured mix=${v.mix} intensity=${v.intensity}${v.note ? ` (${v.note})` : ''}`)

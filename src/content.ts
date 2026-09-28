@@ -6,7 +6,7 @@
  * pointing it at a node that exists in `scene-manifest.json`.
  */
 
-export type PanelKind = 'music' | 'player' | 'stats' | 'writing' | 'about' | 'cv' | 'contact'
+export type PanelKind = 'music' | 'player' | 'stats' | 'writing' | 'about' | 'cv'
 
 export interface Project {
   name: string
@@ -249,37 +249,35 @@ export const HOTSPOTS: Hotspot[] = [
     look: [0, -0.1, 0],
     placeholder: true,
   },
-  {
-    id: 'contact',
-    node: 'hot_sofa',
-    label: 'Contact',
-    hint: 'Pull up a seat',
-    kind: 'contact',
-    offset: [4.0, 2.0, 3.2],
-    look: [0, 0, 0],
-  },
+  // No hotspot on the sofa. It used to open a Contact panel whose whole job was
+  // a GitHub link, which the neon wordmark on the back wall now is. `hot_sofa`
+  // is still exported as its own group, so it can come back without a re-export.
 ]
 
 /**
  * Things in the room that open an external URL instead of a panel.
  *
  * Kept separate from HOTSPOTS because these are not glTF nodes and must never
- * reach the raycast map or the nav. Every one of these has to be reachable some
- * other way as well: a click target that exists only in the 3D scene cannot be
- * tabbed to or read by a screen reader, so it can decorate a route, never be
- * the route.
+ * reach the raycast map. Every one of these has to be reachable some other way
+ * as well: a click target that exists only in the 3D scene cannot be tabbed to
+ * or read by a screen reader, so it can decorate a route, never be the route.
+ * The keyboard index in Hud.tsx renders each of them as a real anchor, so adding
+ * one here adds its keyboard route with it.
  */
 export interface RoomLink {
   id: string
   href: string
+  /** Text of the link's entry in the keyboard index. */
+  label: string
 }
 
 export const ROOM_LINKS: RoomLink[] = [
   {
-    // The neon wordmark on the back wall. The same link is real, tab-reachable
-    // markup in the Contact panel and in the 2D fallback.
+    // The neon wordmark on the back wall. Also real markup in the keyboard
+    // index and in the 2D fallback.
     id: 'neon',
     href: PROFILE.github,
+    label: 'GitHub',
   },
 ]
 
