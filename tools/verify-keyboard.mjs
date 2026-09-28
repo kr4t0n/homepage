@@ -7,6 +7,12 @@
  * anchor. Removing the header link made this the last such route, so it is
  * worth a test rather than an assumption.
  *
+ * The hotspot index is also the one piece of chrome that is hidden from a
+ * pointer on purpose: the room is left unlabelled so it can be explored, and the
+ * index appears only while a pill has keyboard focus. Both halves are asserted.
+ * Hidden at rest, or the room is labelled again; visible once focused, or a
+ * keyboard visitor is tabbing through buttons nobody can see.
+ *
  * Run against the dev server: node tools/verify-keyboard.mjs [url]
  */
 import { chromium } from 'playwright'
@@ -47,6 +53,28 @@ const active = () =>
     }
   })
 
+/** Rendered size of the hotspot index, and whether the focused pill is on screen. */
+const navBox = () =>
+  page.evaluate(() => {
+    const nav = document.querySelector('nav[aria-label="Places in the room"]')
+    const r = nav?.getBoundingClientRect()
+    const f = document.activeElement?.closest('nav') === nav
+      ? document.activeElement.getBoundingClientRect()
+      : null
+    return {
+      w: r ? Math.round(r.width) : null,
+      h: r ? Math.round(r.height) : null,
+      focusedOnScreen:
+        f !== null && f.width > 1 && f.top >= 0 && f.bottom <= innerHeight && f.left >= 0,
+    }
+  })
+
+const rest = await navBox()
+check(
+  rest.w !== null && rest.w <= 1 && rest.h <= 1,
+  `the hotspot index is hidden until focused (${rest.w}x${rest.h})`,
+)
+
 // Tab until a hotspot button takes focus, proving the room is enterable
 // without a pointer.
 let reachedNav = false
@@ -57,6 +85,12 @@ for (let i = 0; i < 20 && !reachedNav; i++) {
   if (a?.tag === 'button' && a.text === 'Contact') reachedNav = true
 }
 check(reachedNav, 'a hotspot button is reachable by Tab alone')
+
+const shown = await navBox()
+check(
+  shown.w > 100 && shown.focusedOnScreen,
+  `the index is visible while a pill has focus (${shown.w}x${shown.h})`,
+)
 
 // Open it with the keyboard.
 await page.keyboard.press('Enter')

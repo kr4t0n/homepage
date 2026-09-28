@@ -54,7 +54,6 @@ export function Scene() {
   const focus = useScene((s) => s.focus)
   const screen = useScene((s) => s.screen)
   const clearFocus = useScene((s) => s.clearFocus)
-  const setReady = useScene((s) => s.setReady)
 
   return (
     <Canvas
@@ -65,7 +64,6 @@ export function Scene() {
       onCreated={({ gl }) => {
         gl.toneMapping = THREE.ACESFilmicToneMapping
         gl.toneMappingExposure = lighting.exposure
-        setReady(true)
       }}
       camera={{ position: HOME_CAMERA.position, fov: 34, near: 0.1, far: 200 }}
       // Clicking past everything interactive returns to the home view.

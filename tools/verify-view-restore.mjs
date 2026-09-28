@@ -85,7 +85,8 @@ const diff = (a, b) =>
 /**
  * Park the pointer over non-interactive geometry and drop keyboard focus, so a
  * frame captures camera pose only. Otherwise the diff is dominated by the hover
- * wash on whatever the drag finished over, and the focus ring on the nav button.
+ * wash on whatever the drag finished over, and the nav, which is shown only while
+ * one of its pills has focus.
  */
 const shot = async (name) => {
   await page.mouse.move(640, 110)
@@ -129,8 +130,10 @@ if (!tunedState) {
   console.log('FAIL __orbit hook missing (is this a dev server?)')
   process.exitCode = 1
 } else {
-  // Open a hotspot, then close it.
-  await page.click('nav[aria-label="Places in the room"] button:nth-child(1)')
+  // Open a hotspot, then close it. By keyboard, because the index is hidden
+  // from a pointer; `shot` drops the focus again so the revealed pills never
+  // reach a compared frame.
+  await page.press('nav[aria-label="Places in the room"] button:nth-child(1)', 'Enter')
   await page.waitForTimeout(1800)
   const focusedState = await readOrbit()
   await shot('2_focused')

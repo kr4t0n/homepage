@@ -332,12 +332,14 @@ check(
 await bareCtx.close()
 blockCover = false
 
-// --- 10. The decks are reachable by clicking the object --------------------
+// --- 10. The decks are reachable from the keyboard index --------------------
+// The index is hidden from a pointer and appears only while a pill has focus,
+// so this is the route a keyboard visitor takes.
 await page.goto(BASE, { waitUntil: 'networkidle' })
 await page.waitForTimeout(2000)
-await page.click('nav[aria-label="Places in the room"] button:has-text("Now playing")')
+await page.press('nav[aria-label="Places in the room"] button:has-text("Now playing")', 'Enter')
 await page.waitForTimeout(2800)
-check('nav opens the decks', page.url().includes('#/player'), page.url().split('/').pop())
+check('the keyboard index opens the decks', page.url().includes('#/player'), page.url().split('/').pop())
 await page.screenshot({ path: 'tools/shots/player.png' })
 
 await browser.close()
