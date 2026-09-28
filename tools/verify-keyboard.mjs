@@ -107,7 +107,7 @@ check(
 )
 
 // The link stands in for the neon sign, so focusing it lights the sign, the
-// same way focusing a pill washes its object.
+// same way pointing at the sign does.
 const lit = await page.evaluate(() => window.__hover?.())
 check(lit === 'neon', `focusing the GitHub link lights the neon sign (hover=${lit})`)
 

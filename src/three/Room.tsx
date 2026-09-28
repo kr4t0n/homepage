@@ -4,8 +4,6 @@ import { type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
 import { HOTSPOTS, hotspotNodes } from '../content'
 import { useScene } from '../store'
-import { HIGHLIGHT, highlight } from './highlight'
-import { baseline, clearBaselines, setBaseline } from './materials'
 import { orbit } from './orbit'
 import { PixelBoard } from './PixelBoard'
 import { RankingBoard } from './RankingBoard'
@@ -39,7 +37,6 @@ const PIXEL_HOTSPOT = 'signals'
 
 export function Room() {
   const { scene } = useGLTF(GLB)
-  const hover = useScene((s) => s.hover)
   const focus = useScene((s) => s.focus)
   const setHover = useScene((s) => s.setHover)
   const setFocus = useScene((s) => s.setFocus)
@@ -54,18 +51,17 @@ export function Room() {
     return m
   }, [])
 
-  // The emissive baseline lives in ./materials rather than here, because the
-  // pixel board also writes emissive and has to be able to move a material's
-  // resting value. Hover restores from the same map, so the two cooperate
-  // instead of overwriting each other.
   const cloned = useMemo(() => {
     const root = scene.clone(true)
-    clearBaselines()
 
     // Object3D.clone() shares material instances, and the source asset reuses
-    // one material across unrelated props. Without per-node copies, hovering
-    // the desk also lights up a figurine on the far shelf. Give every
-    // interactive node its own materials so the wash stays contained.
+    // one material across unrelated props. Every hotspot node gets its own
+    // copies. This used to contain the hover wash, which is gone; it stays for
+    // two reasons. The wall boards write live emissive into their materials,
+    // which should land in this room's copies rather than the cached GLTF. And
+    // the roughness lift below runs once per mesh, so a material shared by
+    // several meshes is lifted once for each of them: dropping these copies
+    // would change how every hotspot prop looks.
     const owned = new Set<string>(HOTSPOTS.flatMap(hotspotNodes))
     owned.forEach((nodeName) => {
       const node = root.getObjectByName(nodeName)
@@ -101,73 +97,19 @@ export function Room() {
         if (o.name.startsWith('static_shell')) {
           m.color.multiplyScalar(0.34)
         }
-
-        setBaseline(m, m.emissive, m.emissiveIntensity)
       })
     })
     return root
   }, [scene])
 
-  // Drive the hover highlight from the store rather than per-frame state, so
-  // pointer movement never re-renders the React tree.
+  // Dev-only handle for tools/verify-hotspots.mjs. There is no hover
+  // highlight, so nothing in the room shows which meshes a hotspot owns; the
+  // tool tints them itself, from outside, to check the exporter's regions.
+  // Stripped from production builds, like __hover and __orbit.
   useEffect(() => {
-    // Restore every material first. A hotspot node with several primitives is
-    // loaded as a Group whose Mesh children are named `<node>_0`, `<node>_1`,
-    // so matching on the node name alone would never hit an actual Mesh.
-    const paint = (o: THREE.Object3D, on: boolean) => {
-      o.traverse((child) => {
-        if (!(child instanceof THREE.Mesh)) return
-        const mats = Array.isArray(child.material) ? child.material : [child.material]
-        mats.forEach((m) => {
-          if (!(m instanceof THREE.MeshStandardMaterial)) return
-          const base = baseline.get(m)
-          if (!base) return
-          if (on) {
-            // Blend the accent into the material's own emissive instead of
-            // overwriting it. Overwriting flattened every hovered prop into a
-            // solid green silhouette and killed the glow on the screens.
-            m.emissive.copy(base.color).lerp(HIGHLIGHT, highlight.mix)
-            m.emissiveIntensity = Math.max(base.intensity, highlight.intensity)
-          } else {
-            m.emissive.copy(base.color)
-            m.emissiveIntensity = base.intensity
-          }
-        })
-      })
-    }
-
-    paint(cloned, false)
-    const hovered = HOTSPOTS.find((h) => h.id === hover)
-    // Do not wash the thing you are already looking at. The highlight is an
-    // affordance meaning "clickable, click to focus"; once a hotspot IS focused
-    // that promise has been kept, and the wash is just noise over the subject
-    // the camera has flown to.
-    //
-    // It stopped being merely redundant when the pixel board arrived. That board
-    // encodes data in colour, and the wash lerps the accent into every material
-    // it touches — so hovering the focused board repaints six weeks of activity
-    // in shades of green and destroys the reading. The monitors have always
-    // looked right here for an accidental reason: nothing points a hotspot at
-    // `hot_screens`, so they are never hovered at all.
-    //
-    // `noHighlight` extends that from "the focused board" to "these boards,
-    // ever". Both wall boards encode their data in colour, so the wash was
-    // never an affordance there -- it was a hover that scrambled the reading.
-    const washed =
-      hovered && hovered.id !== focus && !hovered.noHighlight ? hotspotNodes(hovered) : []
-    washed.forEach((name) => {
-      const node = cloned.getObjectByName(name)
-      if (node) paint(node, true)
-    })
-
-    // Dev-only handle, alongside __hover and __orbit. The wash cannot be
-    // asserted from a screenshot: pointer parallax moves the camera, so any two
-    // frames taken with the pointer in different places differ almost
-    // everywhere. This reports the intent directly.
-    if (import.meta.env.DEV) {
-      ;(window as unknown as Record<string, unknown>).__wash = () => washed
-    }
-  }, [hover, focus, cloned])
+    if (!import.meta.env.DEV) return
+    ;(window as unknown as Record<string, unknown>).__room = { root: cloned, nodeToId }
+  }, [cloned, nodeToId])
 
   /**
    * Which pixel of the activity board is under the pointer, if any.

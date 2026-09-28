@@ -1,17 +1,13 @@
 /**
- * Signals is one hotspot over two wall boards, and neither takes the hover wash.
+ * Signals is one hotspot over two wall boards.
  *
- * Two of these assertions are cheap because focusing a nav pill drives the same
- * room hover state that pointing at the object does (`Hud.tsx` calls
- * `setHover` on focus), so the wash can be checked without hunting for the
- * boards on screen at all. Focus rather than hover, because the index is hidden
- * from a pointer and only appears while a pill has keyboard focus.
- *
- * The wash is read from the dev-only `__wash` hook rather than from pixels.
- * A screenshot cannot answer this: pointer parallax moves the camera, so two
- * frames taken with the pointer in different places differ almost everywhere,
- * and an early version of this test reported 158,000 changed pixels for a
- * hotspot that was not washed at all.
+ * The first assertion is cheap because focusing a nav pill drives the same room
+ * hover state that pointing at the object does (`Hud.tsx` calls `setHover` on
+ * focus), so it needs no hunting for the boards on screen. Focus rather than
+ * hover, because the index is hidden from a pointer and only appears while a
+ * pill has keyboard focus. Hover state is read from the dev-only `__hover` hook
+ * rather than from pixels: pointer parallax moves the camera, so two frames
+ * taken with the pointer in different places differ almost everywhere.
  *
  * Run against a dev server: npm run dev, then node tools/verify-boards.mjs [url]
  */
@@ -42,23 +38,11 @@ await page.goto(`${BASE}/`, { waitUntil: 'networkidle', timeout: 120_000 })
 await page.waitForFunction(() => !document.querySelector('[role="status"]'), { timeout: 120_000 })
 await page.waitForTimeout(3000)
 
-const pill = async (label) => {
-  const b = page.locator('nav[aria-label="Places in the room"] button', { hasText: label }).first()
-  await b.focus()
-  await page.waitForTimeout(400)
-  return page.evaluate(() => ({ hover: window.__hover?.(), wash: window.__wash?.() }))
-}
-
-const sig = await pill('Signals')
-check('the Signals pill hovers the signals hotspot', sig.hover === 'signals', String(sig.hover))
-check('neither wall board takes the hover wash', Array.isArray(sig.wash) && sig.wash.length === 0,
-  JSON.stringify(sig.wash))
-
-// The wash still has to work everywhere else, or this test would pass just as
-// well if the highlight were broken outright.
-const wri = await pill('Writing')
-check('an ordinary prop still washes', Array.isArray(wri.wash) && wri.wash.length > 0,
-  JSON.stringify(wri.wash))
+const sig = page.locator('nav[aria-label="Places in the room"] button', { hasText: 'Signals' }).first()
+await sig.focus()
+await page.waitForTimeout(400)
+const sigHover = await page.evaluate(() => window.__hover?.())
+check('the Signals pill hovers the signals hotspot', sigHover === 'signals', String(sigHover))
 
 // Both boards must pick. Sweep the band they hang in and collect the horizontal
 // extent of the region that resolves to signals.

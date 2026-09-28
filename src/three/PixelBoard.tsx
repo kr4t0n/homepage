@@ -3,7 +3,6 @@ import gsap from 'gsap'
 import * as THREE from 'three'
 import { usePixels } from '../pixels/usePixels'
 import { cellAppearance, indexCells } from '../pixels/palette'
-import { setBaseline } from './materials'
 
 /**
  * Lights the wall board from live Argus activity.
@@ -48,10 +47,6 @@ export function PixelBoard({ root }: { root: THREE.Object3D }) {
       const { colour, intensity } = cellAppearance(data, slot, live)
       cell.material.emissive.copy(colour)
       cell.material.emissiveIntensity = intensity
-      // Record where this pixel rests. Room restores every material from the
-      // baseline map whenever the hover target changes, so without this the
-      // board would blank the first time anything in the room was hovered.
-      setBaseline(cell.material, colour, intensity)
     }
   }, [data, live, cells])
 

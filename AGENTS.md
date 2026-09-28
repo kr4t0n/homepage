@@ -116,8 +116,9 @@ treatment.
 only.** There is no hero copy, no visible row of hotspot pills and no "drag to
 look around" hint. Every object that opens something is meant to be found by
 exploring, and a labelled index in the corner gave the whole room away before
-anyone had looked at it. The only discovery cues left are in the scene: the
-accent wash on hover and the pointer cursor.
+anyone had looked at it. The only discovery cue left is the pointer cursor;
+the green hover wash went too, for the same reason (see "There is no hover
+highlight" below).
 
 The index was not deleted, because it is the only keyboard route into the room.
 Without it no hotspot can be focused, the Argus and nodex anchors inside About
@@ -297,11 +298,11 @@ data has no DOM representation at all, so a screen reader gets nothing; see the
 known gap in README before adding another `bare` hotspot that carries content.
 
 **A hotspot can own several meshes, and everything must agree on which.**
-`nodes` on a `Hotspot` lists extra glTF nodes beyond `node`; picking, hover and
-camera framing all read `hotspotNodes(h)` rather than `h.node`. Signals is both
-wall boards. Reading `node` directly in any one of those three places gives a
-hotspot that highlights but does not pick, or picks but frames only half of
-itself — all of which look like deliberate design rather than bugs. Framing
+`nodes` on a `Hotspot` lists extra glTF nodes beyond `node`; picking and
+camera framing both read `hotspotNodes(h)` rather than `h.node`. Signals is both
+wall boards. Reading `node` directly in either place gives a hotspot that picks
+from only half of itself, or picks but frames only half of itself — both of
+which look like deliberate design rather than bugs. Framing
 takes the union of the boxes, so the shot follows the asset.
 
 **`look` is a world-space offset, not an angle, so it does not survive a change
@@ -311,11 +312,16 @@ pixel board's week labels. Rescale `look` whenever `offset` changes.
 
 **Never assert on pixels to test hover.** Pointer parallax moves the camera, so
 two screenshots taken with the pointer in different places differ almost
-everywhere: a first attempt at testing the hover wash reported 158,000 changed
-pixels for a hotspot that was not washed at all. `Room.tsx` exposes a dev-only
-`__wash()` returning the node names currently washed, and focusing a nav pill
-drives the same hover state as pointing at the object, so both can be checked
-as state.
+everywhere: a first attempt at testing the old hover wash reported 158,000
+changed pixels for a hotspot that was not washed at all. Read `__hover()`
+instead; focusing a nav pill drives the same hover state as pointing at the
+object, so both routes can be checked as state.
+
+The converse also bit this repo: state alone can pass while nothing on screen
+changes. `__wash()` reported the intended node names correctly for three weeks
+in which the wash painted nothing under `npm run dev`. If a test exists to
+prove something is *visible*, it needs one pixel comparison taken under
+`reducedMotion: 'reduce'`, where the camera ignores the pointer.
 
 **A hotspot's camera is placed relative to its bounding box, so growing the
 group re-frames the panel.** `content.ts` stores `offset` and `look` as deltas
@@ -613,13 +619,17 @@ request leaves the origin.
 **glTF nodes with multiple primitives load as a Group, not a Mesh.** Children get
 suffixed names (`hot_desk_0`, `hot_desk_1`, ...). Matching `mesh.name === node`
 silently never fires. Use `getObjectByName(node)` then traverse its subtree.
-This caused the hover highlight to be invisible while raycasting still worked,
+This once made the hover highlight invisible while raycasting still worked,
 because raycasting walks up the parent chain.
 
 **`Object3D.clone()` shares material instances.** The source asset reuses one
-material across unrelated props, so mutating a material for hover highlighting
-lights up objects on the other side of the room. Interactive nodes get their
-materials cloned explicitly in `Room.tsx`.
+material across unrelated props, so mutating one in place changes objects on
+the other side of the room, and also writes into the cached GLTF itself.
+Hotspot nodes get their materials cloned explicitly in `Room.tsx`. That clone
+originally contained the hover wash and outlived it on purpose: the roughness
+lift that follows runs once per mesh, so removing the copies would change how
+the hotspot props look. `verify-hotspots.mjs` tints through material copies
+for the same reason.
 
 **`bpy.ops.object.join()` silently discards every non-active object's
 modifiers.** In this asset that deletes real geometry, because several props are
@@ -656,8 +666,8 @@ several boxes here were named from a guess about position that turned out
 wrong. `midikeys` enclosed the DJ controller and `guitar` enclosed the synth,
 so the Music hotspot sat on the wrong instrument for a while and the real
 keyboard was never addressable. They are now named for what they actually
-contain. `node tools/verify-hotspots.mjs` hovers each hotspot and captures what
-lights up; run it after any region change, and rename a region the moment its
+contain. `node tools/verify-hotspots.mjs` tints each hotspot's meshes in turn
+and captures them; run it after any region change, and rename a region the moment its
 name stops matching its contents.
 
 **The monitor panels' polygon normals point the wrong way.** Blender reports
@@ -767,13 +777,15 @@ camera-restore test that ignored this reported a 6.26 mean pixel difference on
 a view that was in fact restored exactly. Launch the page with
 `reducedMotion: 'reduce'` for any pixel assertion. Also park the pointer over
 non-interactive geometry and blur the active element first, or the diff is
-dominated by the hover wash and a focus ring.
+dominated by the neon sign brightening and a focus ring.
 
 **Prefer asserting on state over pixels, and never on chrome.** The dev-only
-handles are `window.__orbit` (camera offsets), `window.__highlight` and
-`window.__neon` (accent tuning) and `window.__hover` (hovered id), all behind
-`import.meta.env.DEV`. Confirm they are stripped after a build with
-`grep -o "__orbit\|__highlight\|__neon\|__hover" dist/assets/*.js`.
+handles are `window.__orbit` (camera offsets), `window.__neon` (sign
+brightness tuning), `window.__hover` (hovered id), `window.__board` (pixel
+board cells) and `window.__room` (the cloned scene and its node-to-hotspot
+map, for `verify-hotspots.mjs`), all behind `import.meta.env.DEV`. Confirm
+they are stripped after a build with
+`grep -o "__orbit\|__neon\|__hover\|__board\|__room" dist/assets/*.js`.
 
 `__hover` exists because two verification scripts used to locate objects by
 scraping the hover readout out of the DOM. When that readout was removed from
@@ -781,11 +793,24 @@ the design the scripts broke, for a reason that had nothing to do with what they
 were testing. Tests should not depend on visible chrome surviving a design
 decision.
 
-**Hover feedback lives in the scene, not in a label.** There is no hover
-readout. A hovered object gets the accent wash from `highlight.ts`, the cursor
-becomes a pointer via `bindCursor`. That is two channels without putting
-floating text over the room. The matching nav pill lights up as a third, but
-only for a keyboard visitor, since the index is hidden until focused.
+**There is no hover highlight, by choice.** Hovering an object changes nothing
+about how it looks; the cursor becoming a pointer via `bindCursor` is the whole
+of the feedback. The green emissive wash that used to light hovered props was
+removed by the owner: the room is meant to be explored, and a wash announced
+every interactive object the moment the pointer crossed it. The neon sign still
+brightens under the pointer, which is part of the sign rather than a room-wide
+affordance. The matching nav pill lights up for a keyboard visitor, since the
+index is hidden until focused.
+
+Two things were learned the hard way, if a highlight ever comes back. Blend the
+accent into the material's own emissive rather than replacing it, or props
+flatten into solid silhouettes and glowing ones lose their glow. And never
+clear shared state inside a `useMemo` that clones the scene: under
+`<StrictMode>` React runs that function twice in development and keeps the
+*first* result, so the second run wiped the wash's baseline map and refilled it
+from a clone that was then thrown away. The wash painted nothing under
+`npm run dev` for three weeks while working in production, and the only test
+checked intent, not pixels.
 
 **`gsap.from()` under reduced motion will hide your UI.** `from()` writes its
 start state to the element immediately and animates away from it. If the tween
@@ -798,13 +823,6 @@ styles. Wrap every `from()` in `gsap.matchMedia()` keyed on
 `(prefers-reduced-motion: no-preference)` so the tween is never created. For
 `to()` tweens that express a state change, keep the tween and set
 `duration: 0` instead, so the state still lands.
-
-**Hover highlight blends, it does not replace.** Setting `emissive` to the
-accent flattens a hovered prop into a solid silhouette and destroys the glow on
-the emissive ones. `src/three/highlight.ts` lerps the accent into the material's
-existing emissive and takes `Math.max` of the intensities. Tune it with
-`tools/sweep-highlight.mjs`, which renders a sweep against the three cases that
-fail differently: a light prop, a dark prop, and an emissive prop.
 
 **A nav pill cannot be hovered or clicked in a test.** The index is `sr-only`
 until focused, so its pills take no pointer events. To drive hover state, either

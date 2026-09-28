@@ -84,9 +84,9 @@ const diff = (a, b) =>
 
 /**
  * Park the pointer over non-interactive geometry and drop keyboard focus, so a
- * frame captures camera pose only. Otherwise the diff is dominated by the hover
- * wash on whatever the drag finished over, and the nav, which is shown only while
- * one of its pills has focus.
+ * frame captures camera pose only. Otherwise the diff is dominated by the nav,
+ * which is shown only while one of its pills has focus, and by the neon sign
+ * brightening if the drag finished over it.
  */
 const shot = async (name) => {
   await page.mouse.move(640, 110)
