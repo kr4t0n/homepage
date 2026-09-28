@@ -352,10 +352,6 @@ const unknown = nodes.filter((n) => !known.has(n))
 check('every node signals claims exists in the manifest', unknown.length === 0,
   unknown.join(', '))
 
-// The wash lerps the acid accent into every material it touches, and both
-// boards encode their data in colour.
-check('the boards are exempt from the hover wash', signals?.noHighlight === true)
-
 // Framing is the union of both boxes. If it silently fell back to the first
 // node the camera would centre on the pixel board and push the ranking board
 // to the edge of frame -- which is what it did before, and which still looks

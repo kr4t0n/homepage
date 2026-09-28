@@ -24,9 +24,9 @@ gsap.registerPlugin(useGSAP)
  * used to be. A pointer never lands on it, so the room stays unlabelled for
  * anyone who can explore it directly.
  *
- * There is no hover readout. Hovering is communicated in the scene itself, by
- * the accent wash on the object and the pointer cursor, which is enough and
- * keeps the room free of floating labels.
+ * There is no hover readout and no hover highlight. The pointer cursor is the
+ * only sign that an object does something, which keeps the room free of
+ * floating labels and leaves the finding to the visitor.
  */
 export function Hud() {
   const focus = useScene((s) => s.focus)
@@ -71,8 +71,8 @@ export function Hud() {
           Nor across the bottom-left, where the hero and a visible hotspot
           index used to be. What remains is the keyboard route into the room:
           `sr-only` until a pill takes focus, shown in place while one has it.
-          Focusing a pill washes its object exactly as pointing at it does, so
-          a keyboard visitor is still shown where each thing is.
+          Focusing a pill sets the same hover state that pointing at its object
+          does, which is what lights the pill itself.
 
           It stays mounted and fades when a panel opens rather than unmounting.
           The pill that was just pressed keeps focus underneath the panel, so the
@@ -103,9 +103,10 @@ export function Hud() {
             </button>
           ))}
           {/* The room's links, after its places. Each is the keyboard twin of
-              a 3D click target, and focusing one lights that object the same
-              way a pill washes its hotspot, so the visitor is shown where the
-              link lives. Real anchors, so they open like any other link. */}
+              a 3D click target. Focusing one sets that object's hover state, and
+              the neon sign brightens under it on its own, so the visitor is
+              shown where the link lives. Real anchors, so they open like any
+              other link. */}
           {ROOM_LINKS.map((l) => (
             <a
               key={l.id}

@@ -3,7 +3,6 @@ import * as THREE from 'three'
 import { usePixels } from '../pixels/usePixels'
 import { rankByTokens, shortTokens, ROWS, SEGMENTS } from '../pixels/ranking'
 import anchors from '../ranking-anchors.json'
-import { setBaseline } from './materials'
 
 /**
  * Drives the project ranking board on the -x wall, beside the pixel board.
@@ -138,10 +137,6 @@ export function RankingBoard({ root }: { root: THREE.Object3D }) {
         const colour = on ? row.lit : row.lit.clone().multiplyScalar(DIM)
         m.emissive.copy(colour)
         m.emissiveIntensity = 1
-        // Room restores every material from the baseline map on each hover
-        // change, so a board that wrote emissive without recording it here
-        // would blank the moment anything in the room was pointed at.
-        setBaseline(m, colour, 1)
       })
     })
   }, [data, rows])

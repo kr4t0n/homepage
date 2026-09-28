@@ -51,15 +51,6 @@ export interface Hotspot {
    * thing you asked to look at and say it again in words.
    */
   bare?: boolean
-  /**
-   * Suppress the green hover wash on this hotspot's nodes.
-   *
-   * For a prop the wash is the affordance that says "clickable". For a display
-   * that encodes data in colour it is destructive: the accent is lerped into
-   * every material it touches, so hovering repaints the reading. Set this on
-   * anything whose colour carries meaning.
-   */
-  noHighlight?: boolean
 }
 
 export const PROFILE = {
@@ -181,12 +172,6 @@ export const HOTSPOTS: Hotspot[] = [
     label: 'Signals',
     hint: 'Six weeks of agent activity',
     kind: 'stats',
-    // The colour on these boards IS the content: hue is which project owned an
-    // hour, brightness is how busy it was, and the ranking bars carry a
-    // designed per-row ramp. The hover wash lerps the acid accent into every
-    // material it touches, which repaints all of that. No affordance is worth
-    // destroying the reading it is advertising.
-    noHighlight: true,
     // No panel. The boards carry the whole readout -- the heatmap, the legend
     // colours, the ranking with its token totals -- and the panel restated it
     // in words while covering the bottom of both boards to do so. Per-cell

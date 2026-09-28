@@ -232,9 +232,6 @@ its `nodes`, so either board hovers, picks and frames the pair — the camera ai
 at the union of both bounding boxes rather than at the pixel board with the
 ranking board off to one side.
 
-Neither board takes the green hover wash (`noHighlight`): the accent is lerped
-into every material it touches, and on these boards colour *is* the content.
-
 The hotspot is also `bare`, so focusing it opens no glass panel at all — the
 same treatment the framed monitors already had. The boards carry the whole
 readout between them, and a panel restating it in words covered the bottom of
@@ -249,9 +246,7 @@ tokens while holding a single hour on the board beside it.
 
 **Both are lit by writing emissive on named materials, never by adding
 geometry.** The pixel board finds 1008 `Pixel Light R# C#`; the ranking board
-finds 160 `Ranking - LED Pnn Snn`. Anything that paints a lasting colour must
-also call `setBaseline`, or the hover wash will blank it — see
-`src/three/materials.ts`.
+finds 160 `Ranking - LED Pnn Snn`.
 
 The ranking board's segment materials existed in the `.blend` but were never
 assigned; all 160 objects pointed at `Ranking - LED P01 S01`, and all 160 shared
@@ -284,13 +279,17 @@ it, which is not always the object you meant. Never trust a region name without
 looking.
 
 ```bash
+npm run dev                      # in one shell
+node tools/verify-hotspots.mjs   # tints each hotspot's meshes, writes tools/shots/hover/
 npm run build
-node tools/verify-hotspots.mjs   # hovers each hotspot, writes tools/shots/hover/
 node tools/shoot.mjs             # full walkthrough, writes tools/shots/
 ```
 
-Both serve `dist/` from an in-process static server and drive headless Chromium
-with a software WebGL context, so they need no display and no detached server.
+The room has no hover highlight, so `verify-hotspots` lights each hotspot's
+meshes itself, through the dev-only `window.__room` handle, which is why it
+needs the dev server. `shoot` serves `dist/` from an in-process static server.
+Both drive headless Chromium with a software WebGL context, so they need no
+display.
 
 ## Camera behaviour tests
 
@@ -301,7 +300,6 @@ These drive a running dev server instead, because they assert on the dev-only
 npm run dev                          # in one shell
 node tools/verify-orbit.mjs          # orbit, zoom, drag-vs-click
 node tools/verify-view-restore.mjs   # tuned view survives a hotspot visit
-node tools/sweep-highlight.mjs       # renders a hover-accent tuning sweep
 node tools/sweep-neon.mjs            # renders a neon brightness sweep
 node tools/verify-neon-link.mjs      # the neon wordmark behaves as a link
 node tools/verify-keyboard.mjs       # the room is usable without a pointer
@@ -338,7 +336,7 @@ node tools/verify-glass.mjs           # panel text clears WCAG AA on glass
 node tools/verify-draco.mjs           # the decoder is same-origin; nothing leaves the site
 ```
 
-All three exit non-zero on failure. `verify-hotspots.mjs` likewise serves `dist/`.
+All three exit non-zero on failure.
 
 ## The glass panels
 
@@ -505,11 +503,11 @@ up. `src/three/NeonSign.tsx` is a worked example.
 
 Everything the page says lives in `src/content.ts`. Add a hotspot by adding an
 entry pointing at a node that exists in `src/scene-manifest.json`, then run the
-verification script to confirm it highlights the object you expect.
+verification script to confirm it tints the object you expect.
 
 A new hotspot is not announced anywhere a pointer visitor can see. The room has
-no visible index, on purpose, so the hover wash and the pointer cursor are the
-only way anyone finds it. It does get a pill in the keyboard index in `Hud.tsx`
+no visible index and no hover highlight, on purpose, so the pointer cursor is
+the only way anyone finds it. It does get a pill in the keyboard index in `Hud.tsx`
 automatically, which is hidden until a keyboard visitor tabs into it. That index
 is the only way into the room without a pointer, so it stays; see AGENTS.md
 before changing how it hides.
@@ -648,11 +646,9 @@ src/
     ranking.ts          top-5 by tokens, scores and segment counts
   three/
     Scene.tsx           canvas, lighting, tone mapping
-    Room.tsx            GLB load, raycasting, hover highlight
+    Room.tsx            GLB load, raycasting, hover state and picking
     CameraDirector.tsx  GSAP camera choreography, orbit, idle drift
     orbit.ts            drag/zoom/pinch input, limits, home-view stash
-    highlight.ts        hover accent colour and strength
-    materials.ts        emissive baselines shared by hover and the boards
     PixelBoard.tsx      lights 1008 cells from live activity
     RankingBoard.tsx    lights 160 LEDs, draws live text to a canvas
     Screens.tsx         the three monitors, framed on click, link on second
@@ -680,14 +676,13 @@ tools/
   base.mjs              shared target URL, strict flag, and "is this us?" probe
   verify-api.mjs        secret containment, proxy disclosure, ranking maths
   verify-proxy.mjs      proxy contract tests against a stubbed upstream
-  verify-boards.mjs     both wall boards pick as one hotspot, and take no wash
+  verify-boards.mjs     both wall boards pick and frame as one hotspot
   verify-draco.mjs      the Draco decoder is same-origin, and nothing leaves the site
   verify-glass.mjs      glass contrast gate
-  verify-hotspots.mjs   hover verification captures
+  verify-hotspots.mjs   tints each hotspot's meshes to check the export regions
   verify-orbit.mjs      orbit, zoom, drag-vs-click checks
   verify-view-restore.mjs  camera restore regression test
   verify-player.mjs     backing-track transport
-  sweep-highlight.mjs   hover-accent tuning sweep
   sweep-neon.mjs        neon brightness tuning sweep
   verify-neon-link.mjs  neon wordmark link behaviour
   verify-keyboard.mjs   keyboard-only reachability

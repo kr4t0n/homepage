@@ -21,7 +21,7 @@ import { orbit } from './orbit'
  */
 const TEXT = 'kr4t0n'
 
-/** Accent, matching --color-acid and the hover highlight. */
+/** Accent, matching --color-acid. */
 const NEON = '#9ef01a'
 
 /**
