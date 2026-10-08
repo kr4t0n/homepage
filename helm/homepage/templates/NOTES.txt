@@ -30,15 +30,15 @@ Running WITHOUT Argus, which is a supported mode: the room renders normally
 and the two wall boards stay unlit. Set argus.url plus argus.apiKey or
 argus.existingSecret to light them.
 {{- end }}
-{{- if .Values.media.enabled }}
+{{- if .Values.persistence.enabled }}
 
-Media is served from PVC {{ include "homepage.mediaClaim" . }}, mounted read-only. Until it
+Media is served from PVC {{ include "homepage.pvcName" . }}, mounted read-only. Until it
 holds a track.json and the files it names, the room plays nothing. To change
 the song, load the new files with a loader pod (see the chart README) and
 write track.json last; the next page load picks it up.
 {{- else }}
 
-No media volume, so the room runs in silence. Set media.enabled to add one.
+No media volume, so the room runs in silence. Set persistence.enabled to add one.
 {{- end }}
 {{- if eq (include "homepage.tag" .) "latest" }}
 

@@ -33,8 +33,9 @@ never leaves the cluster.
 
 ## Media: the backing track
 
-The image carries no audio. With `media.enabled`, the chart creates a PVC (or
-uses `media.existingClaim`) and mounts it read-only over `/app/dist/media`.
+The image carries no audio. With `persistence.enabled`, the chart creates a PVC
+(or uses `persistence.existingClaim`) and mounts it read-only over
+`/app/dist/media`.
 Whatever `track.json` on it names is what plays:
 
 ```json
@@ -96,7 +97,7 @@ The backing track is never in the image; it comes from the media volume above.
 ## Values
 
 See `values.yaml`, which is commented. The ones that matter most are
-`argus`, `media` and `ingress`.
+`argus`, `persistence` and `ingress`.
 
 ## Releasing
 

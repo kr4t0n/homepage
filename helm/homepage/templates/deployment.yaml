@@ -89,7 +89,7 @@ spec:
             initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
           {{- end }}
-          {{- if .Values.media.enabled }}
+          {{- if .Values.persistence.enabled }}
           volumeMounts:
             {{- /* Over the build's own static tree, so the existing static handler serves it and dev's public/media maps onto the same URLs. */}}
             - name: media
@@ -106,11 +106,11 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-      {{- if .Values.media.enabled }}
+      {{- if .Values.persistence.enabled }}
       volumes:
         - name: media
           persistentVolumeClaim:
-            claimName: {{ include "homepage.mediaClaim" . }}
+            claimName: {{ include "homepage.pvcName" . }}
             readOnly: true
       {{- end }}
       {{- with .Values.nodeSelector }}

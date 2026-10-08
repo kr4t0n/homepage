@@ -7,7 +7,7 @@
 # there is no volume to provision and nothing to seed.
 #
 # The backing track is NOT in the image. Media comes from a volume at
-# runtime (see `media` below), so neither git nor the image ever carries
+# runtime (see `persistence` below), so neither git nor the image ever carries
 # a recording.
 # ─────────────────────────────────────────────────────────────────────
 
@@ -53,7 +53,7 @@ argus:
   existingSecret: ""
   existingSecretKey: ARGUS_KEY
 
-# ─── Media: the backing track ────────────────────────────────────────
+# ─── Persistence: the backing track ──────────────────────────────────
 # The audio, its cover and the track.json describing them live on a
 # volume mounted read-only over dist/media, never in the image. Changing
 # the song is a file change on the volume: the next page load reads the
@@ -62,7 +62,7 @@ argus:
 #
 # Disabled, or enabled with nothing on the volume yet, the room runs in
 # silence and the decks say so. That is a supported state.
-media:
+persistence:
   enabled: false
   # Leave empty to use the cluster's default StorageClass.
   storageClass: ""
