@@ -24,12 +24,12 @@ replicaCount: 1
 image:
   registry: docker.io
   repository: kr4t0n/homepage
-  # Falls back to .Chart.AppVersion, which is `latest`. Pin a `sha-<short>`
-  # tag for anything you care about: those are immutable, `latest` is not.
+  # Falls back to .Chart.AppVersion, the image released with this chart
+  # version. Override to run another build, e.g. a `sha-<short>` from main.
   tag: ""
   # Empty leaves the field off and Kubernetes picks: Always for `latest`,
   # IfNotPresent for anything else. A fixed IfNotPresent would keep serving
-  # whichever `latest` a node happened to pull first.
+  # whichever `latest` a node happened to pull first if someone set it.
   pullPolicy: ""
 
 # References existing Secrets of type kubernetes.io/dockerconfigjson.
