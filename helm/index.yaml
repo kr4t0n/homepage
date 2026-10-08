@@ -2,8 +2,32 @@ apiVersion: v1
 entries:
   homepage:
   - apiVersion: v2
+    appVersion: 0.1.1
+    created: "2026-10-08T15:06:19.711070788Z"
+    description: 'kr4t0n''s homepage — an explorable 3D room. One container serves
+      the built site and the /api/pixels proxy that lights the two wall boards from
+      Argus.  Argus is NOT required. Without it the room renders normally and the
+      boards stay unlit, which is a supported state rather than a failure. '
+    digest: bdd5a67669aee88121c3f55396524db6880a7b39991b2b8bed0f3fd9db1a05c6
+    home: https://github.com/kr4t0n/homepage
+    keywords:
+    - homepage
+    - threejs
+    - react-three-fiber
+    kubeVersion: '>=1.30.0-0'
+    maintainers:
+    - name: kr4t0n
+      url: https://github.com/kr4t0n
+    name: homepage
+    sources:
+    - https://github.com/kr4t0n/homepage
+    type: application
+    urls:
+    - https://kr4t0n.github.io/homepage/helm/homepage-0.1.1.tgz
+    version: 0.1.1
+  - apiVersion: v2
     appVersion: latest
-    created: "2026-10-08T08:53:59.321506887Z"
+    created: "2026-10-08T15:06:19.710551909Z"
     description: 'kr4t0n''s homepage — an explorable 3D room. One container serves
       the built site and the /api/pixels proxy that lights the two wall boards from
       Argus.  Argus is NOT required. Without it the room renders normally and the
@@ -25,4 +49,4 @@ entries:
     urls:
     - https://kr4t0n.github.io/homepage/helm/homepage-0.1.0.tgz
     version: 0.1.0
-generated: "2026-10-08T08:53:59.320923656Z"
+generated: "2026-10-08T15:06:19.709928615Z"
