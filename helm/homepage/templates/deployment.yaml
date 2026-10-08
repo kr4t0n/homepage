@@ -89,6 +89,13 @@ spec:
             initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
           {{- end }}
+          {{- if .Values.media.enabled }}
+          volumeMounts:
+            {{- /* Over the build's own static tree, so the existing static handler serves it and dev's public/media maps onto the same URLs. */}}
+            - name: media
+              mountPath: /app/dist/media
+              readOnly: true
+          {{- end }}
           {{- if .Values.shutdownDelaySeconds }}
           lifecycle:
             preStop:
@@ -99,6 +106,13 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+      {{- if .Values.media.enabled }}
+      volumes:
+        - name: media
+          persistentVolumeClaim:
+            claimName: {{ include "homepage.mediaClaim" . }}
+            readOnly: true
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

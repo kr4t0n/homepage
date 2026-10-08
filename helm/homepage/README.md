@@ -31,6 +31,42 @@ a way that is indistinguishable from an Argus outage.
 Prefer the in-cluster service address over the public ingress, so the request
 never leaves the cluster.
 
+## Media: the backing track
+
+The image carries no audio. With `media.enabled`, the chart creates a PVC (or
+uses `media.existingClaim`) and mounts it read-only over `/app/dist/media`.
+Whatever `track.json` on it names is what plays:
+
+```json
+{ "src": "night-drive.mp3", "title": "Night Drive", "artist": "kr4t0n", "cover": "night-drive.webp" }
+```
+
+`src` and `cover` are bare file names beside the manifest; `cover` is optional.
+Give every song its own file names, because the audio is cached for an hour and
+only the manifest is not.
+
+Changing the song takes no release and no restart. The pod's own mount is
+read-only, so files go on through a short-lived loader pod on the same node; a
+ReadWriteOnce volume is attached to one node only:
+
+```bash
+NS=homepage CLAIM=homepage-media
+NODE=$(kubectl -n $NS get pod -l app.kubernetes.io/name=homepage -o jsonpath='{.items[0].spec.nodeName}')
+kubectl -n $NS run media-loader --image=busybox:1.37 --restart=Never \
+  --overrides="{\"spec\":{\"nodeName\":\"$NODE\",\"volumes\":[{\"name\":\"m\",\"persistentVolumeClaim\":{\"claimName\":\"$CLAIM\"}}],\"containers\":[{\"name\":\"media-loader\",\"image\":\"busybox:1.37\",\"command\":[\"sleep\",\"3600\"],\"volumeMounts\":[{\"name\":\"m\",\"mountPath\":\"/media\"}]}]}}"
+kubectl -n $NS wait --for=condition=Ready pod/media-loader
+kubectl -n $NS cp night-drive.mp3  media-loader:/media/night-drive.mp3
+kubectl -n $NS cp night-drive.webp media-loader:/media/night-drive.webp
+kubectl -n $NS cp track.json       media-loader:/media/track.json   # last
+kubectl -n $NS delete pod media-loader
+```
+
+The manifest goes last so it never names a file that is not there yet. Old
+songs can be deleted the same way once nothing names them.
+
+The chart's PVC carries `helm.sh/resource-policy: keep`, so `helm uninstall`
+leaves the songs in place. Remove the claim by hand when they should go too.
+
 ## The image
 
 Each chart version pins the image built for it: `appVersion` equals `version`,
@@ -42,8 +78,7 @@ well as the manifest. Set `image.tag` only to run something else, such as a
 `image.pullPolicy` is empty by default, which lets Kubernetes choose `Always`
 for `latest` and `IfNotPresent` for anything else.
 
-The backing track is not in the image and no value adds it; see the main
-README for why.
+The backing track is never in the image; it comes from the media volume above.
 
 ## Defaults worth knowing
 
@@ -61,7 +96,7 @@ README for why.
 ## Values
 
 See `values.yaml`, which is commented. The ones that matter most are
-`argus` and `ingress`.
+`argus`, `media` and `ingress`.
 
 ## Releasing
 

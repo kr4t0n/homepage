@@ -412,34 +412,54 @@ All of the above need a one-time `npx playwright install chromium`.
 
 ## The backing track
 
-The room plays a track on loop. **The audio file is not in this repository** —
-`*.mp3` is gitignored for the same reason the `.blend` is: the current track is
-a commercial release, and this repo is public, so committing it would
-redistribute the recording rather than play it.
+The room plays a track on loop. **Neither the audio nor anything describing it is
+in this repository or its image.** The current track is a commercial release and
+this repo is public, so committing it would redistribute the recording rather
+than play it. What plays is decided at runtime by a manifest:
 
-A fresh clone therefore runs silent, on purpose. `usePlayer.available` goes
-false when the file 404s and the decks panel says so instead of pretending. To
-put audio back:
+```json
+{ "src": "night-drive.mp3", "title": "Night Drive", "artist": "kr4t0n", "cover": "night-drive.webp" }
+```
 
-1. Drop a file in as `public/track.mp3`.
-2. Update `TRACK` in `src/content.ts` — `title`, `artist` and `seconds`.
-3. Optionally add cover art as `public/cover.webp`, 192px square. It fills the
-   transport button, so it needs to hold up at 3x DPR on a 56px control. Leave
-   `TRACK.cover` undefined, or omit the file, and the button falls back to a
-   solid accent fill — that is the fresh-clone default and a supported state,
-   not a broken one.
+The page fetches `/media/track.json` and plays the file it names from beside it.
+Locally `/media` is `public/media/`; in the cluster it is a volume mounted
+read-only over `dist/media` (the chart's `media` values). Both are ignored by git
+and by Docker, so a track can be loaded without ever being committed or built in.
+
+**Changing the song is a file change, not a release.** Put the new audio (and
+optionally its cover) on the volume, then rewrite `track.json`, in that order so
+the manifest never names a file that is not there yet. The next page load plays
+it; nothing restarts. The chart README has the commands for loading files onto
+the volume.
+
+- `src` and `title`, `artist` are required. `cover` is optional; leave it out,
+  or let it 404, and the transport falls back to a solid accent fill.
+- `src` and `cover` must be bare file names in the same directory. Anything with
+  a slash, a leading dot or a scheme is refused, so a manifest cannot point the
+  player at another path or another origin.
+- **Give each song its own file names.** The manifest is served `no-cache`, but
+  the audio and cover keep a one-hour cache. A new song under a new name is
+  picked up immediately; a new song written over `track.mp3` is not, for anyone
+  who played the old one within the hour.
+- The length is not in the manifest. The audio element reports it once its
+  metadata loads.
+
+A fresh clone, or a deployment with no media volume, therefore runs silent, on
+purpose: `usePlayer.available` goes false when the manifest is missing or
+invalid, and the decks panel says so instead of pretending.
 
 `artist` is the attribution and the panel always renders it, so a track that is
-not yours stays credited. There is no longer a longer disclaimer below the card.
+not yours stays credited.
 
-Cover art is usually already inside the file, as an ID3v2 `APIC` frame, at a size
+Cover art should be 192px square. It fills the transport button, so it needs to
+hold up at 3x DPR on a 56px control. Cover art is usually already inside the file, as an ID3v2 `APIC` frame, at a size
 made for a media library rather than a 56px control — the track supplied here
 carried a 1400x1400 PNG. Extract it, resize it, and the 1.59 MB becomes 4.9 KB:
 
 ```python
 from PIL import Image
 Image.open('cover.png').convert('RGB').resize((192, 192), Image.LANCZOS) \
-     .save('public/cover.webp', 'WEBP', quality=88, method=6)
+     .save('public/media/night-drive.webp', 'WEBP', quality=88, method=6)
 ```
 
 The glyph sits on top of the artwork, so contrast is not guaranteed by anything.
@@ -447,9 +467,9 @@ A light scrim plus a hard drop shadow carries it; a scrim heavy enough to
 guarantee contrast alone turns the cover into a dark disc and defeats the point.
 Check a bright cover by eye rather than trusting it.
 
-`public/cover.webp` is gitignored for the same reason as the track: art pulled
-out of a commercial release is exactly as rights-encumbered as the recording. If
-you own the artwork, drop that line from `.gitignore` and commit it.
+Art pulled out of a commercial release is exactly as rights-encumbered as the
+recording, which is why the whole of `public/media/` is ignored rather than only
+the audio.
 
 Two behaviours worth knowing before changing any of this:
 
@@ -585,16 +605,17 @@ user and drains on SIGTERM, so a rolling deploy does not drop requests.
 
 **`.dockerignore` is load-bearing, not housekeeping.** It keeps `.env` out of the
 build context entirely, rather than relying on the runtime stage happening not to
-copy it. It also excludes `public/track.mp3` and `public/cover.webp` for exactly
-the reason `.gitignore` does: they are gitignored, so CI never sees them, but a
-`docker build` on the machine that owns those files does, and Vite copies
-`public/` into `dist/` verbatim. Without those lines a local build bakes a
-commercial release into an image and a push publishes it. Verified by listing the
-image, which is the only way to see it.
+copy it. It also excludes `public/media` and every `.mp3` for exactly the reason
+`.gitignore` does: they are gitignored, so CI never sees them, but a `docker
+build` on the machine that owns those files does, and Vite copies `public/` into
+`dist/` verbatim. Without those lines a local build bakes a commercial release
+into an image and a push publishes it. Verified by listing the image, which is
+the only way to see it: built on a machine with the track in `public/media`, the
+image has no `/app/dist/media` and no `.mp3` anywhere.
 
 Note that `.dockerignore` matches with Go's `filepath.Match`, where `*` does not
 cross a path separator. `*.mp3` matches only the context root and silently leaves
-`public/track.mp3` in the build; the pattern has to be `**/*.mp3`.
+a nested `.mp3` in the build; the pattern has to be `**/*.mp3`.
 
 `.github/workflows/image.yml` builds and pushes to Docker Hub on every push to
 `main`, on `v*` tags, and on demand. Pull requests build without pushing, so a
@@ -649,7 +670,9 @@ steps, and both are needed:
 Until step 2, the new chart points at an image that does not exist yet.
 
 Argus is optional here as everywhere else: leave `argus` empty and the boards
-stay unlit. Both probes hit `/api/health`, which deliberately does not touch
+stay unlit. So is the backing track: `media.enabled` adds a volume mounted
+read-only over `dist/media`, and what is on it is what plays (see "The backing
+track"). Both probes hit `/api/health`, which deliberately does not touch
 Argus, so an upstream outage cannot make the pod look dead and get it
 restarted. The pod runs as uid 1000 on a read-only root filesystem with every
 capability dropped. `helm/homepage/README.md` covers the values.
@@ -693,6 +716,7 @@ src/
   audio/
     synth.ts            Web Audio synth for the music hotspot
     player.ts           backing-track playback, autoplay policy, ducking
+    track.ts            the runtime track manifest: URL and validation
 tools/
   export_glb.py         the asset pipeline
   inspect_blend.py      dependency-free .blend parser

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { MusicNote, Pause, Play, X } from '@phosphor-icons/react'
 import gsap from 'gsap'
 import { useGSAP } from '@gsap/react'
-import { PROJECTS, TRACK, hotspotById, type PanelKind } from '../content'
+import { PROJECTS, hotspotById, type PanelKind } from '../content'
 import { useScene } from '../store'
 import { NOTES, playNote, unlockAudio } from '../audio/synth'
 import { duckTrack, usePlayer } from '../audio/player'
@@ -62,18 +62,19 @@ const mmss = (s: number) => {
  */
 function Player() {
   const available = usePlayer((s) => s.available)
+  const track = usePlayer((s) => s.track)
   const playing = usePlayer((s) => s.playing)
   const time = usePlayer((s) => s.time)
   const duration = usePlayer((s) => s.duration)
   const setOn = usePlayer((s) => s.setOn)
   const seek = usePlayer((s) => s.seek)
-  // The cover is gitignored, so a fresh clone 404s it. Track that and drop the
-  // element rather than leaving a broken-image frame in the bar.
+  // The manifest can name a cover that is not actually on the volume. Track a
+  // 404 and drop the element rather than leaving a broken-image frame in the bar.
   const [noArt, setNoArt] = useState(false)
   const artEl = useRef<HTMLImageElement>(null)
   const spin = useRef<gsap.core.Tween | null>(null)
 
-  const art = Boolean(TRACK.cover) && !noArt
+  const art = Boolean(track?.cover) && !noArt
 
   // Built once and then played/paused, never recreated. A tween rebuilt per
   // state change would tween from the current angle to 360, so resuming at 350
@@ -115,12 +116,16 @@ function Player() {
   if (!available) {
     return (
       <p className="text-sm leading-relaxed text-mute">
-        No track is being served. The audio file is not committed to this repo,
-        so a fresh clone runs the room in silence. Drop one in as
-        <span className="text-body"> public/track.mp3</span>.
+        No track is being served. Audio is not part of this repo or its image,
+        so the room runs in silence until a track and its
+        <span className="text-body"> media/track.json</span> are provided.
       </p>
     )
   }
+
+  // The manifest is still on its way. It is one small same-origin request, so
+  // this is rarely visible at all, and never long enough to warrant a skeleton.
+  if (!track) return null
 
   // No border, padding or background here: in compact mode the panel itself is
   // the mini-player's container. Drawing one here too was a box inside a box,
@@ -138,7 +143,7 @@ function Player() {
       <button
         type="button"
         onClick={() => setOn(!playing)}
-        aria-label={playing ? `Pause ${TRACK.title}` : `Play ${TRACK.title}`}
+        aria-label={playing ? `Pause ${track.title}` : `Play ${track.title}`}
         className={`group relative grid size-14 shrink-0 place-items-center overflow-hidden rounded-full transition-transform active:scale-[0.96] ${
           art ? 'hairline border' : 'bg-acid text-void'
         }`}
@@ -158,7 +163,7 @@ function Player() {
                 transform and would overwrite a Tailwind scale class. */}
             <img
               ref={artEl}
-              src={TRACK.cover}
+              src={track.cover}
               alt=""
               width={192}
               height={192}
@@ -183,12 +188,12 @@ function Player() {
       </button>
 
       <div className="min-w-0 flex-1">
-        <p className="truncate tracking-tight text-bright">{TRACK.title}</p>
+        <p className="truncate tracking-tight text-bright">{track.title}</p>
         {/* The artist line is the attribution. It is not decoration: the track
             is somebody else's record, so this credit stays even though the
             longer disclaimer that used to sit below the card is gone. */}
         <p className="truncate font-mono text-[10.5px] uppercase tracking-[0.18em] text-body">
-          {TRACK.artist}
+          {track.artist}
         </p>
 
         <div className="mt-2.5 flex items-center gap-3">
@@ -311,7 +316,7 @@ function About() {
   )
 }
 
-const BODY: Record<string, () => React.ReactElement> = {
+const BODY: Record<string, () => React.ReactElement | null> = {
   music: Keys,
   player: Player,
   about: About,

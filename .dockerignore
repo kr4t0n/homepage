@@ -20,14 +20,16 @@
 # commercial release into an image and a push publishes it. Verified: they were
 # in the image before this was added.
 #
-# If you have swapped in a track and artwork you own, delete these two lines.
+# Media never belongs in the image, even media you own: the deployment mounts it
+# as a volume over dist/media, which is what lets the song change without a
+# release.
 #
 # Note the `**/`. Unlike .gitignore, .dockerignore matches with Go's
 # filepath.Match, where `*` does not cross a path separator: a bare `*.mp3`
 # matches only the context root and silently leaves public/track.mp3 in the
 # build. That exact mistake was made here first and caught by listing the image.
 **/*.mp3
-public/cover.webp
+public/media
 
 # Bulk that has no business in a build. The .blend files are ~6.5 MB each and
 # the tools venv holds bpy at ~357 MB; neither is used to build the site, since

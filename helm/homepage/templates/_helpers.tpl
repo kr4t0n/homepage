@@ -80,6 +80,10 @@ ARGUS_KEY
 {{- end -}}
 {{- end -}}
 
+{{- define "homepage.mediaClaim" -}}
+{{- .Values.media.existingClaim | default (printf "%s-media" (include "homepage.fullname" .)) -}}
+{{- end -}}
+
 {{/*
 Whether the wall boards are wired at all. Running without Argus is a supported
 mode, so this decides what gets rendered rather than whether to fail.
@@ -110,6 +114,9 @@ like an Argus outage, so it is refused here instead.
 {{- end -}}
 {{- if and .Values.argus.url (not (regexMatch "^https?://" .Values.argus.url)) -}}
 {{- fail (printf "argus.url must start with http:// or https://, got %q." .Values.argus.url) -}}
+{{- end -}}
+{{- if and .Values.media.existingClaim (not .Values.media.enabled) -}}
+{{- fail "media.existingClaim is set but media.enabled is false, so the claim would never be mounted. Set media.enabled=true, or clear the claim." -}}
 {{- end -}}
 {{- if and .Values.ingress.enabled (not .Values.ingress.hosts) -}}
 {{- fail "ingress.enabled is true but ingress.hosts is empty." -}}
