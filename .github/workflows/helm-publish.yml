@@ -1,0 +1,131 @@
+name: helm-publish
+
+# Publish the homepage Helm chart to a GitHub Pages-served repo at
+#   https://kr4t0n.github.io/homepage/helm/
+# (the `helm/` subfolder of the gh-pages branch).
+#
+# Trigger: any push to main touching `helm/**` or this workflow.
+# Bumping `helm/homepage/Chart.yaml`'s `version:` is the release action. A
+# version already on gh-pages is never repackaged, so re-running without a
+# bump is harmless and idempotent.
+#
+# Requires GitHub Pages to be serving the gh-pages branch. The branch is
+# created by this workflow on first run if it does not exist yet; enabling
+# Pages for it is a one-time manual step in repository settings. Pages serves
+# only the chart repo: the site itself is never published there.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'helm/**'
+      - '.github/workflows/helm-publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write # required to push commits to gh-pages
+
+concurrency:
+  # Anything else that pushes to gh-pages must share this group, or two runs
+  # race on `git push`. Not cancel-in-progress: each run finalizes an
+  # immutable versioned tarball that should not be lost mid-flight.
+  group: gh-pages-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.17.0
+
+      - name: Lint the chart
+        # Publishing a chart that does not render is worse than not publishing:
+        # the tarball is immutable, so a broken version stays in the index
+        # forever.
+        run: |
+          set -euo pipefail
+          helm lint --strict helm/homepage
+          helm template ci helm/homepage >/dev/null
+          helm template ci helm/homepage \
+            --set argus.url=http://argus:4000 --set argus.apiKey=key \
+            --set ingress.enabled=true \
+            --set 'ingress.hosts[0].host=example.com' \
+            --set 'ingress.hosts[0].paths[0].path=/' >/dev/null
+
+      - name: Check out gh-pages, creating it if this is the first publish
+        run: |
+          set -euo pipefail
+          git config --global user.name  'github-actions[bot]'
+          git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            git fetch origin gh-pages --depth 1
+            # -B creates a local `gh-pages` branch at the fetched tip. Without
+            # it the worktree checks out detached and the final push fails with
+            # "src refspec gh-pages does not match any".
+            git worktree add -B gh-pages pages origin/gh-pages
+          else
+            # An orphan branch, so the chart repo carries no source history.
+            echo "gh-pages does not exist yet, creating it"
+            git worktree add --detach pages
+            cd pages
+            git checkout --orphan gh-pages
+            git rm -rf . >/dev/null 2>&1 || true
+          fi
+
+      - name: Package and index the chart under /helm
+        env:
+          # The URL the index advertises for downloads. Entries in index.yaml
+          # are absolute, so a wrong base here yields 404s at install time even
+          # though the tarball is sitting right beside it.
+          REPO_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/helm
+        run: |
+          set -euo pipefail
+          mkdir -p pages/helm
+
+          # Jekyll silently drops anything whose name starts with an underscore,
+          # and a chart repo is static files that need no processing.
+          touch pages/.nojekyll
+
+          # A published version is never rewritten. `helm package` would happily
+          # overwrite the tarball, so editing a template without bumping the
+          # version would republish different content under a version somebody
+          # has already pinned. Skipping explicitly makes that impossible.
+          CHART_VERSION="$(helm show chart helm/homepage | awk '/^version:/ { print $2 }')"
+          if [ -f "pages/helm/homepage-${CHART_VERSION}.tgz" ]; then
+            echo "::notice title=Chart version already published::homepage-${CHART_VERSION}.tgz exists and was left untouched. Bump version in helm/homepage/Chart.yaml to release changes."
+          else
+            helm package helm/homepage --destination pages/helm
+          fi
+
+          # --merge carries forward entries for versions already published, so
+          # a user can still pin an older release after a new one ships.
+          if [ -f pages/helm/index.yaml ]; then
+            helm repo index pages/helm --url "$REPO_URL" --merge pages/helm/index.yaml
+          else
+            helm repo index pages/helm --url "$REPO_URL"
+          fi
+
+          echo "Repo URL : $REPO_URL"
+          echo "Tarballs :"
+          ls -1 pages/helm/*.tgz || true
+
+      - name: Commit and push to gh-pages
+        working-directory: pages
+        run: |
+          set -euo pipefail
+          # `.nojekyll` sits at the branch root, so staging only `helm` would
+          # silently leave it out of every commit.
+          git add helm .nojekyll
+          if git diff --staged --quiet; then
+            echo "no chart changes, nothing to publish"
+            exit 0
+          fi
+          git commit -m "chore(helm): publish chart from ${GITHUB_SHA::7}"
+          git push origin gh-pages

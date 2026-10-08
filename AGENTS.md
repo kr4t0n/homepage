@@ -218,6 +218,26 @@ redeploy has deleted. The hour is deliberate rather than a revalidation:
 revalidating client is served all 4 MB of `room.glb` again instead of a 304,
 which makes "always check" the expensive option here rather than the cheap one.
 
+**The chart follows nodex's shape, and it is published from this repo.**
+`helm/homepage` is one Deployment, a Service, an optional Ingress and an
+optional Secret, with the same helpers, `existingSecret` pattern, `validate`
+template and `helm-publish.yml` as `kr4t0n/nodex`, so the homelab helmfile
+treats it like every other first-party chart. `gh-pages` therefore exists again,
+but it carries only `helm/`; the site is never served from Pages.
+
+**The chart refuses configurations the server would accept.** A URL with no key,
+a key with no URL, or a URL with no scheme all start cleanly and then answer
+502 on every poll, which reads exactly like an Argus outage. `homepage.validate`
+fails the install instead. Running with no `argus` values at all stays legal,
+because an unlit board is a supported state.
+
+**Draining needs a delay in front of it, not just behind it.** `serve.ts`
+stops accepting the moment SIGTERM lands, but the ingress controller learns
+that the endpoint is going away asynchronously, so for a moment it still routes
+new requests to a socket that refuses them. `shutdownDelaySeconds` is a native
+`preStop` sleep that holds SIGTERM back until routing has moved. It and the
+server's 10s backstop both count against the 30s grace period.
+
 ## Non-obvious behaviours
 
 **Autoplay with sound is impossible on a cold visit and the page does not fight
@@ -860,6 +880,23 @@ until focused, so its pills take no pointer events. To drive hover state, either
 what a visitor does. To open a hotspot, `press` Enter on a pill or click the
 object. Hovering a pill never drove the 3D hover state reliably anyway: the
 canvas-to-HTML pointer handoff raced.
+
+**`runAsNonRoot` cannot be enforced against a named user.** The Dockerfile says
+`USER node`, and kubelet cannot prove a name is not root, so `runAsNonRoot:
+true` on its own leaves the pod stuck in `CreateContainerConfigError`. The
+chart states `runAsUser: 1000`, which is what `node` is in `node:22-alpine`.
+If the base image changes, check the uid with `id node` inside it.
+
+**An empty `image.pullPolicy` is deliberate.** The image is published as
+`latest` and `sha-<short>`, and `appVersion` is `latest`. A hardcoded
+`IfNotPresent` would keep serving whichever `latest` a node pulled first.
+Leaving the field off lets Kubernetes choose `Always` for `latest` and
+`IfNotPresent` for a sha.
+
+**`kubectl apply --dry-run=client` is not a schema check.** It accepted a
+Deployment with a misspelled `preStop.sleep.secondz` and reported it as
+created. Validate rendered manifests with `kubeconform -strict`, which rejected
+the same input, and keep a negative control in mind for any validator you trust.
 
 ## Conventions
 

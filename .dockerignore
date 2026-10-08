@@ -47,6 +47,7 @@ tsconfig.tsbuildinfo
 
 .git/
 .github/
+helm/
 .gitignore
 .dockerignore
 Dockerfile
