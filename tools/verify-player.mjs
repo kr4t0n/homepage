@@ -12,7 +12,12 @@
  * and never enters the DOM, so the readout advancing is both the only handle
  * available in a production build and the thing a visitor actually sees.
  *
- * Run: node tools/verify-player.mjs
+ * It plays whatever `public/media/track.json` names, copied into dist/ by the
+ * build, and takes the expected title and artist from that manifest rather than
+ * hardcoding a song. With no track there it fails rather than skipping: every
+ * playback assertion below would otherwise pass vacuously or not run at all.
+ *
+ * Run: npm run build && node tools/verify-player.mjs
  */
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
@@ -20,6 +25,17 @@ import { extname, join, normalize } from 'node:path'
 import { chromium } from 'playwright'
 
 const ROOT = 'dist'
+const MANIFEST_PATH = '/media/track.json'
+
+const manifest = await readFile(join(ROOT, MANIFEST_PATH), 'utf8')
+  .then(JSON.parse)
+  .catch(() => null)
+if (!manifest?.src || !manifest?.title || !manifest?.artist) {
+  console.error(
+    `FAIL  no usable ${ROOT}${MANIFEST_PATH}. Put a track and its track.json in public/media/ and rebuild; see README.`,
+  )
+  process.exit(1)
+}
 
 const TYPES = {
   '.html': 'text/html',
@@ -35,12 +51,25 @@ const TYPES = {
 }
 
 let served = 0
-/** Flipped on to simulate the fresh-clone case, where cover.webp is absent. */
+/** Flipped on to simulate a manifest naming a cover that is not on the volume. */
 let blockCover = false
+/**
+ * Replaces the manifest response: undefined serves the real file, null answers
+ * 404 (the fresh-clone state), and an object is served as the manifest body.
+ */
+let manifestOverride
+/** Every path requested, so a test can prove something was never fetched. */
+const requested = []
 const server = createServer(async (req, res) => {
   const url = decodeURIComponent((req.url ?? '/').split('?')[0])
+  requested.push(url)
   const rel = normalize(url === '/' ? '/index.html' : url).replace(/^(\.\.[/\\])+/, '')
-  if (blockCover && rel.endsWith('cover.webp')) {
+  if (url === MANIFEST_PATH && manifestOverride !== undefined) {
+    if (manifestOverride === null) res.writeHead(404).end('absent')
+    else res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(manifestOverride))
+    return
+  }
+  if (blockCover && manifest.cover && rel.endsWith(manifest.cover)) {
     res.writeHead(404).end('absent')
     return
   }
@@ -135,10 +164,10 @@ check(
   `label="${coldLabel}"`,
 )
 
-// --- 2. Track metadata is what content.ts says ------------------------------
+// --- 2. Track metadata is what the manifest says -----------------------------
 const body = (await page.textContent('[role="dialog"]')) ?? ''
-check('shows the track title', body.includes('A Moment Apart'))
-check('shows the artist', body.includes('ODESZA'))
+check('shows the title from the manifest', body.includes(manifest.title), manifest.title)
+check('shows the artist from the manifest', body.includes(manifest.artist), manifest.artist)
 
 // Presence alone is not enough: a 404 would remove the element via onError, and
 // a wrong MIME type would leave it present but undecoded. naturalWidth proves
@@ -150,6 +179,68 @@ const art = await page.evaluate(() => {
 })
 check('cover art is present and decoded', art.present && art.w > 0, JSON.stringify(art))
 check('cover art is not announced twice', art.alt === '', `alt="${art.alt}"`)
+
+/**
+ * A fresh context on the decks with the current manifest override applied.
+ *
+ * Waits for the player to settle, meaning a transport or the no-track note has
+ * rendered, rather than for a fixed time: software GL on a small box can take
+ * well over a minute to bring a fresh page up. `settled` false is a failure in
+ * its own right, never a pass by default.
+ */
+const decksWith = async () => {
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  const p = await ctx.newPage()
+  await p.goto(`${BASE}/#/player`, { waitUntil: 'domcontentloaded', timeout: 120_000 })
+  // The text is read in the same poll that sees the player settle, so a re-render
+  // between two separate queries cannot turn a settled page into a timeout.
+  const text = await p
+    .waitForFunction(
+      () => {
+        const d = document.querySelector('[role="dialog"]')
+        const done = d && (d.querySelector('[data-elapsed]') || d.textContent.includes('No track is being served'))
+        return done ? d.textContent : false
+      },
+      null,
+      { timeout: 180_000 },
+    )
+    .then(
+      (h) => h.jsonValue(),
+      () => null,
+    )
+  return { ctx, p, settled: text !== null, text: text ?? '' }
+}
+
+// --- 2b. No manifest is the fresh-clone state, reported honestly ------------
+// Nothing about the song is in git or the image any more, so this is what
+// anyone who clones the repo, or deploys without a media volume, sees.
+manifestOverride = null
+{
+  const { ctx, p, settled, text } = await decksWith()
+  check('no manifest: the decks say no track is served', settled && text.includes('No track is being served'))
+  check('no manifest: no transport is rendered', (await p.$('[data-elapsed]')) === null)
+  await ctx.close()
+}
+
+// --- 2c. A manifest cannot point outside /media -----------------------------
+// Only bare file names beside the manifest are accepted, so an edited
+// track.json cannot aim the audio element at another path or another origin.
+manifestOverride = { ...manifest, src: '../room.glb' }
+{
+  const before = requested.length
+  const { ctx, settled, text } = await decksWith()
+  const strays = requested.slice(before).filter((u) => u.includes('room.glb') && u.startsWith('/media'))
+  check('a traversal src is refused as no track', settled && text.includes('No track is being served'))
+  check('and the stray path is never requested', strays.length === 0, strays.join(' '))
+  await ctx.close()
+}
+manifestOverride = { ...manifest, src: 'https://example.com/x.mp3' }
+{
+  const { ctx, settled, text } = await decksWith()
+  check('an absolute URL src is refused as no track', settled && text.includes('No track is being served'))
+  await ctx.close()
+}
+manifestOverride = undefined
 
 // --- 3. A gesture starts it -------------------------------------------------
 // Press a key rather than click, to prove the arming is not tied to one event.
@@ -312,8 +403,7 @@ check('clicking the room starts the music', clicked > 0, `elapsed=${clicked}s`)
 await roomCtx.close()
 
 // --- 9. A missing cover degrades to no artwork, not a broken frame ----------
-// This is the fresh-clone case, not an edge case: cover.webp is gitignored, so
-// absent is what anyone who clones this repo actually gets. A 404'd <img> that
+// A manifest can name a cover that is not on the volume. A 404'd <img> that
 // stayed in the DOM would render a broken-image glyph in the middle of the bar.
 blockCover = true
 const bareCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
@@ -327,7 +417,7 @@ check('a missing cover removes the image entirely', (await bare.$('[role="dialog
 const bareBody = (await bare.textContent('[role="dialog"]')) ?? ''
 check(
   'the bar still works without artwork',
-  bareBody.includes('A Moment Apart') && (await bare.$('[data-elapsed]')) !== null,
+  bareBody.includes(manifest.title) && (await bare.$('[data-elapsed]')) !== null,
 )
 await bareCtx.close()
 blockCover = false

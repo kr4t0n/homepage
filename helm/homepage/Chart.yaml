@@ -3,6 +3,7 @@ name: homepage
 description: |
   kr4t0n's homepage — an explorable 3D room. One container serves the built
   site and the /api/pixels proxy that lights the two wall boards from Argus.
+  An optional volume supplies the backing track at runtime.
 
   Argus is NOT required. Without it the room renders normally and the boards
   stay unlit, which is a supported state rather than a failure.
@@ -11,7 +12,7 @@ type: application
 # Chart version is independent of the app it ships. Bump on chart changes.
 # Releasing only requires bumping this field: helm-publish.yml never rewrites a
 # version that is already published, so merging without a bump is a no-op.
-version: 0.1.1
+version: 0.1.2
 
 # The image tag pulled by default, kept equal to `version`. Pushing the git tag
 # `v<appVersion>` is what makes image.yml build and push that tag, so every
@@ -19,12 +20,16 @@ version: 0.1.1
 # Until the git tag is pushed, this chart version points at an image that does
 # not exist yet.
 #
+# 0.1.2 moves the backing track out of the image: the app reads
+# /media/track.json at runtime, and an optional `media` volume is mounted
+# read-only over dist/media to hold it, so changing the song needs no release.
+#
 # 0.1.1 pins the image to `0.1.1` instead of `latest`, so installing a chart
 # version installs a fixed build and `helm rollback` rolls back the site too.
 #
 # 0.1.0 is the first packaged release: one Deployment on port 8080, a Service,
 # an optional Ingress, and an optional Secret carrying ARGUS_KEY.
-appVersion: "0.1.1"
+appVersion: "0.1.2"
 
 # The preStop hook uses the native `sleep` action, on by default from 1.30.
 kubeVersion: ">=1.30.0-0"

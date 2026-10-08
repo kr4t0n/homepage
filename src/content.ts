@@ -61,32 +61,6 @@ export const PROFILE = {
   github: 'https://github.com/kr4t0n',
 } as const
 
-/**
- * The backing track the room plays.
- *
- * `src` is deliberately not committed — see the .mp3 rule in .gitignore. The
- * player treats a missing file as a supported state, so this metadata is what
- * the mini-player shows and the file is what it streams; replacing the track
- * means dropping in a new public/track.mp3 and editing the three fields here.
- *
- * `seconds` is only a first paint value, used before loadedmetadata lands so
- * the progress bar does not jump. The element's real duration wins after that.
- */
-export const TRACK = {
-  src: '/track.mp3',
-  /**
-   * Cover art, 192px square. It fills the transport button rather than sitting
-   * beside it, so it needs to hold up at 3x DPR on a 56px control. Extracted
-   * from the file's own ID3 tag, which held it as a 1400x1400 PNG: 1.59 MB for a
-   * thumbnail, versus 4.9 KB once resized to WebP. Uncommitted, like the track.
-   * Leave it undefined and the button falls back to a solid accent fill.
-   */
-  cover: '/cover.webp' as string | undefined,
-  title: 'A Moment Apart',
-  artist: 'ODESZA',
-  seconds: 234,
-} as const
-
 export const PROJECTS: Project[] = [
   {
     name: 'Argus',

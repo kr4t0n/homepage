@@ -158,8 +158,9 @@ one mesh per semantic group so raycasting touches ~13 meshes instead of 193.
 **Audio is licensing-aware by construction, not by discipline.** The room needs a
 soundtrack and the only track to hand is a commercial release, so the design
 makes shipping it impossible by default rather than relying on someone
-remembering not to: `*.mp3` is gitignored, `TRACK.src` is fetched at runtime, and
-a 404 is a first-class state that the decks panel reports honestly. The same
+remembering not to: `public/media/` and `*.mp3` are ignored by git and Docker,
+the track is chosen at runtime by `/media/track.json`, and a missing manifest is
+a first-class state that the decks panel reports honestly. The same
 reasoning already applied to the purchased `.blend`. A missing track must never
 be an error path, because for anyone cloning this repo it is the normal one.
 
@@ -174,19 +175,19 @@ control that rendered intent there showed a lit "sound is on" speaker over
 silence; see the trap in Non-obvious behaviours.
 
 **The licensing guard has to be repeated per packaging mechanism, because
-nothing carries it across.** `*.mp3` and `public/cover.webp` are gitignored so
-the commercial track cannot be committed. That says nothing about `docker
+nothing carries it across.** `*.mp3` and `public/media/` are gitignored so the
+commercial track cannot be committed. That says nothing about `docker
 build`, which reads the working tree rather than the index: on the machine that
 owns those files, Vite copies `public/` into `dist/` verbatim and the recording
 ends up in the image. CI never reproduces it, because a fresh checkout has no
 track in it, so the only build that ships the file is a local one — the exact
-case least likely to be checked. `.dockerignore` now carries the same two rules.
+case least likely to be checked. `.dockerignore` now carries the same rules.
 Any future packaging path needs them again, and the way to confirm is to list
 the artefact rather than to reason about it.
 
 **`.dockerignore` is not `.gitignore`.** It matches with Go's `filepath.Match`,
 where `*` does not cross a path separator. `*.mp3` therefore matches only the
-context root, and `public/track.mp3` sails straight through. Patterns that need
+context root, and a nested `public/track.mp3` sailed straight through. Patterns that need
 to match at any depth have to say `**/`. This was got wrong here first and only
 showed up by listing the built image.
 
@@ -237,6 +238,16 @@ that the endpoint is going away asynchronously, so for a moment it still routes
 new requests to a socket that refuses them. `shutdownDelaySeconds` is a native
 `preStop` sleep that holds SIGTERM back until routing has moved. It and the
 server's 10s backstop both count against the 30s grace period.
+
+**The track is data on a volume, not code in the bundle.** Title, artist, cover
+and file used to be a `TRACK` constant in `content.ts`, so every song change was
+an image release, and the public repo named a record it had no right to ship.
+`/media/track.json` now carries them, `src/audio/track.ts` validates it into a
+`Track` built from named fields, and the chart mounts a volume read-only over
+`dist/media`. `/media` is a directory mount, not a `subPath`, so a file changed
+on the volume is visible to the running pod at once; `subPath` mounts are fixed
+at container start. Only the manifest is `no-cache`: the audio keeps the hour,
+which is why each song must arrive under its own file name.
 
 ## Non-obvious behaviours
 
@@ -902,6 +913,20 @@ keep serving whichever `latest` a node pulled first if anyone overrides the tag
 to `latest`. Leaving the field off lets Kubernetes choose `Always` for `latest`
 and `IfNotPresent` for a version or a sha.
 
+**A ReadWriteOnce media volume can deadlock a rollout.** It attaches to one
+node. With one replica, a rolling update keeps the old pod until the new one is
+ready, so a new pod scheduled onto another node waits forever on a Multi-Attach
+error while the old pod holds the volume. The homelab release pins the pod to
+one node with required affinity, which makes this impossible; anything else
+needs the same pinning or `ReadWriteMany`. Loading files has the same constraint:
+the loader pod has to run on the node where the volume is attached.
+
+**A manifest can only name files beside itself.** `parseTrack` refuses any `src`
+or `cover` with a slash, a leading dot or a scheme. Without that, an edited
+`track.json` could aim the audio element at another path on the site or at
+another origin entirely. `verify-player.mjs` asserts both refusals, and that the
+stray path is never requested.
+
 **`kubectl apply --dry-run=client` is not a schema check.** It accepted a
 Deployment with a misspelled `preStop.sleep.secondz` and reported it as
 created. Validate rendered manifests with `kubeconform -strict`, which rejected
@@ -927,11 +952,11 @@ the same input, and keep a negative control in mind for any validator you trust.
   would close the remaining gap against the offline renders.
 - Argus is linked, not embedded. The GitHub Pages host sends no
   `X-Frame-Options`, so a live iframe is possible if that is ever wanted.
-- The backing track is a commercial placeholder. It is uncommitted, and the
-  panel credits `TRACK.artist`, but the intended end state is an original
-  mixdown. Until then the only thing keeping the recording off the public site
-  is the `.mp3` gitignore rule, so treat that rule as load-bearing rather than
-  housekeeping.
+- The backing track is a commercial placeholder. It is in neither git nor the
+  image, and the panel credits the manifest's `artist`, but the intended end
+  state is an original mixdown. Since 0.1.2 whatever is on the media volume is
+  published, so keeping a recording off the public site is now an operational
+  choice about what gets loaded there, not a property of the build.
 - The synth and the player own separate audio graphs — an `AudioContext` and an
   `HTMLAudioElement`. They only coordinate through `duckTrack()`, which is a
   volume ramp and not a real bus. If the keys ever need to be recorded over the

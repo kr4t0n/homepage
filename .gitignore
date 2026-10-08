@@ -7,18 +7,16 @@
 
 # Audio, for the same reason as the .blend above and more so: the track in use
 # is a commercial release, and this repo is public. Committing it would
-# redistribute the recording rather than play it. The player streams
-# public/track.mp3 at runtime and degrades to silence when it is absent, so the
-# committed site still builds and runs for anyone who clones this.
-# Drop your own mixdown in as public/track.mp3 and set TRACK in src/content.ts.
+# redistribute the recording rather than play it. The player reads
+# /media/track.json at runtime and degrades to silence when it is absent, so the
+# committed site still builds and runs for anyone who clones this. In the
+# cluster /media is a volume; locally it is public/media/.
 *.mp3
 
-# Cover art, for the same reason as the track. This one is extracted from the
-# release's own ID3 tag, so it is exactly as rights-encumbered as the recording.
-# The player hides the image when it 404s rather than showing a broken frame.
-# If you swap in your own music and own the artwork, delete this line and commit
-# it like any other image in public/.
-public/cover.webp
+# The whole media directory, not just the audio: the cover art is extracted from
+# the release's own ID3 tag and is exactly as rights-encumbered as the recording,
+# and the manifest names a record that is not ours to publish.
+public/media/
 
 # Scratch space for files handed to an agent working on this repo, mostly
 # screenshots of bugs. Tool-managed and local to whoever is working, so it is

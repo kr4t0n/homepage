@@ -17,6 +17,7 @@ import { Hono } from 'hono'
 import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { api } from './api'
+import { MANIFEST } from '../audio/track'
 
 const PORT = Number(process.env.PORT ?? 8080)
 /** Containers must bind every interface; localhost would be unreachable from the pod network. */
@@ -56,8 +57,11 @@ const INDEX_HTML = readFileSync(INDEX, 'utf8')
  * room.glb again rather than a 304, which makes "always check" the expensive
  * option here rather than the cheap one.
  *
- * `index.html` is the one file that must never be held. It carries the hashed
- * asset URLs, so a stale copy points at files the redeploy has already deleted.
+ * `index.html` must never be held. It carries the hashed asset URLs, so a stale
+ * copy points at files the redeploy has already deleted. Nor must the track
+ * manifest, which changes without any deploy at all when the song on the media
+ * volume is swapped; the audio it names keeps the hour, because a new song comes
+ * under a new file name.
  */
 const IMMUTABLE = 'public, max-age=31536000, immutable'
 const SHORT = 'public, max-age=3600'
@@ -75,7 +79,11 @@ app.use('*', async (c, next) => {
   const path = c.req.path
   c.header(
     'cache-control',
-    path.startsWith('/assets/') ? IMMUTABLE : path === '/' || path.endsWith('.html') ? NEVER : SHORT,
+    path.startsWith('/assets/')
+      ? IMMUTABLE
+      : path === '/' || path.endsWith('.html') || path === MANIFEST
+        ? NEVER
+        : SHORT,
   )
   await next()
 })

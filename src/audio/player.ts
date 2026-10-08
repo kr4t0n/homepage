@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import gsap from 'gsap'
-import { TRACK } from '../content'
+import { MANIFEST, parseTrack, type Track } from './track'
 
 /**
  * The room's backing track.
@@ -12,9 +12,11 @@ import { TRACK } from '../content'
  * re-decoding. The synth in `synth.ts` keeps its own AudioContext; the two are
  * independent graphs and mix at the output device.
  *
- * The file itself is gitignored, so `available` going false is a supported
- * state and not an error path — anyone cloning this repo gets a silent room
- * with the player UI honestly reporting that there is no track.
+ * What plays is decided at runtime by `/media/track.json` (see `track.ts`), and
+ * neither the manifest nor the audio is in git or the image, so `available`
+ * going false is a supported state and not an error path: anyone cloning this
+ * repo gets a silent room with the player UI honestly reporting that there is
+ * no track.
  *
  * There is deliberately one piece of user state, `on`, and not a mute flag as
  * well as a paused flag. Two flags meant the speaker button and the transport
@@ -33,8 +35,10 @@ const FADE = 1.6
 const PREF_KEY = 'kr4t0n:music'
 
 interface PlayerState {
-  /** False when there is no track.mp3 to serve, or it failed to load. */
+  /** False when there is no valid manifest, or its audio failed to load. */
   available: boolean
+  /** The manifest once it has loaded; null before that and when there is none. */
+  track: Track | null
   /**
    * The visitor's intent: should this room be playing music. Persisted, so a
    * second visit does not re-litigate a decision already made. Distinct from
@@ -103,10 +107,13 @@ const playAudible = () => {
 
 export const usePlayer = create<PlayerState>((set, get) => ({
   available: true,
+  track: null,
   on: typeof window === 'undefined' ? true : readPref(),
   playing: false,
   time: 0,
-  duration: TRACK.seconds,
+  // The element reports the real length on loadedmetadata, which lands well
+  // before anyone can open the decks.
+  duration: 0,
 
   setOn: (v) => {
     set({ on: v })
@@ -142,8 +149,8 @@ export const usePlayer = create<PlayerState>((set, get) => ({
  * first gesture of any kind. Exploring the room is itself the gesture, which is
  * why no "click to enable sound" prompt is needed.
  */
-export const bindTrack = () => {
-  el = new Audio(TRACK.src)
+const attach = (track: Track) => {
+  el = new Audio(track.src)
   el.loop = true
   el.preload = 'auto'
   el.volume = 0
@@ -215,6 +222,39 @@ export const bindTrack = () => {
     gsap.killTweensOf(level)
     el?.pause()
     el = null
+  }
+}
+
+/**
+ * Load the manifest, then attach the track it names.
+ *
+ * Fetched with `no-cache` so a song swapped on the volume is picked up on the
+ * next page load; the audio and cover need no such care, because a new song
+ * arrives under a new file name. The abort covers StrictMode's mount, unmount,
+ * mount in development, which would otherwise attach two elements.
+ */
+export const bindTrack = () => {
+  const ctrl = new AbortController()
+  let detach = () => {}
+
+  const none = () => usePlayer.setState({ available: false, track: null })
+
+  fetch(MANIFEST, { cache: 'no-cache', signal: ctrl.signal })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((json: unknown) => {
+      if (ctrl.signal.aborted) return
+      const track = parseTrack(json)
+      if (!track) return none()
+      usePlayer.setState({ track })
+      detach = attach(track)
+    })
+    .catch(() => {
+      if (!ctrl.signal.aborted) none()
+    })
+
+  return () => {
+    ctrl.abort()
+    detach()
   }
 }
 

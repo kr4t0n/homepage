@@ -6,10 +6,9 @@
 # The room, the Draco decoder and every asset are baked into the image;
 # there is no volume to provision and nothing to seed.
 #
-# The backing track is NOT in the image and no value here adds it. It
-# is a commercial recording kept out of git and out of the Docker build
-# context on purpose, so a deployed site plays nothing and the decks
-# panel says so. That is the intended state.
+# The backing track is NOT in the image. Media comes from a volume at
+# runtime (see `media` below), so neither git nor the image ever carries
+# a recording.
 # ─────────────────────────────────────────────────────────────────────
 
 # Optional overrides; default to the release name, the standard Helm pattern.
@@ -53,6 +52,29 @@ argus:
   # sealed-secrets, vault) and the chart references it directly.
   existingSecret: ""
   existingSecretKey: ARGUS_KEY
+
+# ─── Media: the backing track ────────────────────────────────────────
+# The audio, its cover and the track.json describing them live on a
+# volume mounted read-only over dist/media, never in the image. Changing
+# the song is a file change on the volume: the next page load reads the
+# new track.json, with no release and no restart. The README covers the
+# manifest format and how to load files onto the volume.
+#
+# Disabled, or enabled with nothing on the volume yet, the room runs in
+# silence and the decks say so. That is a supported state.
+media:
+  enabled: false
+  # Leave empty to use the cluster's default StorageClass.
+  storageClass: ""
+  # ReadWriteOnce attaches the volume to one node. A rolling update then
+  # only completes if the new pod lands on that same node, so pin the pod
+  # with affinity, or use ReadWriteMany.
+  accessMode: ReadWriteOnce
+  size: 1Gi
+  # Point at a PVC you manage yourself instead of letting the chart
+  # create one. The chart's own PVC is kept on `helm uninstall`.
+  existingClaim: ""
+  annotations: {}
 
 # Literal env vars appended after the chart's own. Use for anything the
 # chart does not model; ARGUS and ARGUS_KEY belong in `argus` above.
