@@ -11,15 +11,20 @@ type: application
 # Chart version is independent of the app it ships. Bump on chart changes.
 # Releasing only requires bumping this field: helm-publish.yml never rewrites a
 # version that is already published, so merging without a bump is a no-op.
-version: 0.1.0
+version: 0.1.1
 
-# Tracks the container image tag pulled by default. The image is published as
-# `latest` and `sha-<short>` only, with no semver tags, so this stays "latest"
-# and deployments pin `image.tag` to a sha.
+# The image tag pulled by default, kept equal to `version`. Pushing the git tag
+# `v<appVersion>` is what makes image.yml build and push that tag, so every
+# release is the version bump merged to main plus that git tag on the merge.
+# Until the git tag is pushed, this chart version points at an image that does
+# not exist yet.
+#
+# 0.1.1 pins the image to `0.1.1` instead of `latest`, so installing a chart
+# version installs a fixed build and `helm rollback` rolls back the site too.
 #
 # 0.1.0 is the first packaged release: one Deployment on port 8080, a Service,
 # an optional Ingress, and an optional Secret carrying ARGUS_KEY.
-appVersion: "latest"
+appVersion: "0.1.1"
 
 # The preStop hook uses the native `sleep` action, on by default from 1.30.
 kubeVersion: ">=1.30.0-0"

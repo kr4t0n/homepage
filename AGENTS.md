@@ -887,11 +887,20 @@ true` on its own leaves the pod stuck in `CreateContainerConfigError`. The
 chart states `runAsUser: 1000`, which is what `node` is in `node:22-alpine`.
 If the base image changes, check the uid with `id node` inside it.
 
-**An empty `image.pullPolicy` is deliberate.** The image is published as
-`latest` and `sha-<short>`, and `appVersion` is `latest`. A hardcoded
-`IfNotPresent` would keep serving whichever `latest` a node pulled first.
-Leaving the field off lets Kubernetes choose `Always` for `latest` and
-`IfNotPresent` for a sha.
+**A chart version and its image are released by two different events.** Chart
+0.1.0 shipped with `appVersion: latest`, so the same chart version ran whatever
+`main` last built, `helmfile apply` could not see a new build, and a rollback
+restored the manifest but not the site. From 0.1.1, `appVersion` equals
+`version` and names a semver image tag. The chart is published by merging to
+`main`; the image is built only when `v<version>` is pushed as a git tag. Forget
+the tag and the published chart points at an image that does not exist. That is
+recoverable, since pushing the tag later builds it, but nothing fails at publish
+time to remind you.
+
+**An empty `image.pullPolicy` is deliberate.** A hardcoded `IfNotPresent` would
+keep serving whichever `latest` a node pulled first if anyone overrides the tag
+to `latest`. Leaving the field off lets Kubernetes choose `Always` for `latest`
+and `IfNotPresent` for a version or a sha.
 
 **`kubectl apply --dry-run=client` is not a schema check.** It accepted a
 Deployment with a misspelled `preStop.sleep.secondz` and reported it as

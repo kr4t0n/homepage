@@ -601,8 +601,8 @@ cross a path separator. `*.mp3` matches only the context root and silently leave
 broken Dockerfile is caught before merge. It needs `DOCKERHUB_USERNAME` and
 `DOCKERHUB_TOKEN` as repository secrets, and publishes
 `<DOCKERHUB_USERNAME>/homepage` tagged `latest` on main, the branch or PR name,
-the version on a `v*` tag, and the commit SHA every time. Deploy by SHA; `latest`
-is for convenience, not for rollbacks.
+the version on a `v*` tag, and the commit SHA every time. Deploy a version (the
+chart does by default) or a SHA; `latest` is for convenience, not for rollbacks.
 
 The build is `linux/amd64` only. Adding `linux/arm64` is a one-line change to
 `platforms:`, but it builds under QEMU emulation and an `npm ci` plus a Vite
@@ -627,16 +627,26 @@ Add both back once the domain is settled.
 `helm/homepage` deploys the image: a Deployment, a Service, an optional
 Ingress, and an optional Secret for `ARGUS_KEY`. It is published to
 `https://kr4t0n.github.io/homepage/helm` by `.github/workflows/helm-publish.yml`
-whenever `helm/**` changes on `main`; bump `version` in `Chart.yaml` to release.
+whenever `helm/**` changes on `main`.
 
 ```bash
 helm repo add homepage https://kr4t0n.github.io/homepage/helm
 helm install homepage homepage/homepage \
   --namespace homepage --create-namespace \
-  --set image.tag=sha-<short> \
   --set argus.url=http://argus-server.argus.svc.cluster.local:4000 \
   --set argus.existingSecret=homepage-secret
 ```
+
+Each chart version runs the image released with it: `appVersion` equals
+`version`, so chart 0.1.1 pulls `kr4t0n/homepage:0.1.1`. A release is two
+steps, and both are needed:
+
+1. Bump `version` and `appVersion` in `Chart.yaml` to the same value, and the
+   `version` in `package.json` with it. Merging to `main` publishes the chart.
+2. Tag the merge commit `v<version>` and push the tag, which makes `image.yml`
+   build and push `kr4t0n/homepage:<version>`.
+
+Until step 2, the new chart points at an image that does not exist yet.
 
 Argus is optional here as everywhere else: leave `argus` empty and the boards
 stay unlit. Both probes hit `/api/health`, which deliberately does not touch
