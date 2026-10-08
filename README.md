@@ -423,7 +423,7 @@ than play it. What plays is decided at runtime by a manifest:
 
 The page fetches `/media/track.json` and plays the file it names from beside it.
 Locally `/media` is `public/media/`; in the cluster it is a volume mounted
-read-only over `dist/media` (the chart's `media` values). Both are ignored by git
+read-only over `dist/media` (the chart's `persistence` values). Both are ignored by git
 and by Docker, so a track can be loaded without ever being committed or built in.
 
 **Changing the song is a file change, not a release.** Put the new audio (and
@@ -670,7 +670,7 @@ steps, and both are needed:
 Until step 2, the new chart points at an image that does not exist yet.
 
 Argus is optional here as everywhere else: leave `argus` empty and the boards
-stay unlit. So is the backing track: `media.enabled` adds a volume mounted
+stay unlit. So is the backing track: `persistence.enabled` adds a volume mounted
 read-only over `dist/media`, and what is on it is what plays (see "The backing
 track"). Both probes hit `/api/health`, which deliberately does not touch
 Argus, so an upstream outage cannot make the pod look dead and get it

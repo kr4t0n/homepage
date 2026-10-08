@@ -1,15 +1,15 @@
-{{- if and .Values.media.enabled (not .Values.media.existingClaim) }}
+{{- if and .Values.persistence.enabled (not .Values.persistence.existingClaim) }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ include "homepage.mediaClaim" . }}
+  name: {{ include "homepage.pvcName" . }}
   labels:
     {{- include "homepage.labels" . | nindent 4 }}
   annotations:
     # The files on it are loaded by hand and exist nowhere else in the
     # deployment, so losing them should take a deliberate delete.
     helm.sh/resource-policy: keep
-    {{- with .Values.media.annotations }}
+    {{- with .Values.persistence.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
     {{- with .Values.commonAnnotations }}
@@ -17,11 +17,11 @@ metadata:
     {{- end }}
 spec:
   accessModes:
-    - {{ .Values.media.accessMode }}
+    - {{ .Values.persistence.accessMode }}
   resources:
     requests:
-      storage: {{ .Values.media.size }}
-  {{- with .Values.media.storageClass }}
+      storage: {{ .Values.persistence.size }}
+  {{- with .Values.persistence.storageClass }}
   storageClassName: {{ . | quote }}
   {{- end }}
 {{- end }}

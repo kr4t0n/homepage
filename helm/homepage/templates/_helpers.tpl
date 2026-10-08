@@ -80,8 +80,12 @@ ARGUS_KEY
 {{- end -}}
 {{- end -}}
 
-{{- define "homepage.mediaClaim" -}}
-{{- .Values.media.existingClaim | default (printf "%s-media" (include "homepage.fullname" .)) -}}
+{{/*
+The claim is named for what it holds rather than `-data`, so it reads as the
+songs volume in `kubectl get pvc`.
+*/}}
+{{- define "homepage.pvcName" -}}
+{{- .Values.persistence.existingClaim | default (printf "%s-media" (include "homepage.fullname" .)) -}}
 {{- end -}}
 
 {{/*
@@ -115,8 +119,11 @@ like an Argus outage, so it is refused here instead.
 {{- if and .Values.argus.url (not (regexMatch "^https?://" .Values.argus.url)) -}}
 {{- fail (printf "argus.url must start with http:// or https://, got %q." .Values.argus.url) -}}
 {{- end -}}
-{{- if and .Values.media.existingClaim (not .Values.media.enabled) -}}
-{{- fail "media.existingClaim is set but media.enabled is false, so the claim would never be mounted. Set media.enabled=true, or clear the claim." -}}
+{{- if .Values.media -}}
+{{- fail "The `media` values block was renamed to `persistence` in chart 0.1.3. Move its keys across; left as is, the volume would silently not be mounted." -}}
+{{- end -}}
+{{- if and .Values.persistence.existingClaim (not .Values.persistence.enabled) -}}
+{{- fail "persistence.existingClaim is set but persistence.enabled is false, so the claim would never be mounted. Set persistence.enabled=true, or clear the claim." -}}
 {{- end -}}
 {{- if and .Values.ingress.enabled (not .Values.ingress.hosts) -}}
 {{- fail "ingress.enabled is true but ingress.hosts is empty." -}}
