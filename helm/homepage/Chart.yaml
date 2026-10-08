@@ -1,0 +1,36 @@
+apiVersion: v2
+name: homepage
+description: |
+  kr4t0n's homepage — an explorable 3D room. One container serves the built
+  site and the /api/pixels proxy that lights the two wall boards from Argus.
+
+  Argus is NOT required. Without it the room renders normally and the boards
+  stay unlit, which is a supported state rather than a failure.
+type: application
+
+# Chart version is independent of the app it ships. Bump on chart changes.
+# Releasing only requires bumping this field: helm-publish.yml never rewrites a
+# version that is already published, so merging without a bump is a no-op.
+version: 0.1.0
+
+# Tracks the container image tag pulled by default. The image is published as
+# `latest` and `sha-<short>` only, with no semver tags, so this stays "latest"
+# and deployments pin `image.tag` to a sha.
+#
+# 0.1.0 is the first packaged release: one Deployment on port 8080, a Service,
+# an optional Ingress, and an optional Secret carrying ARGUS_KEY.
+appVersion: "latest"
+
+# The preStop hook uses the native `sleep` action, on by default from 1.30.
+kubeVersion: ">=1.30.0-0"
+
+home: https://github.com/kr4t0n/homepage
+sources:
+  - https://github.com/kr4t0n/homepage
+keywords:
+  - homepage
+  - threejs
+  - react-three-fiber
+maintainers:
+  - name: kr4t0n
+    url: https://github.com/kr4t0n

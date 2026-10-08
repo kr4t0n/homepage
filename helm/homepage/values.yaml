@@ -1,0 +1,131 @@
+# ─────────────────────────────────────────────────────────────────────
+# homepage Helm chart values
+#
+# One container serves the built site and the /api/pixels proxy from a
+# single origin, so there is no CORS and no credential in the browser.
+# The room, the Draco decoder and every asset are baked into the image;
+# there is no volume to provision and nothing to seed.
+#
+# The backing track is NOT in the image and no value here adds it. It
+# is a commercial recording kept out of git and out of the Docker build
+# context on purpose, so a deployed site plays nothing and the decks
+# panel says so. That is the intended state.
+# ─────────────────────────────────────────────────────────────────────
+
+# Optional overrides; default to the release name, the standard Helm pattern.
+nameOverride: ""
+fullnameOverride: ""
+
+commonLabels: {}
+commonAnnotations: {}
+
+replicaCount: 1
+
+image:
+  registry: docker.io
+  repository: kr4t0n/homepage
+  # Falls back to .Chart.AppVersion, which is `latest`. Pin a `sha-<short>`
+  # tag for anything you care about: those are immutable, `latest` is not.
+  tag: ""
+  # Empty leaves the field off and Kubernetes picks: Always for `latest`,
+  # IfNotPresent for anything else. A fixed IfNotPresent would keep serving
+  # whichever `latest` a node happened to pull first.
+  pullPolicy: ""
+
+# References existing Secrets of type kubernetes.io/dockerconfigjson.
+imagePullSecrets: []
+# - name: my-registry-creds
+
+# ─── Argus: entirely optional ────────────────────────────────────────
+# Feeds the two wall boards. Leave all of it empty and the site runs with
+# the boards unlit; /api/pixels answers 502 and the page treats that as
+# "stay dark". Set url and a key together, or neither.
+argus:
+  # Base URL of the Argus API. Prefer in-cluster service DNS so the
+  # request never leaves the cluster, e.g.
+  #   http://argus-server.argus.svc.cluster.local:4000
+  # Not a secret, so it is a plain env var rather than a Secret key.
+  url: ""
+  # Sent upstream as X-API-Key and never to the browser. Either set it
+  # here and the chart puts it in a generated Secret...
+  apiKey: ""
+  # ...or point at a Secret you manage elsewhere (external-secrets,
+  # sealed-secrets, vault) and the chart references it directly.
+  existingSecret: ""
+  existingSecretKey: ARGUS_KEY
+
+# Literal env vars appended after the chart's own. Use for anything the
+# chart does not model; ARGUS and ARGUS_KEY belong in `argus` above.
+extraEnv: []
+# - name: FOO
+#   value: "bar"
+
+service:
+  type: ClusterIP
+  port: 80
+  annotations: {}
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  # - host: homepage.example.com
+  #   paths:
+  #     - path: /
+  #       pathType: Prefix
+  hosts: []
+  tls: []
+
+# Measured on the published image: ~64 MiB resident after 400 requests at
+# 20-way concurrency, a few percent of one core. No CPU limit, because
+# throttling a server that is mostly idle buys nothing and costs latency.
+resources:
+  requests:
+    cpu: 10m
+    memory: 96Mi
+  limits:
+    memory: 256Mi
+
+# The image's `node` user is uid 1000. runAsNonRoot alone cannot be
+# enforced against it, because kubelet cannot prove a *named* user is
+# not root, so the uid is stated explicitly.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+# The server never writes to disk, so the root filesystem is read-only.
+# Verified by running the image with --read-only and every capability
+# dropped.
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+# Both probe /api/health, which deliberately does not touch Argus: an
+# upstream outage must not get a healthy pod restarted or pulled out of
+# rotation. The server is listening within a second of start.
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 5
+  periodSeconds: 20
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 1
+  periodSeconds: 10
+
+# How long a terminating pod keeps accepting connections before it is
+# sent SIGTERM. The ingress controller learns about the endpoint removal
+# asynchronously, and the server stops accepting the moment it is
+# signalled, so without this delay a rolling deploy answers a few
+# requests with 502. Set to 0 to disable. It counts against the pod's 30s
+# termination grace period, as does the server's own 10s drain backstop.
+shutdownDelaySeconds: 5
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+podAnnotations: {}

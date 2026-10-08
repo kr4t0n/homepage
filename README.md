@@ -612,20 +612,41 @@ Lint is not a gate on the image. The Dockerfile runs `npm run build`, which runs
 `tsc -b` first, so a type error does fail the image; `ci.yml` covers lint in
 parallel on the same commit.
 
-There is no GitHub Pages workflow. An earlier revision of this repo had one; it
-was never the intended target and has been removed. `base: '/'` in
-`vite.config.ts` stays, because the site serves from a domain root.
+The site is never published to GitHub Pages. An earlier revision of this repo
+had a Pages workflow; it was never the intended target and has been removed.
+The `gh-pages` branch now carries only the Helm repo (see below). `base: '/'`
+in `vite.config.ts` stays, because the site serves from a domain root.
 
 `index.html` carries no `rel="canonical"` link and no `og:url`, deliberately.
 The public domain is not final, and the previous values pointed at the GitHub
 Pages host, which told crawlers the canonical copy lived somewhere it never did.
 Add both back once the domain is settled.
 
-The Kubernetes manifests are not written yet. The image is, and it takes its
-configuration entirely from environment variables, so a Deployment needs little
-more than the image, `PORT`, a Secret supplying `ARGUS` and `ARGUS_KEY`, and
-probes pointed at `/api/health` — which deliberately does not touch Argus, so an
-upstream outage cannot make the pod look dead and get it restarted.
+### The Helm chart
+
+`helm/homepage` deploys the image: a Deployment, a Service, an optional
+Ingress, and an optional Secret for `ARGUS_KEY`. It is published to
+`https://kr4t0n.github.io/homepage/helm` by `.github/workflows/helm-publish.yml`
+whenever `helm/**` changes on `main`; bump `version` in `Chart.yaml` to release.
+
+```bash
+helm repo add homepage https://kr4t0n.github.io/homepage/helm
+helm install homepage homepage/homepage \
+  --namespace homepage --create-namespace \
+  --set image.tag=sha-<short> \
+  --set argus.url=http://argus-server.argus.svc.cluster.local:4000 \
+  --set argus.existingSecret=homepage-secret
+```
+
+Argus is optional here as everywhere else: leave `argus` empty and the boards
+stay unlit. Both probes hit `/api/health`, which deliberately does not touch
+Argus, so an upstream outage cannot make the pod look dead and get it
+restarted. The pod runs as uid 1000 on a read-only root filesystem with every
+capability dropped. `helm/homepage/README.md` covers the values.
+
+The first publish creates the `gh-pages` branch. GitHub Pages then has to be
+enabled for that branch once, in repository settings, before the repo URL
+resolves.
 
 ## Project structure
 
@@ -690,9 +711,11 @@ tools/
   shoot.mjs             full walkthrough captures
 Dockerfile              two-stage build; runtime stage has no node_modules
 .dockerignore           keeps .env and the licensed media out of the context
+helm/homepage/          the Helm chart for the cluster
 .github/workflows/
-  ci.yml                lint, typecheck, both builds
+  ci.yml                lint, typecheck, both builds, chart lint
   image.yml             build and push to Docker Hub
+  helm-publish.yml      package the chart to gh-pages
 ```
 
 ## Known gaps
