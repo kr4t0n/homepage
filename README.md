@@ -18,13 +18,21 @@ plain, fully readable 2D page when WebGL is unavailable or the viewport is small
 - Python 3.11 exactly, only if you need to re-run the asset pipeline. The `bpy`
   wheel is built against a specific CPython minor version.
 - [uv](https://docs.astral.sh/uv/) for the Python side
+- [pre-commit](https://pre-commit.com/) and [gitleaks](https://github.com/gitleaks/gitleaks),
+  for the secret scan that runs before every commit. The hook calls the
+  `gitleaks` on your PATH.
 
 ## Setup
 
 ```bash
 pnpm install
+pre-commit install      # once per clone: scan staged changes for secrets
 pnpm run dev            # http://localhost:5173
 ```
+
+The hook scans only what is staged, so `pre-commit run --all-files` passes
+without having read the tree. To scan every commit, as CI does, run
+`gitleaks git --redact`.
 
 `public/room.glb` is committed, so the site runs without touching Blender.
 
@@ -749,9 +757,10 @@ tools/
 Dockerfile              two-stage build; runtime stage has no node_modules
 .dockerignore           keeps .env and the licensed media out of the context
 helm/homepage/          the Helm chart for the cluster
+.pre-commit-config.yaml gitleaks before every commit
 .github/dependabot.yml  monthly grouped updates for npm and the actions
 .github/workflows/
-  ci.yml                lint, typecheck, both builds, chart lint
+  ci.yml                secret scan, lint, typecheck, both builds, chart lint
   image.yml             build and push to Docker Hub
   helm-publish.yml      package the chart to gh-pages
 ```
