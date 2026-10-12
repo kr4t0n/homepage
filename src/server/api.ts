@@ -164,7 +164,7 @@ function republishBreakdown(
  * can be used. That is the correct trade for a public endpoint, and it is the
  * one `fetchNames` has always made.
  */
-function publish(p: PixelPayload, meta: Record<string, ProjectMeta>): PixelPayload {
+export function publish(p: PixelPayload, meta: Record<string, ProjectMeta>): PixelPayload {
   return {
     start: p.start,
     slotMinutes: p.slotMinutes,

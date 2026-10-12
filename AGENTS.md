@@ -56,7 +56,7 @@ field reduction, a failure log that stays server-side) serves that hop being
 cheap and honest.
 `src/shared/pixels.ts` is imported by both sides and holds the payload type, the
 validator and the grid maths; `src/pixels/ranking.ts` holds the board ordering,
-kept pure so `verify-api` can assert on it without a GPU.
+kept pure so its unit tests run without a GPU.
 
 ## Key design decisions
 
@@ -498,11 +498,12 @@ used, which is the correct trade for a public endpoint.
 **Token counts are published; cost is not, and the rename is the guard.** The
 proxy reduces upstream `usage` to `in`/`out`/`cached` rather than spreading it,
 because `costUsd` sits in the same object and runs to five figures. The raw key
-names stay on the `FORBIDDEN` list in `verify-api.mjs` even now that tokens are
-a shipped feature: they can only appear in a response that spread the whole
-object, which is exactly the mistake worth failing on. Note also that `in`
-includes cache reads and they are ~85% of it, so any single summed "tokens"
-figure overstates the work by roughly seven times.
+names stay on the `FORBIDDEN` lists in `src/server/api.test.ts` and
+`verify-api.mjs` even now that tokens are a shipped feature: they can only
+appear in a response that spread the whole object, which is exactly the mistake
+worth failing on. Note also that `in` includes cache reads and they are ~85% of
+it, so any single summed "tokens" figure overstates the work by roughly seven
+times.
 
 **Translucent panels over this room fail WCAG AA by default, and the failure is
 invisible from a screenshot of the closed page.** In front of the hexagon light
@@ -976,6 +977,15 @@ upstream's manifest carries it.
   `GITLEAKS_SHA256` together, by hand, from the release's checksums file.
 - `pre-commit install` once per clone. gitleaks scans every commit before it is
   made, and CI scans the whole history again.
+- Unit tests are Vitest, one `*.test.ts` beside each module it covers, and
+  `pnpm run test` must pass; CI runs it. `pnpm exec vitest` watches, and
+  `pnpm exec vitest run <file>` or `-t '<name>'` runs a subset. Whatever runs in
+  Node without a build, a server or a browser is tested there, the proxy
+  included: `api.test.ts` drives the real Hono app in-process against a
+  loopback stub of Argus, and crosses the cache's TTL by faking `Date` alone.
+  `tools/verify-*.mjs` keep what needs more: the built `dist/`, a live server,
+  or Chromium. A check that can run under Vitest lives only there. A stray
+  `.only` fails the run in CI, where Vitest's `allowOnly` is off.
 - TypeScript strict, `tsc --noEmit` and `oxlint` must both pass. Oxlint runs
   with the TypeScript, React and jsx-a11y plugins, lints `tools/*.mjs` as well
   as `src/`, and fails on warnings. A rule turned off, in `.oxlintrc.json` or

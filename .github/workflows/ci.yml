@@ -46,14 +46,14 @@ jobs:
       - run: pnpm run lint
       - run: pnpm run format:check
       - run: pnpm run typecheck
+      # Unit tests, the /api/pixels proxy against a stubbed upstream among them.
+      # Deliberately needs no credential and no network, so it runs on every
+      # pull request including ones from forks, where secrets are unavailable.
+      - run: pnpm run test
       - run: pnpm run build
       # The production server is bundled separately from the site, so a break in
       # it would otherwise surface only in the image build.
       - run: pnpm run build:server
-      # Contract tests for the /api/pixels proxy against a stubbed upstream.
-      # Deliberately needs no credential and no network, so it runs on every
-      # pull request including ones from forks, where secrets are unavailable.
-      - run: pnpm run verify:proxy
 
   # helm-publish lints too, but only after merge. A published version is
   # immutable, so a chart that does not render is cheaper to catch here.

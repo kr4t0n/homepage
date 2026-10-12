@@ -14,10 +14,10 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "room": "tools/.venv/bin/python tools/export_glb.py room-v3.blend public/room.glb",
     "draco": "mkdir -p public/draco && cp node_modules/three/examples/jsm/libs/draco/gltf/draco_wasm_wrapper.js node_modules/three/examples/jsm/libs/draco/gltf/draco_decoder.wasm public/draco/",
-    "verify:api": "node --experimental-strip-types tools/verify-api.mjs",
-    "verify:proxy": "node tools/verify-proxy.mjs"
+    "verify:api": "node tools/verify-api.mjs"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.5",
@@ -49,7 +49,8 @@
     "prettier-plugin-tailwindcss": "^0.8.1",
     "tailwindcss": "^4.1.13",
     "typescript": "~5.9.2",
-    "vite": "^7.1.5"
+    "vite": "^7.1.5",
+    "vitest": "^5.0.3"
   },
   "packageManager": "pnpm@12.10.1"
 }

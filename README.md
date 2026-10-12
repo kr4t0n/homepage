@@ -11,8 +11,8 @@ plain, fully readable 2D page when WebGL is unavailable or the viewport is small
 
 ## Prerequisites
 
-- Node.js 22.6+ (developed on 24). `pnpm run verify:api` runs the TypeScript
-  sources directly through Node's type stripping, which is what sets the floor.
+- Node.js 22.12+ or 24 (developed on 24), the range Vite 7 and Vitest 5
+  support.
 - pnpm, at the version pinned in `packageManager` in `package.json`. Node 22
   and 24 ship corepack, so `corepack enable pnpm` once is enough.
 - Python 3.11 exactly, only if you need to re-run the asset pipeline. The `bpy`
@@ -80,8 +80,10 @@ It calls two upstream endpoints and publishes a fraction of what they return:
 `workingDir` carries an absolute path with a username in it, and `costUsd` runs
 to five figures. Neither belongs on a public page, so the reduction happens in
 the proxy rather than the browser — passing the endpoint through, or doing the
-name lookup client-side, would publish all of it. `node tools/verify-api.mjs`
-asserts against the live response that it stays that way.
+name lookup client-side, would publish all of it. The unit tests in
+`src/server/api.test.ts` assert that it stays that way against a stubbed
+upstream that sends every withheld field, and `node tools/verify-api.mjs`
+asserts the same against the live response.
 
 Those disclosure checks need this project's own server answering, and the script
 takes the base URL as an argument or in `VERIFY_BASE`, defaulting to
@@ -112,10 +114,40 @@ fix it is an alias map in `fetchNames`.
 | `pnpm run format` | Prettier, rewriting files in place, Tailwind classes sorted |
 | `pnpm run format:check` | Prettier, listing the files it would change and failing if there are any |
 | `pnpm run typecheck` | `tsc --noEmit` |
-| `pnpm run verify:api` | Secret containment, proxy disclosure, payload and ranking maths |
-| `pnpm run verify:proxy` | Proxy contract tests against a stubbed upstream. No credential needed |
+| `pnpm run test` | Vitest unit tests, the proxy against a stubbed upstream among them. No credential needed |
+| `pnpm run verify:api` | Secret containment in the built `dist/`, and what the live proxy discloses |
 | `pnpm run room` | Re-export `room.glb` and the manifests from `room-v3.blend` |
 | `pnpm run draco` | Copy the Draco decoder out of `three` into `public/draco/` |
+
+## Tests
+
+```bash
+pnpm run test                                   # every unit test, once
+pnpm exec vitest                                # watch mode, reruns on save
+pnpm exec vitest run src/audio/track.test.ts    # one file
+pnpm exec vitest run -t 'parseTrack'            # tests whose name matches
+```
+
+Unit tests are Vitest, in a `*.test.ts` beside the module each one covers, and
+CI runs them on every pull request. They cover what runs in Node without a
+build, a server or a browser:
+
+| File | Covers |
+|---|---|
+| `src/shared/pixels.test.ts` | the payload validator, `liveSlot`, `gridPos`, `slotLabel`, `slotShares` |
+| `src/pixels/ranking.test.ts` | the ranking board's order, scores and segments, and its exported anchors |
+| `src/pixels/palette.test.ts` | project colours, material names, cell indexing and appearance |
+| `src/audio/track.test.ts` | which track manifests `parseTrack` accepts and refuses |
+| `src/content.test.ts` | that the signals hotspot covers and frames both wall boards |
+| `src/server/api.test.ts` | `publish`, and `/api/pixels` in-process against a stubbed upstream |
+
+The proxy tests start a throwaway HTTP server on loopback in place of Argus, so
+they need no credential and no network. `vitest.config.ts` is kept apart from
+`vite.config.ts` because the latter copies `ARGUS` and `ARGUS_KEY` from `.env`
+onto `process.env`.
+
+What needs more than Node stays in `tools/`: `verify-api.mjs` reads the built
+`dist/` and a live server, and the `verify-*` scripts below drive Chromium.
 
 ## The asset pipeline
 
@@ -710,6 +742,7 @@ resolves.
 ```
 src/
   content.ts            all copy, projects, hotspot -> node map
+  *.test.ts             Vitest unit tests, beside the module each covers
   scene-manifest.json   generated: bounding boxes per group
   ranking-anchors.json  generated: where the ranking board's live text goes
   store.ts              focus/hover state, hash routing
@@ -753,8 +786,7 @@ tools/
   diagnose_lighting.py  material colours, neutral vs site light rig
   wall_occupancy.py     lists wall decor and finds clear bands
   base.mjs              shared target URL, strict flag, and "is this us?" probe
-  verify-api.mjs        secret containment, proxy disclosure, ranking maths
-  verify-proxy.mjs      proxy contract tests against a stubbed upstream
+  verify-api.mjs        secret containment in dist/, live proxy disclosure
   verify-boards.mjs     both wall boards pick and frame as one hotspot
   verify-draco.mjs      the Draco decoder is same-origin, and nothing leaves the site
   verify-glass.mjs      glass contrast gate
@@ -773,10 +805,11 @@ helm/homepage/          the Helm chart for the cluster
 .pre-commit-config.yaml gitleaks before every commit
 .oxlintrc.json          lint rules, and why the ones turned off are off
 prettier.config.js      formatting, including Tailwind class order
+vitest.config.ts        unit tests, kept apart from vite.config.ts and its .env
 .git-blame-ignore-revs  the reformat commit, which git blame skips
 .github/dependabot.yml  monthly grouped updates for npm and the actions
 .github/workflows/
-  ci.yml                secret scan, lint, format, typecheck, both builds, chart lint
+  ci.yml                secret scan, lint, format, typecheck, unit tests, both builds, chart lint
   image.yml             build, run and check the image, push to Docker Hub
   helm-publish.yml      package the chart to gh-pages
 ```
