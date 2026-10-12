@@ -975,7 +975,11 @@ upstream's manifest carries it.
   `GITLEAKS_SHA256` together, by hand, from the release's checksums file.
 - `pre-commit install` once per clone. gitleaks scans every commit before it is
   made, and CI scans the whole history again.
-- TypeScript strict, `tsc --noEmit` and `eslint .` must both pass.
+- TypeScript strict, `tsc --noEmit` and `oxlint` must both pass. Oxlint runs
+  with the TypeScript, React and jsx-a11y plugins, lints `tools/*.mjs` as well
+  as `src/`, and fails on warnings. A rule turned off in `.oxlintrc.json` says
+  why beside it; the React Compiler rules that are off conflict with
+  react-three-fiber, which sets fields on three.js objects from hooks.
 - Prettier formats every file it can parse, apart from what `.prettierignore`
   lists, and `pnpm run format:check` must pass; CI runs it. Class order in a
   `className` is `prettier-plugin-tailwindcss`'s, read from the theme in
