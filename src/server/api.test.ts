@@ -40,6 +40,8 @@ const PIXELS_FIXTURE = {
   projects: [
     { key: 'hash-a', wonSeconds: 10, sneakyProjectField: '/home/kyle/secret' },
     { key: 'hash-b', wonSeconds: 5 },
+    // Unknown to the names lookup, so nothing from it can add the fields back.
+    { key: 'hash-c', wonSeconds: 1, sneakyProjectField: '/home/kyle/other' },
   ],
   live: [0],
   sneakyTopLevel: { machineId: 'box-1', costUsd: 12345.67 },
@@ -95,10 +97,16 @@ describe('publish', () => {
     ])
   })
 
-  it('drops an unknown per-project field', () => {
-    const [a, b] = publish(upstream(), meta).projects
+  it('drops an unknown per-project field, whether or not the lookup knew the project', () => {
+    const [a, b, c] = publish(upstream(), meta).projects
     expect(Object.keys(a).sort()).toEqual(['key', 'name', 'tokens', 'wonSeconds'])
     expect(Object.keys(b).sort()).toEqual(['key', 'wonSeconds'])
+    expect(c).toEqual({ key: 'hash-c', wonSeconds: 1 })
+    expect(publish(upstream(), {}).projects).toEqual([
+      { key: 'hash-a', wonSeconds: 10 },
+      { key: 'hash-b', wonSeconds: 5 },
+      { key: 'hash-c', wonSeconds: 1 },
+    ])
   })
 
   it('adds a name and tokens only where the lookup found them', () => {
@@ -290,6 +298,7 @@ describe('/api/pixels against a stubbed upstream', () => {
     const up = await startUpstream({ pixelsStatus: 503 })
     const res = await get(await freshProxy(up.base))
     expect(res.status).toBe(502)
+    expect(res.headers.get('cache-control')).toBe('no-store')
     expect(await res.json()).toEqual({ error: 'upstream unavailable' })
     // The cause stays in the server log, and the key stays out of it.
     expect(errors).toHaveLength(1)
@@ -310,14 +319,20 @@ describe('/api/pixels against a stubbed upstream', () => {
     expect(up.seen.paths.filter((p) => p.startsWith('/me/pixels'))).toHaveLength(2)
   })
 
-  // Names are a nicety. Losing them must cost the names, not the board.
+  // Names are a nicety. Losing them must cost the names, not the board, and
+  // must not let a project out unreduced.
   it('serves the board with hashes when the names lookup fails', async () => {
     const up = await startUpstream({ namesStatus: 500 })
     const res = await get(await freshProxy(up.base))
     expect(res.status).toBe(200)
-    const json = (await res.json()) as PixelPayload
-    expect(json.projects.map((p) => p.name)).toEqual([undefined, undefined])
-    expect(json.projects.map((p) => p.key)).toEqual(['hash-a', 'hash-b'])
+    const body = await res.text()
+    expect(FORBIDDEN.filter((f) => body.includes(f))).toEqual([])
+    const json = JSON.parse(body) as PixelPayload
+    expect(json.projects).toEqual([
+      { key: 'hash-a', wonSeconds: 10 },
+      { key: 'hash-b', wonSeconds: 5 },
+      { key: 'hash-c', wonSeconds: 1 },
+    ])
     expect(warnings[0]).toContain('names lookup failed')
   })
 
@@ -338,21 +353,24 @@ describe('/api/pixels against a stubbed upstream', () => {
     const t0 = Date.now()
     const up = await startUpstream()
     const app = await freshProxy(up.base)
-    const pixelCalls = () => up.seen.paths.filter((p) => p.startsWith('/me/pixels')).length
+    const calls = (path: string) => up.seen.paths.filter((p) => p.startsWith(path)).length
 
     const first = await get(app)
     expect(first.status).toBe(200)
     expect(first.headers.get('x-pixels-age')).toBe('0')
     const payload = await first.text()
+    const callsAfterFirst = up.seen.paths.length
 
     vi.setSystemTime(t0 + 8_999)
     const second = await get(app)
     expect(second.status).toBe(200)
-    expect(pixelCalls()).toBe(1)
+    expect(up.seen.paths).toHaveLength(callsAfterFirst)
 
+    // The pixels refresh; the names, on their own five-minute TTL, do not.
     vi.setSystemTime(t0 + 9_000)
     expect((await get(app)).status).toBe(200)
-    expect(pixelCalls()).toBe(2)
+    expect(calls('/me/pixels')).toBe(2)
+    expect(calls('/me/usage/by-project')).toBe(1)
 
     up.server.close()
     await once(up.server, 'close')
@@ -360,8 +378,31 @@ describe('/api/pixels against a stubbed upstream', () => {
     const stale = await get(app)
     expect(stale.status).toBe(200)
     expect(stale.headers.get('x-pixels-stale')).toBe('9500')
+    expect(stale.headers.get('cache-control')).toBe('no-store')
     expect(await stale.text()).toBe(payload)
     expect(errors[0]).toContain('serving a payload 10s old')
+  })
+
+  it('refreshes names after five minutes, and keeps the last good ones if that fails', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    const t0 = Date.now()
+    const behaviour: Behaviour = {}
+    const up = await startUpstream(behaviour)
+    const app = await freshProxy(up.base)
+    const namesCalls = () => up.seen.paths.filter((p) => p.startsWith('/me/usage')).length
+    const firstName = async () => ((await (await get(app)).json()) as PixelPayload).projects[0].name
+
+    expect(await firstName()).toBe('fluvio')
+    vi.setSystemTime(t0 + 5 * 60_000)
+    expect(await firstName()).toBe('fluvio')
+    expect(namesCalls()).toBe(1)
+
+    // Past both TTLs: the pixels refresh, and the names are due again.
+    behaviour.namesStatus = 500
+    vi.setSystemTime(t0 + 5 * 60_000 + 9_000)
+    expect(await firstName()).toBe('fluvio')
+    expect(namesCalls()).toBe(2)
+    expect(warnings[0]).toContain('names lookup failed')
   })
 
   it('answers 502 without calling upstream when no key is configured', async () => {

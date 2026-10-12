@@ -26,6 +26,7 @@ describe('colourFor', () => {
     const colours = Array.from({ length: PALETTE_SIZE }, (_, i) => hex(colourFor(i)))
     expect(new Set(colours).size).toBe(PALETTE_SIZE)
     expect(colours).not.toContain('#000000')
+    expect(colours).not.toContain(hex(colourFor(PALETTE_SIZE)))
   })
 
   // The tail is still lit, since the hour happened, but in one shared colour.

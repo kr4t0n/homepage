@@ -93,6 +93,17 @@ describe('rankByTokens', () => {
     expect(rankByTokens(untokened)).toEqual([])
   })
 
+  // `in` already includes cache reads, so adding `cached` would count them twice.
+  it('counts cache reads once', () => {
+    const cachedHeavy: PixelProject[] = [
+      { key: 'x', wonSeconds: 0, tokens: { in: 1000, out: 0, cached: 900 } },
+      { key: 'y', wonSeconds: 0, tokens: { in: 1100, out: 0, cached: 0 } },
+    ]
+    const r = rankByTokens(payload(cachedHeavy))
+    expect(r.map((x) => x.project.key)).toEqual(['y', 'x'])
+    expect(r[1].total).toBe(1000)
+  })
+
   it('breaks ties on key so rows do not swap between polls', () => {
     const tied = rankByTokens(
       payload(
