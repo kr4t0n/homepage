@@ -23,6 +23,7 @@ import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { extname, join, normalize } from 'node:path'
 import { chromium } from 'playwright'
+import { captureDir } from './captures.mjs'
 
 const ROOT = 'dist'
 const MANIFEST_PATH = '/media/track.json'
@@ -450,7 +451,7 @@ check(
   page.url().includes('#/player'),
   page.url().split('/').pop(),
 )
-await page.screenshot({ path: 'tools/shots/player.png' })
+await page.screenshot({ path: join(captureDir(), 'player.png') })
 
 await browser.close()
 server.close()

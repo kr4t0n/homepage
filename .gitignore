@@ -18,9 +18,10 @@
 # and the manifest names a record that is not ours to publish.
 public/media/
 
-# Scratch space for files handed to an agent working on this repo, mostly
-# screenshots of bugs. Tool-managed and local to whoever is working, so it is
-# the same case as the capture directories below: generated input, not source.
+# Files handed to an agent working on this repo, mostly screenshots of bugs.
+# The Argus sidecar writes a prompt's attachments to .argus/uploads/ under the
+# agent's working directory. Tool-managed input, local to whoever is working,
+# and not source.
 .argus/
 
 node_modules/
@@ -28,10 +29,6 @@ dist/
 dist-server/
 tsconfig.tsbuildinfo
 tools/.venv/
-tools/shots/
-tools/preview/
-tools/screens.json
-tools/walls.json
 *.local
 .DS_Store
 .env

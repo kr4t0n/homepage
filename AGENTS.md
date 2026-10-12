@@ -986,6 +986,12 @@ upstream's manifest carries it.
   `tools/verify-*.mjs` keep what needs more: the built `dist/`, a live server,
   or Chromium. A check that can run under Vitest lives only there. A stray
   `.only` fails the run in CI, where Vitest's `allowOnly` is off.
+- Nothing in `tools/` writes into the checkout. Screenshots, renders and
+  measurements go to a fresh directory under the system temp dir, and the script
+  prints its path: `captureDir()` from `tools/captures.mjs` in the browser
+  scripts, `tempfile.mkdtemp` in the Blender ones. Script output never gets an
+  ignore entry. `.argus/` is ignored because the Argus sidecar writes a prompt's
+  attachments there, not for anything in this repo.
 - TypeScript strict, `tsc --noEmit` and `oxlint` must both pass. Oxlint runs
   with the TypeScript, React and jsx-a11y plugins, lints `tools/*.mjs` as well
   as `src/`, and fails on warnings. A rule turned off, in `.oxlintrc.json` or

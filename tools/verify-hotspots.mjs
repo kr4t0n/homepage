@@ -4,7 +4,7 @@
  * The exporter tags objects into groups by hand-authored world-space boxes, and
  * a box catches whatever is inside it, so a region's name is not evidence of its
  * contents. This tints every mesh one hotspot owns, from the home camera, and
- * writes one capture per hotspot to tools/shots/hover/, so it is unambiguous
+ * writes one capture per hotspot to a fresh temp directory, so it is unambiguous
  * which physical object each hotspot actually is.
  *
  * The room has no hover highlight of its own, so the tint is applied here,
@@ -16,16 +16,15 @@
  *
  * Run against the dev server: node tools/verify-hotspots.mjs [url]
  */
-import { mkdirSync } from 'node:fs'
 import { chromium } from 'playwright'
 import { BASE, requireOurServer } from './base.mjs'
+import { captureDir } from './captures.mjs'
 
 // Identify the target before launching a browser at it: aimed at a port
 // something else owns, this would otherwise time out hunting for a canvas.
 await requireOurServer()
 
-const OUT = 'tools/shots/hover'
-mkdirSync(OUT, { recursive: true })
+const OUT = captureDir()
 
 const browser = await chromium.launch({
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],

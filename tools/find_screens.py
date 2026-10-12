@@ -14,12 +14,12 @@ import json
 import math
 import os
 import sys
+import tempfile
 
 import bpy
 from mathutils import Vector
 
 BLEND = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else "../room.blend")
-HERE = os.path.dirname(os.path.abspath(__file__))
 
 bpy.ops.wm.open_mainfile(filepath=BLEND)
 scene = bpy.context.scene
@@ -104,7 +104,7 @@ for f in found:
         f"{f['aspect']:<7} ({c[0]:6.2f},{c[1]:6.2f},{c[2]:6.2f})   {f['yaw_deg']:>7.1f}"
     )
 
-out = os.path.join(HERE, "screens.json")
+out = os.path.join(tempfile.mkdtemp(prefix="homepage-find_screens-"), "screens.json")
 with open(out, "w") as fh:
     json.dump(found, fh, indent=1)
 print(f"\nwrote {out} ({len(found)} faces)")

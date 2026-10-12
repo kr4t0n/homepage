@@ -37,8 +37,6 @@ public/media
 *.blend
 *.blend1
 tools/.venv/
-tools/shots/
-tools/preview/
 
 # Rebuilt inside the image, so copying them in would only risk a stale or
 # host-arch-specific result being reused.

@@ -6,13 +6,13 @@ Run:  ./.venv/bin/python inspect_scene.py ../room.blend
 import math
 import os
 import sys
+import tempfile
 
 import bpy
 from mathutils import Vector
 
 BLEND = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else "../room.blend")
-OUT = os.path.abspath(os.path.join(os.path.dirname(__file__), "preview"))
-os.makedirs(OUT, exist_ok=True)
+OUT = tempfile.mkdtemp(prefix="homepage-inspect_scene-")
 
 bpy.ops.wm.open_mainfile(filepath=BLEND)
 print(f"opened: {BLEND}")
