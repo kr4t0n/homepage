@@ -9,7 +9,7 @@
  * the stronger property: this page makes no third-party request today, and that
  * should stay a decision rather than drift.
  *
- * Run: npm run build && node tools/verify-draco.mjs
+ * Run: pnpm run build && node tools/verify-draco.mjs
  */
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'

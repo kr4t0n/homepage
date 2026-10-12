@@ -17,7 +17,7 @@
  * hardcoding a song. With no track there it fails rather than skipping: every
  * playback assertion below would otherwise pass vacuously or not run at all.
  *
- * Run: npm run build && node tools/verify-player.mjs
+ * Run: pnpm run build && node tools/verify-player.mjs
  */
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'

@@ -11,8 +11,10 @@ plain, fully readable 2D page when WebGL is unavailable or the viewport is small
 
 ## Prerequisites
 
-- Node.js 22.6+ (developed on 24). `npm run verify:api` runs the TypeScript
+- Node.js 22.6+ (developed on 24). `pnpm run verify:api` runs the TypeScript
   sources directly through Node's type stripping, which is what sets the floor.
+- pnpm, at the version pinned in `packageManager` in `package.json`. Node 22
+  and 24 ship corepack, so `corepack enable pnpm` once is enough.
 - Python 3.11 exactly, only if you need to re-run the asset pipeline. The `bpy`
   wheel is built against a specific CPython minor version.
 - [uv](https://docs.astral.sh/uv/) for the Python side
@@ -20,8 +22,8 @@ plain, fully readable 2D page when WebGL is unavailable or the viewport is small
 ## Setup
 
 ```bash
-npm install
-npm run dev            # http://localhost:5173
+pnpm install
+pnpm run dev            # http://localhost:5173
 ```
 
 `public/room.glb` is committed, so the site runs without touching Blender.
@@ -87,17 +89,17 @@ fix it is an alias map in `fetchNames`.
 
 | Command | Does |
 |---|---|
-| `npm run dev` | Vite dev server |
-| `npm run build` | Typecheck then production build to `dist/` |
-| `npm run build:server` | Bundle the production server to `dist-server/server.mjs` |
-| `npm run start` | Run that server against `dist/`. Needs both builds first |
-| `npm run preview` | Serve the production build |
-| `npm run lint` | ESLint (flat config) |
-| `npm run typecheck` | `tsc --noEmit` |
-| `npm run verify:api` | Secret containment, proxy disclosure, payload and ranking maths |
-| `npm run verify:proxy` | Proxy contract tests against a stubbed upstream. No credential needed |
-| `npm run room` | Re-export `room.glb` and the manifests from `room-v3.blend` |
-| `npm run draco` | Copy the Draco decoder out of `three` into `public/draco/` |
+| `pnpm run dev` | Vite dev server |
+| `pnpm run build` | Typecheck then production build to `dist/` |
+| `pnpm run build:server` | Bundle the production server to `dist-server/server.mjs` |
+| `pnpm run start` | Run that server against `dist/`. Needs both builds first |
+| `pnpm run preview` | Serve the production build |
+| `pnpm run lint` | ESLint (flat config) |
+| `pnpm run typecheck` | `tsc --noEmit` |
+| `pnpm run verify:api` | Secret containment, proxy disclosure, payload and ranking maths |
+| `pnpm run verify:proxy` | Proxy contract tests against a stubbed upstream. No credential needed |
+| `pnpm run room` | Re-export `room.glb` and the manifests from `room-v3.blend` |
+| `pnpm run draco` | Copy the Draco decoder out of `three` into `public/draco/` |
 
 ## The asset pipeline
 
@@ -195,7 +197,7 @@ that is the owner's call.
 cd tools
 uv venv --python 3.11 .venv
 uv pip install --python .venv/bin/python bpy
-cd .. && npm run room
+cd .. && pnpm run room
 ```
 
 No Blender install needed; `bpy` is Blender as a Python module.
@@ -209,7 +211,7 @@ declares: where `gstatic.com` is unreachable, the room never appears.
 
 The decoder is served from `public/draco/` instead, so the site makes no
 third-party request at all. The two files there, `draco_wasm_wrapper.js` and
-`draco_decoder.wasm`, are copied out of three's own examples by `npm run draco`.
+`draco_decoder.wasm`, are copied out of three's own examples by `pnpm run draco`.
 Re-run it after bumping `three`. The asm.js fallback is deliberately not copied;
 every browser this site targets has WebAssembly.
 
@@ -279,9 +281,9 @@ it, which is not always the object you meant. Never trust a region name without
 looking.
 
 ```bash
-npm run dev                      # in one shell
+pnpm run dev                      # in one shell
 node tools/verify-hotspots.mjs   # tints each hotspot's meshes, writes tools/shots/hover/
-npm run build
+pnpm run build
 node tools/shoot.mjs             # full walkthrough, writes tools/shots/
 ```
 
@@ -297,7 +299,7 @@ These drive a running dev server instead, because they assert on the dev-only
 `window.__orbit` hook rather than on pixels alone:
 
 ```bash
-npm run dev                          # in one shell
+pnpm run dev                          # in one shell
 node tools/verify-orbit.mjs          # orbit, zoom, drag-vs-click
 node tools/verify-view-restore.mjs   # tuned view survives a hotspot visit
 node tools/sweep-neon.mjs            # renders a neon brightness sweep
@@ -330,7 +332,7 @@ One more runs against a production build rather than the dev server, because it
 asserts on media loading and needs real MIME types and range requests:
 
 ```bash
-npm run build
+pnpm run build
 node tools/verify-player.mjs          # autoplay policy, transport, persistence
 node tools/verify-glass.mjs           # panel text clears WCAG AA on glass
 node tools/verify-draco.mjs           # the decoder is same-origin; nothing leaves the site
@@ -408,7 +410,7 @@ box has no hardware GL, and software rasterisation gives ~6fps with no glass at
 all, so the numbers are meaningless. Watch for dropped frames while orbiting with
 a panel open, which is when the compositor must re-blur every frame.
 
-All of the above need a one-time `npx playwright install chromium`.
+All of the above need a one-time `pnpm exec playwright install chromium`.
 
 ## The backing track
 
@@ -552,13 +554,13 @@ Argus API it reads from. A single container serves the built `dist/` and the
 the browser.
 
 That container is built by this repo. `src/server/serve.ts` is the whole of it:
-it mounts the same Hono app `npm run dev` runs, puts a static tree in front of
+it mounts the same Hono app `pnpm run dev` runs, puts a static tree in front of
 it, and listens. Everything it adds beyond that is the part Vite supplies in dev
 and nothing supplies in a container.
 
 ```bash
-npm run build && npm run build:server
-npm run start                     # http://localhost:8080
+pnpm run build && pnpm run build:server
+pnpm run start                     # http://localhost:8080
 ```
 
 | Variable | Default | Purpose |
@@ -626,10 +628,10 @@ the version on a `v*` tag, and the commit SHA every time. Deploy a version (the
 chart does by default) or a SHA; `latest` is for convenience, not for rollbacks.
 
 The build is `linux/amd64` only. Adding `linux/arm64` is a one-line change to
-`platforms:`, but it builds under QEMU emulation and an `npm ci` plus a Vite
+`platforms:`, but it builds under QEMU emulation and a `pnpm install` plus a Vite
 build of this scene is slow enough there to dominate the run.
 
-Lint is not a gate on the image. The Dockerfile runs `npm run build`, which runs
+Lint is not a gate on the image. The Dockerfile runs `pnpm run build`, which runs
 `tsc -b` first, so a type error does fail the image; `ci.yml` covers lint in
 parallel on the same commit.
 

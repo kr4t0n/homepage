@@ -6,7 +6,7 @@
  * browser: ARGUS_KEY is read by this process and never travels further.
  *
  * `api` here is the very same Hono app that `@hono/vite-dev-server` runs during
- * `npm run dev`, mounted by `@hono/node-server` instead. One handler, two
+ * `pnpm run dev`, mounted by `@hono/node-server` instead. One handler, two
  * adaptors, so dev cannot drift from prod. Everything this file adds is the
  * static half that Vite provides in dev and nothing provides in a container.
  */
@@ -35,7 +35,7 @@ const INDEX = join(DIST, 'index.html')
 // build in it is broken, and the crash loop says so immediately; a process that
 // starts happily and serves nothing looks like a routing problem for an hour.
 if (!existsSync(INDEX)) {
-  console.error(`[serve] no build found at ${DIST}. Run \`npm run build\` first.`)
+  console.error(`[serve] no build found at ${DIST}. Run \`pnpm run build\` first.`)
   process.exit(1)
 }
 

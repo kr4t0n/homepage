@@ -24,7 +24,7 @@
  * is handed back to the browser, drawn to a canvas and read with getImageData.
  * That keeps this dependency-free.
  *
- * Run: npm run build && node tools/verify-glass.mjs
+ * Run: pnpm run build && node tools/verify-glass.mjs
  */
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'

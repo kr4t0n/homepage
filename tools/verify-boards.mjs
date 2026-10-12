@@ -9,7 +9,7 @@
  * rather than from pixels: pointer parallax moves the camera, so two frames
  * taken with the pointer in different places differ almost everywhere.
  *
- * Run against a dev server: npm run dev, then node tools/verify-boards.mjs [url]
+ * Run against a dev server: pnpm run dev, then node tools/verify-boards.mjs [url]
  */
 import { chromium } from 'playwright'
 import { BASE, requireOurServer } from './base.mjs'

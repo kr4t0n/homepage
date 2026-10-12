@@ -10,7 +10,7 @@ import type { PixelPayload } from '../shared/pixels'
  * being cheap and honest.
  *
  * Mounted twice, but written once: `@hono/vite-dev-server` serves it during
- * `npm run dev`, and `@hono/node-server` serves it in the container alongside
+ * `pnpm run dev`, and `@hono/node-server` serves it in the container alongside
  * the built `dist/`. Same handler both sides, so dev cannot drift from prod.
  */
 

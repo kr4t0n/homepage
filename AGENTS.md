@@ -44,7 +44,7 @@ The boards are the whole readout. The signals hotspot is `bare` -- focusing it
 opens no panel -- so nothing in the DOM restates them.
 ```
 
-One handler, mounted twice: `@hono/vite-dev-server` runs it in `npm run dev` and
+One handler, mounted twice: `@hono/vite-dev-server` runs it in `pnpm run dev` and
 `@hono/node-server` runs it beside `dist/` in the container, so dev cannot drift
 from prod. `src/server/serve.ts` is that second mount and nothing more — it adds
 the static tree, a cache policy and a shutdown path, which is exactly the set of
@@ -350,7 +350,7 @@ object, so both routes can be checked as state.
 
 The converse also bit this repo: state alone can pass while nothing on screen
 changes. `__wash()` reported the intended node names correctly for three weeks
-in which the wash painted nothing under `npm run dev`. If a test exists to
+in which the wash painted nothing under `pnpm run dev`. If a test exists to
 prove something is *visible*, it needs one pixel comparison taken under
 `reducedMotion: 'reduce'`, where the camera ignores the pointer.
 
@@ -643,7 +643,7 @@ it from Google.** `useGLTF` defaults to `www.gstatic.com` for the decoder, and
 in the page declares and the room simply never appears where that host is
 blocked. `Room.tsx` sets the decoder path once at module level, before the
 preload at the bottom of the file runs; drei keeps one loader for the whole app,
-so this covers every `useGLTF` call. `npm run draco` copies the wrapper and wasm
+so this covers every `useGLTF` call. `pnpm run draco` copies the wrapper and wasm
 out of three's examples, and `tools/verify-draco.mjs` fails the moment any
 request leaves the origin.
 
@@ -870,7 +870,7 @@ clear shared state inside a `useMemo` that clones the scene: under
 `<StrictMode>` React runs that function twice in development and keeps the
 *first* result, so the second run wiped the wash's baseline map and refilled it
 from a clone that was then thrown away. The wash painted nothing under
-`npm run dev` for three weeks while working in production, and the only test
+`pnpm run dev` for three weeks while working in production, and the only test
 checked intent, not pixels.
 
 **`gsap.from()` under reduced motion will hide your UI.** `from()` writes its
@@ -934,6 +934,9 @@ the same input, and keep a negative control in mind for any validator you trust.
 
 ## Conventions
 
+- pnpm only, at the version `packageManager` pins; `pnpm-lock.yaml` is the one
+  lockfile. A dependency's install script runs only if `allowBuilds` in
+  `pnpm-workspace.yaml` lists it.
 - TypeScript strict, `tsc --noEmit` and `eslint .` must both pass.
 - Tailwind v4 via `@tailwindcss/vite`, tokens in the `@theme` block of
   `src/index.css`. One accent colour (`--color-acid`), one radius scale.
