@@ -35,9 +35,6 @@ ENV PORT=8080
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/dist-server ./dist-server
 
-# Negative control: an .mp3 outside dist/, so it is never served over HTTP.
-RUN mkdir -p /opt/stand-in && touch /opt/stand-in/hidden.mp3
-
 # The base image ships this unprivileged user. Nothing here writes to disk, so
 # there is no reason to run the server as root.
 USER node
@@ -53,4 +50,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 
 # Exec form, no shell. The server drains on SIGTERM, and a shell wrapper would
 # swallow the signal and leave Kubernetes to SIGKILL it after the grace period.
-CMD ["node", "dist-server/server.mjs"]
+# Negative control: a process that never listens.
+CMD ["node", "-e", "setInterval(() => {}, 1000)"]
