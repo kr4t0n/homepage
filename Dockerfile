@@ -35,6 +35,9 @@ ENV PORT=8080
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/dist-server ./dist-server
 
+# Negative control: an .mp3 outside dist/, so it is never served over HTTP.
+RUN mkdir -p /opt/stand-in && touch /opt/stand-in/hidden.mp3
+
 # The base image ships this unprivileged user. Nothing here writes to disk, so
 # there is no reason to run the server as root.
 USER node
