@@ -321,6 +321,9 @@ const BODY: Record<string, () => React.ReactElement | null> = {
   cv: () => <Pending what="The formal one-page version, as a PDF." />,
 }
 
+/** For a kind with no body. Module-level, so its identity is the same every render. */
+const NoBody = () => null
+
 /**
  * Kinds that render as a compact bar rather than a full content panel.
  *
@@ -371,7 +374,7 @@ export function Panel() {
   // than filtering upstream keeps one rule in one place -- the panel decides
   // whether there is a panel.
   if (spot.bare) return null
-  const Body = BODY[spot.kind] ?? (() => null)
+  const Body = BODY[spot.kind] ?? NoBody
   const compact = COMPACT.has(spot.kind)
 
   // A non-modal <dialog>, opened by its attribute rather than show(). show()
