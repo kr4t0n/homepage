@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && NODE_ENV=production vite build",
     "build:server": "esbuild src/server/serve.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist-server/server.mjs",
     "start": "node dist-server/server.mjs",
     "preview": "vite preview",
