@@ -168,7 +168,7 @@ check(
 )
 
 // --- 2. Track metadata is what the manifest says -----------------------------
-const body = (await page.textContent('dialog')) ?? ''
+const body = (await page.textContent('[role="dialog"]')) ?? ''
 check('shows the title from the manifest', body.includes(manifest.title), manifest.title)
 check('shows the artist from the manifest', body.includes(manifest.artist), manifest.artist)
 
@@ -176,7 +176,7 @@ check('shows the artist from the manifest', body.includes(manifest.artist), mani
 // a wrong MIME type would leave it present but undecoded. naturalWidth proves
 // the bytes arrived and decoded.
 const art = await page.evaluate(() => {
-  const img = document.querySelector('dialog img')
+  const img = document.querySelector('[role="dialog"] img')
   if (!img) return { present: false }
   return { present: true, w: img.naturalWidth, h: img.naturalHeight, alt: img.alt }
 })
@@ -200,7 +200,7 @@ const decksWith = async () => {
   const text = await p
     .waitForFunction(
       () => {
-        const d = document.querySelector('dialog')
+        const d = document.querySelector('[role="dialog"]')
         const done =
           d &&
           (d.querySelector('[data-elapsed]') || d.textContent.includes('No track is being served'))
@@ -282,7 +282,7 @@ check('playback progresses', t2 > t1, `${t1}s -> ${t2}s`)
 // and happens to be moving".
 const angle = () =>
   page.evaluate(() => {
-    const img = document.querySelector('dialog img')
+    const img = document.querySelector('[role="dialog"] img')
     if (!img) return null
     const t = getComputedStyle(img).transform
     if (!t || t === 'none') return 0
@@ -330,7 +330,7 @@ await rm.keyboard.press('Space')
 await rm.waitForTimeout(2200)
 const rmAngle = async () =>
   rm.evaluate(() => {
-    const img = document.querySelector('dialog img')
+    const img = document.querySelector('[role="dialog"] img')
     const t = img ? getComputedStyle(img).transform : 'none'
     if (!t || t === 'none') return 0
     const m = new DOMMatrixReadOnly(t)
@@ -429,8 +429,8 @@ await bare
   .waitForFunction(() => !document.querySelector('output'), { timeout: 120_000 })
   .catch(() => {})
 await bare.waitForTimeout(1800)
-check('a missing cover removes the image entirely', (await bare.$('dialog img')) === null)
-const bareBody = (await bare.textContent('dialog')) ?? ''
+check('a missing cover removes the image entirely', (await bare.$('[role="dialog"] img')) === null)
+const bareBody = (await bare.textContent('[role="dialog"]')) ?? ''
 check(
   'the bar still works without artwork',
   bareBody.includes(manifest.title) && (await bare.$('[data-elapsed]')) !== null,

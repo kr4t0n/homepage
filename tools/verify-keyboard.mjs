@@ -52,7 +52,7 @@ const active = () =>
       text: (el.textContent ?? '').trim().slice(0, 40),
       href: el.getAttribute('href'),
       inNav: !!el.closest('nav[aria-label="Places in the room"]'),
-      inDialog: !!el.closest('dialog'),
+      inDialog: !!el.closest('[role="dialog"]'),
     }
   })
 

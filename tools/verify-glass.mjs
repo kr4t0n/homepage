@@ -201,7 +201,7 @@ for (const id of PANELS) {
   // the values are tuned to leave margin rather than to scrape past 4.5:1.
   await page.waitForTimeout(3800)
 
-  const dialog = page.locator('dialog')
+  const dialog = page.locator('[role="dialog"]')
   if ((await dialog.count()) === 0) {
     fails.push(`${id}: no panel opened`)
     continue
@@ -209,7 +209,7 @@ for (const id of PANELS) {
 
   // Step 1: what text is actually on this panel, and in what colour.
   const specs = await page.evaluate(() => {
-    const d = document.querySelector('dialog')
+    const d = document.querySelector('[role="dialog"]')
     const seen = new Map()
     for (const el of d.querySelectorAll('*')) {
       // Only elements holding their own text, so a wrapper does not report the
@@ -257,7 +257,7 @@ for (const id of PANELS) {
 
   // Step 2: the bare surface, and its brightest tile.
   await page.evaluate(() => {
-    for (const c of document.querySelector('dialog').children) {
+    for (const c of document.querySelector('[role="dialog"]').children) {
       c.style.visibility = 'hidden'
     }
   })

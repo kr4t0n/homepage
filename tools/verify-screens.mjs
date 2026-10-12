@@ -178,7 +178,7 @@ await page.waitForTimeout(2400)
 await page.goto(`${BASE}/#/about`, { waitUntil: 'networkidle' })
 await page.waitForTimeout(2200)
 const links = await page.evaluate(() =>
-  [...document.querySelectorAll('dialog a')].map((a) => a.getAttribute('href')),
+  [...document.querySelectorAll('[role="dialog"] a')].map((a) => a.getAttribute('href')),
 )
 check(
   links.some((h) => h?.includes('kr4t0n.github.io/argus')),
