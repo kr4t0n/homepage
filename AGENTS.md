@@ -179,11 +179,13 @@ nothing carries it across.** `*.mp3` and `public/media/` are gitignored so the
 commercial track cannot be committed. That says nothing about `docker
 build`, which reads the working tree rather than the index: on the machine that
 owns those files, Vite copies `public/` into `dist/` verbatim and the recording
-ends up in the image. CI never reproduces it, because a fresh checkout has no
-track in it, so the only build that ships the file is a local one — the exact
-case least likely to be checked. `.dockerignore` now carries the same rules.
-Any future packaging path needs them again, and the way to confirm is to list
-the artefact rather than to reason about it.
+ends up in the image. A fresh checkout has no track in it, so CI on its own
+never reproduces this, and the only build that ships the file is a local one —
+the exact case least likely to be checked. `.dockerignore` now carries the same
+rules, and `image.yml` plants stand-in media where a local track would sit
+before every build, then fails if any `.mp3` or a `dist/media` is in the image
+it built. Any future packaging path needs the rules again, and the way to
+confirm is to list the artefact rather than to reason about it.
 
 **`.dockerignore` is not `.gitignore`.** It matches with Go's `filepath.Match`,
 where `*` does not cross a path separator. `*.mp3` therefore matches only the
@@ -932,11 +934,35 @@ Deployment with a misspelled `preStop.sleep.secondz` and reported it as
 created. Validate rendered manifests with `kubeconform -strict`, which rejected
 the same input, and keep a negative control in mind for any validator you trust.
 
+**`pre-commit run --all-files` reads nothing for secrets and still says
+Passed.** The gitleaks hook runs `gitleaks git --pre-commit --staged`, which
+scans the staged diff and nothing else. With nothing staged, `--all-files`
+reports Passed after scanning 0 bytes, which `--verbose` shows. So a green run
+proves the hook is installed and starts, not that the tree is clean. The scan
+that covers the tree is `gitleaks git --redact`, over every commit, which is
+what the `check` job in `ci.yml` runs.
+
+**Upstream's `gitleaks-system` hook fails every commit as published.** Its
+manifest leaves out `pass_filenames: false`, so pre-commit appends the staged
+file names and `gitleaks git` refuses more than one argument ("accepts at most 1
+arg(s)"). `.pre-commit-config.yaml` sets it. Keep it when bumping `rev` until
+upstream's manifest carries it.
+
 ## Conventions
 
 - pnpm only, at the version `packageManager` pins; `pnpm-lock.yaml` is the one
   lockfile. A dependency's install script runs only if `allowBuilds` in
   `pnpm-workspace.yaml` lists it.
+- A transitive dependency with an advisory is raised under `overrides` in
+  `pnpm-workspace.yaml`, one selector per major line (`brace-expansion@2`), so
+  no package gets a major it did not ask for. `pnpm audit` after any dependency
+  change should report nothing.
+- Every action in `.github/workflows/` is pinned to a full commit SHA with its
+  release tag in a trailing comment, and Dependabot moves both. It cannot see
+  the gitleaks download in `ci.yml`: bump `GITLEAKS_VERSION` and
+  `GITLEAKS_SHA256` together, by hand, from the release's checksums file.
+- `pre-commit install` once per clone. gitleaks scans every commit before it is
+  made, and CI scans the whole history again.
 - TypeScript strict, `tsc --noEmit` and `eslint .` must both pass.
 - Tailwind v4 via `@tailwindcss/vite`, tokens in the `@theme` block of
   `src/index.css`. One accent colour (`--color-acid`), one radius scale.

@@ -1,9 +1,11 @@
 name: Image
 
-# Builds the container and pushes it to Docker Hub.
+# Builds the container, runs it, and pushes it to Docker Hub.
 #
-# Pull requests build but do not push, so a broken Dockerfile is caught before
-# it reaches main rather than after. Everything else publishes.
+# Pull requests build and run the image but do not push, so a broken
+# Dockerfile, a server that will not start, or media that got past
+# .dockerignore is caught before it reaches main rather than after. Everything
+# else publishes, and only once the same checks have passed.
 on:
   push:
     branches: [main]
@@ -24,16 +26,16 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # Needed for the GitHub Actions cache backend below; the default docker
       # driver cannot export cache.
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       # Skipped on pull requests, which do not push and so need no credentials.
       - name: Log in to Docker Hub
         if: github.event_name != 'pull_request'
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -44,7 +46,7 @@ jobs:
       # is cosmetic.
       - name: Derive tags
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/homepage
           tags: |
@@ -55,7 +57,20 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=sha
 
-      - uses: docker/build-push-action@v6
+      # Media is gitignored, so a fresh checkout has none and the media check
+      # below could never fail here. Stand-ins where a local track would sit
+      # make that check exercise .dockerignore itself, which is the only thing
+      # keeping a real track out of a local build.
+      - name: Plant stand-in media for .dockerignore to keep out
+        run: |
+          set -euo pipefail
+          mkdir -p public/media
+          echo '{}' > public/media/track.json
+          : > public/media/stand-in.mp3
+          : > public/stand-in.mp3
+
+      - name: Build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           # linux/amd64 only. Adding linux/arm64 here works, but it builds under
@@ -63,9 +78,76 @@ jobs:
           # slow enough under it to dominate the run. Add it when a cluster node
           # actually needs it.
           platforms: linux/amd64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          # Into the runner's Docker, so the next step can run it.
+          load: true
+          tags: homepage:ci
           # Caches the pnpm install layer across runs, which is most of the build.
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Run the image and check what it serves and holds
+        run: |
+          set -euo pipefail
+          docker run --detach --name homepage-ci --publish 127.0.0.1:8080:8080 homepage:ci
+          trap 'docker logs homepage-ci; docker rm --force homepage-ci >/dev/null' EXIT
+          base=http://127.0.0.1:8080
+
+          # The liveness route the chart's probes use. The exact body, so that
+          # something else answering on the port does not pass for the server.
+          health=''
+          for _ in $(seq 1 30); do
+            if health="$(curl --fail --silent --max-time 2 "$base/api/health")"; then
+              break
+            fi
+            sleep 1
+          done
+          if [ "$health" != '{"ok":true}' ]; then
+            echo "::error::/api/health answered '$health' after 30 tries, expected {\"ok\":true}"
+            exit 1
+          fi
+
+          # The site itself, and a file copied from public/.
+          page="$(curl --fail --silent --show-error --header 'Accept: text/html' "$base/")"
+          if [[ "$page" != *'<div id="root">'* ]]; then
+            echo "::error::/ did not serve the app's index.html"
+            exit 1
+          fi
+          curl --fail --silent --show-error --output /dev/null "$base/room.glb"
+
+          # Nothing under /media is served, because nothing is there. In the
+          # cluster the volume mounted over dist/media is what fills it.
+          for path in /media/track.json /media/stand-in.mp3 /stand-in.mp3; do
+            code="$(curl --silent --output /dev/null --write-out '%{http_code}' "$base$path")"
+            if [ "$code" != 404 ]; then
+              echo "::error::$path answered $code, expected 404"
+              exit 1
+            fi
+          done
+
+          # And it is not on disk either: no .mp3 anywhere in the image, and no
+          # dist/media for the volume to land on top of. Run as root so that no
+          # directory is unreadable, which would hide whatever is inside it.
+          found="$(docker run --rm --user root --entrypoint find homepage:ci \
+            / -xdev \( -name '*.mp3' -o -path /app/dist/media \) -print)"
+          if [ -n "$found" ]; then
+            echo "::error::the image holds media it must not:"
+            echo "$found"
+            exit 1
+          fi
+          echo "health, index, room.glb and media checks passed"
+
+      - name: Remove the stand-in media
+        run: rm -r public/media public/stand-in.mp3
+
+      # Rebuilt from the cache the build above just filled, so these are the
+      # layers that were checked, with the registry tags and labels added.
+      - name: Push
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha

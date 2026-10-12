@@ -1,0 +1,35 @@
+# Version updates, once a month and grouped, so they arrive as a handful of pull
+# requests rather than one per package. Security updates are a repository
+# setting, not part of this file, and are off.
+version: 2
+updates:
+  # Reads package.json and pnpm-lock.yaml.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    # Conventional Commit titles: build(deps) and build(deps-dev).
+    commit-message:
+      prefix: build
+      include: scope
+    groups:
+      # One pull request for everything that should be safe to take together.
+      minor-and-patch:
+        update-types: [minor, patch]
+      # Majors in a second one, so a major that needs work does not hold back
+      # the updates that do not.
+      major:
+        update-types: [major]
+
+  # The workflows pin every action to a commit SHA with its release tag in a
+  # comment. Dependabot moves both together.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: ci
+      include: scope
+    groups:
+      actions:
+        patterns: ['*']

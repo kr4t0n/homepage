@@ -1,0 +1,19 @@
+# Hooks that run before every commit. Set up once per clone with
+# `pre-commit install`; see README.
+#
+# 3.2.0 is the floor this config was run on, a fake token included. The hook
+# below declares no minimum of its own.
+minimum_pre_commit_version: '3.2.0'
+
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: 83d9cd684c87d95d656c1458ef04895a7f1cbd8e # frozen: v8.30.1
+    hooks:
+      # Calls the gitleaks already on PATH rather than building one with Go,
+      # so the version is whatever the machine installed, and README lists it as
+      # a prerequisite. CI's scan pins its own copy by checksum.
+      - id: gitleaks-system
+        # Upstream's manifest leaves this out for the system hook. pre-commit
+        # then appends the staged file names, and `gitleaks git` refuses more
+        # than one argument, so every commit would fail.
+        pass_filenames: false
