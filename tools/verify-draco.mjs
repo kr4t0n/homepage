@@ -70,7 +70,7 @@ await page.goto(BASE, { waitUntil: 'networkidle', timeout: 120_000 })
 // The preloader is driven by real load progress and removes itself only once
 // the GLB has been fetched *and* decoded, which is the step that needs Draco.
 const loaded = await page
-  .waitForFunction(() => !document.querySelector('[role="status"]'), { timeout: 120_000 })
+  .waitForFunction(() => !document.querySelector('output'), { timeout: 120_000 })
   .then(
     () => true,
     () => false,

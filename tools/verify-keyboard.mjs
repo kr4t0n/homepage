@@ -33,7 +33,7 @@ const page = await browser.newPage({
 })
 await page.goto(BASE, { waitUntil: 'networkidle', timeout: 120_000 })
 await page
-  .waitForFunction(() => !document.querySelector('[role="status"]'), { timeout: 120_000 })
+  .waitForFunction(() => !document.querySelector('output'), { timeout: 120_000 })
   .catch(() => {})
 await page.waitForTimeout(2500)
 

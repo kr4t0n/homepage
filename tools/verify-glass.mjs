@@ -192,7 +192,7 @@ for (const id of PANELS) {
   // visibility:hidden applied below survives into the next iteration.
   await page.goto(`${BASE}/?panel=${id}#/${id}`, { waitUntil: 'networkidle', timeout: 120_000 })
   await page
-    .waitForFunction(() => !document.querySelector('[role="status"]'), { timeout: 120_000 })
+    .waitForFunction(() => !document.querySelector('output'), { timeout: 120_000 })
     .catch(() => {})
   // Long enough for the camera flight to land. Measuring early samples the
   // *home* view through the glass, which is brighter than the hotspot framing,

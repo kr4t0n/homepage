@@ -894,6 +894,19 @@ what a visitor does. To open a hotspot, `press` Enter on a pill or click the
 object. Hovering a pill never drove the 3D hover state reliably anyway: the
 canvas-to-HTML pointer handoff raced.
 
+**The panel is a div with `role="dialog"`, not a `<dialog>`, and that is
+deliberate.** jsx-a11y's `prefer-tag-over-role` asks for the native element,
+and `Panel.tsx` turns the rule off on both lines with the reason beside it.
+Chromium gives an open `<dialog>` focus when anything inside it is clicked, so
+the next key press would draw the acid focus ring around the whole panel, and
+the arrow keys and PageDown would stop scrolling its content, which lives on an
+inner element. A screen reader is told the same either way: a non-modal dialog with
+the panel's name. The preloader is an `<output>`, which takes no focus, so the
+scripts in `tools/` wait for `output` to go. The two checks that no panel
+opened, in `verify-boards` and `verify-screens`, ask `getByRole('dialog')`,
+which counts a dialog however it is marked up, so a markup change cannot turn
+them into passes that never looked.
+
 **`runAsNonRoot` cannot be enforced against a named user.** The Dockerfile says
 `USER node`, and kubelet cannot prove a name is not root, so `runAsNonRoot:
 true` on its own leaves the pod stuck in `CreateContainerConfigError`. The
@@ -963,7 +976,12 @@ upstream's manifest carries it.
   `GITLEAKS_SHA256` together, by hand, from the release's checksums file.
 - `pre-commit install` once per clone. gitleaks scans every commit before it is
   made, and CI scans the whole history again.
-- TypeScript strict, `tsc --noEmit` and `eslint .` must both pass.
+- TypeScript strict, `tsc --noEmit` and `oxlint` must both pass. Oxlint runs
+  with the TypeScript, React and jsx-a11y plugins, lints `tools/*.mjs` as well
+  as `src/`, and fails on warnings. A rule turned off, in `.oxlintrc.json` or
+  on a line of code, says why beside it. Three React Compiler rules are off: two flag the way
+  react-three-fiber code sets fields on three.js objects from hooks, and one
+  serves only the compiler, which this project doesn't run.
 - Prettier formats every file it can parse, apart from what `.prettierignore`
   lists, and `pnpm run format:check` must pass; CI runs it. Class order in a
   `className` is `prettier-plugin-tailwindcss`'s, read from the theme in

@@ -32,7 +32,7 @@ page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 
 await page.goto(BASE, { waitUntil: 'networkidle', timeout: 120_000 })
 await page
-  .waitForFunction(() => !document.querySelector('[role="status"]'), { timeout: 120_000 })
+  .waitForFunction(() => !document.querySelector('output'), { timeout: 120_000 })
   .catch(() => {})
 await page.waitForTimeout(2500)
 
@@ -85,7 +85,7 @@ check(
   page.url().includes('#/screen/nodex'),
   `first click frames the screen (${page.url().split('/').pop()})`,
 )
-check((await page.locator('[role="dialog"]').count()) === 0, 'no panel opens for a monitor')
+check((await page.getByRole('dialog').count()) === 0, 'no panel opens for a monitor')
 check(
   (await page.locator('text=Back to the room').count()) === 1,
   'framed screen offers a way back',

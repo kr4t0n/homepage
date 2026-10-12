@@ -38,7 +38,7 @@ const errors = []
 page.on('pageerror', (e) => errors.push(e.message))
 
 await page.goto(`${BASE}/`, { waitUntil: 'networkidle', timeout: 120_000 })
-await page.waitForFunction(() => !document.querySelector('[role="status"]'), { timeout: 120_000 })
+await page.waitForFunction(() => !document.querySelector('output'), { timeout: 120_000 })
 await page.waitForTimeout(3000)
 
 const sig = page
@@ -90,11 +90,12 @@ check(
 // Focused, the boards are the whole readout: no glass panel, and the only
 // chrome is the way back out. A panel here would cover the bottom of both
 // boards to restate what they already show.
-// The panel is the thing with role="dialog". Counting `.glass` instead would be
-// wrong as well as fragile: PixelTooltip carries that class too, so the
+// The panel is the thing with the dialog role. Counting `.glass` instead would
+// be wrong as well as fragile: PixelTooltip carries that class too, so the
 // assertion would pass or fail on whether the pointer happened to be resting
-// over a cell.
-const dialogs = await page.evaluate(() => document.querySelectorAll('[role="dialog"]').length)
+// over a cell. Asked by role, not by tag or attribute, so the count cannot fall
+// to zero just because the markup changed.
+const dialogs = await page.getByRole('dialog').count()
 check('focusing the boards opens no panel', dialogs === 0, `${dialogs} dialog(s)`)
 
 // Per-cell detail moved entirely to hover once the panel went, so the tooltip

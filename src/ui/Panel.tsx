@@ -321,6 +321,9 @@ const BODY: Record<string, () => React.ReactElement | null> = {
   cv: () => <Pending what="The formal one-page version, as a PDF." />,
 }
 
+/** For a kind with no body. Module-level, so its identity is the same every render. */
+const NoBody = () => null
+
 /**
  * Kinds that render as a compact bar rather than a full content panel.
  *
@@ -371,15 +374,22 @@ export function Panel() {
   // than filtering upstream keeps one rule in one place -- the panel decides
   // whether there is a panel.
   if (spot.bare) return null
-  const Body = BODY[spot.kind] ?? (() => null)
+  const Body = BODY[spot.kind] ?? NoBody
   const compact = COMPACT.has(spot.kind)
 
+  // A div with the dialog role rather than a <dialog>, in both layouts. Chromium
+  // gives an open <dialog> focus when anything inside it is clicked, so the next
+  // key press draws the focus ring around the whole panel, and the arrow keys
+  // and PageDown stop scrolling its content. A screen reader is told the same
+  // either way: a non-modal dialog with the panel's name.
+  //
   // The visible heading is dropped in compact mode, so the dialog's accessible
   // name comes from aria-label alone — which it already did.
   if (compact) {
     return (
       <div
         ref={root}
+        // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a <dialog> takes focus on click
         role="dialog"
         aria-modal="false"
         aria-label={spot.label}
@@ -401,6 +411,7 @@ export function Panel() {
   return (
     <div
       ref={root}
+      // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a <dialog> takes focus on click
       role="dialog"
       aria-modal="false"
       aria-label={spot.label}

@@ -78,7 +78,7 @@ await page.goto(BASE, { waitUntil: 'networkidle', timeout: 120_000 })
 
 // The preloader only unmounts once the GLB has actually parsed.
 await page
-  .waitForFunction(() => !document.querySelector('[role="status"]'), { timeout: 120_000 })
+  .waitForFunction(() => !document.querySelector('output'), { timeout: 120_000 })
   .catch(() => console.log('! preloader still up after 120s'))
 
 await page.waitForTimeout(3000)

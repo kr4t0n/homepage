@@ -127,7 +127,7 @@ const check = (name, ok, detail = '') => {
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
 await page.goto(BASE, { waitUntil: 'networkidle', timeout: 120_000 })
 await page
-  .waitForFunction(() => !document.querySelector('[role="status"]'), { timeout: 120_000 })
+  .waitForFunction(() => !document.querySelector('output'), { timeout: 120_000 })
   .catch(() => {})
 await page.waitForTimeout(1500)
 
@@ -324,7 +324,7 @@ const rmCtx = await browser.newContext({
 const rm = await rmCtx.newPage()
 await rm.goto(`${BASE}/#/player`, { waitUntil: 'networkidle', timeout: 120_000 })
 await rm
-  .waitForFunction(() => !document.querySelector('[role="status"]'), { timeout: 120_000 })
+  .waitForFunction(() => !document.querySelector('output'), { timeout: 120_000 })
   .catch(() => {})
 await rm.keyboard.press('Space')
 await rm.waitForTimeout(2200)
@@ -380,7 +380,7 @@ const coldCtx = await browser.newContext({ viewport: { width: 1440, height: 900 
 const cold = await coldCtx.newPage()
 await cold.goto(`${BASE}/#/player`, { waitUntil: 'networkidle', timeout: 120_000 })
 await cold
-  .waitForFunction(() => !document.querySelector('[role="status"]'), { timeout: 120_000 })
+  .waitForFunction(() => !document.querySelector('output'), { timeout: 120_000 })
   .catch(() => {})
 await cold.waitForTimeout(1800)
 
@@ -407,7 +407,7 @@ const roomCtx = await browser.newContext({ viewport: { width: 1440, height: 900 
 const room = await roomCtx.newPage()
 await room.goto(`${BASE}/#/player`, { waitUntil: 'networkidle', timeout: 120_000 })
 await room
-  .waitForFunction(() => !document.querySelector('[role="status"]'), { timeout: 120_000 })
+  .waitForFunction(() => !document.querySelector('output'), { timeout: 120_000 })
   .catch(() => {})
 await room.waitForTimeout(1800)
 check('room click: silent to begin with', (await elapsedOn(room)) === 0)
@@ -426,7 +426,7 @@ const bareCtx = await browser.newContext({ viewport: { width: 1440, height: 900 
 const bare = await bareCtx.newPage()
 await bare.goto(`${BASE}/#/player`, { waitUntil: 'networkidle', timeout: 120_000 })
 await bare
-  .waitForFunction(() => !document.querySelector('[role="status"]'), { timeout: 120_000 })
+  .waitForFunction(() => !document.querySelector('output'), { timeout: 120_000 })
   .catch(() => {})
 await bare.waitForTimeout(1800)
 check('a missing cover removes the image entirely', (await bare.$('[role="dialog"] img')) === null)

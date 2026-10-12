@@ -107,8 +107,8 @@ fix it is an alias map in `fetchNames`.
 | `pnpm run build:server` | Bundle the production server to `dist-server/server.mjs` |
 | `pnpm run start` | Run that server against `dist/`. Needs both builds first |
 | `pnpm run preview` | Serve the production build |
-| `pnpm run lint` | ESLint (flat config) |
-| `pnpm run lint:fix` | ESLint, applying the fixes it can make |
+| `pnpm run lint` | Oxlint with the TypeScript, React and jsx-a11y plugins, over `src/`, `tools/*.mjs` and the root configs. Warnings fail it |
+| `pnpm run lint:fix` | Oxlint, applying the fixes it can make |
 | `pnpm run format` | Prettier, rewriting files in place, Tailwind classes sorted |
 | `pnpm run format:check` | Prettier, listing the files it would change and failing if there are any |
 | `pnpm run typecheck` | `tsc --noEmit` |
@@ -771,6 +771,7 @@ Dockerfile              two-stage build; runtime stage has no node_modules
 .dockerignore           keeps .env and the licensed media out of the context
 helm/homepage/          the Helm chart for the cluster
 .pre-commit-config.yaml gitleaks before every commit
+.oxlintrc.json          lint rules, and why the ones turned off are off
 prettier.config.js      formatting, including Tailwind class order
 .git-blame-ignore-revs  the reformat commit, which git blame skips
 .github/dependabot.yml  monthly grouped updates for npm and the actions
