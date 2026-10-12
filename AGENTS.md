@@ -937,8 +937,12 @@ the same input, and keep a negative control in mind for any validator you trust.
 - pnpm only, at the version `packageManager` pins; `pnpm-lock.yaml` is the one
   lockfile. A dependency's install script runs only if `allowBuilds` in
   `pnpm-workspace.yaml` lists it.
+- A transitive dependency with an advisory is raised under `overrides` in
+  `pnpm-workspace.yaml`, one selector per major line (`brace-expansion@2`), so
+  no package gets a major it did not ask for. `pnpm audit` after any dependency
+  change should report nothing.
 - Every action in `.github/workflows/` is pinned to a full commit SHA with its
-  release tag in a trailing comment.
+  release tag in a trailing comment, and Dependabot moves both.
 - TypeScript strict, `tsc --noEmit` and `eslint .` must both pass.
 - Tailwind v4 via `@tailwindcss/vite`, tokens in the `@theme` block of
   `src/index.css`. One accent colour (`--color-acid`), one radius scale.

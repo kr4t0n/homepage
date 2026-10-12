@@ -749,6 +749,7 @@ tools/
 Dockerfile              two-stage build; runtime stage has no node_modules
 .dockerignore           keeps .env and the licensed media out of the context
 helm/homepage/          the Helm chart for the cluster
+.github/dependabot.yml  monthly grouped updates for npm and the actions
 .github/workflows/
   ci.yml                lint, typecheck, both builds, chart lint
   image.yml             build and push to Docker Hub
