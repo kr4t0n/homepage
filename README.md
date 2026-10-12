@@ -27,12 +27,17 @@ plain, fully readable 2D page when WebGL is unavailable or the viewport is small
 ```bash
 pnpm install
 pre-commit install      # once per clone: scan staged changes for secrets
+git config blame.ignoreRevsFile .git-blame-ignore-revs   # once per clone
 pnpm run dev            # http://localhost:5173
 ```
 
 The hook scans only what is staged, so `pre-commit run --all-files` passes
 without having read the tree. To scan every commit, as CI does, run
 `gitleaks git --redact`.
+
+The blame setting skips the commit that formatted the codebase with Prettier,
+so `git blame` shows who last changed a line rather than who reformatted it.
+GitHub's blame view reads `.git-blame-ignore-revs` on its own.
 
 `public/room.glb` is committed, so the site runs without touching Blender.
 
@@ -767,6 +772,7 @@ Dockerfile              two-stage build; runtime stage has no node_modules
 helm/homepage/          the Helm chart for the cluster
 .pre-commit-config.yaml gitleaks before every commit
 prettier.config.js      formatting, including Tailwind class order
+.git-blame-ignore-revs  the reformat commit, which git blame skips
 .github/dependabot.yml  monthly grouped updates for npm and the actions
 .github/workflows/
   ci.yml                secret scan, lint, format, typecheck, both builds, chart lint
