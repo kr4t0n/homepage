@@ -22,7 +22,7 @@ export default defineConfig(({ mode }) => {
       react(),
       tailwindcss(),
       // Runs the same Hono app the container runs, so /api/pixels behaves
-      // identically in `npm run dev` and in the cluster. `exclude` inverts the
+      // identically in `pnpm run dev` and in the cluster. `exclude` inverts the
       // plugin's default: hand it only /api/*, and let Vite keep serving the SPA,
       // HMR and every asset as before.
       devServer({

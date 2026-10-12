@@ -17,7 +17,7 @@ const GLB = '/room.glb'
  * is a third-party request nothing in the page declares, and the GLB cannot be
  * shown without the decoder, so wherever that host is unreachable the room
  * never appears. The wrapper and wasm are copied out of three's examples into
- * public/draco/ by `npm run draco`. Set once, at module level, before the
+ * public/draco/ by `pnpm run draco`. Set once, at module level, before the
  * preload at the bottom of this file runs: drei keeps a single loader for the
  * whole app, so this covers every useGLTF call rather than one positional
  * argument that is easy to drop. tools/verify-draco.mjs guards it.

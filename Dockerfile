@@ -1,28 +1,30 @@
 # Two stages: build the site and bundle the server, then ship only the results.
 #
-# The runtime stage carries no node_modules at all. `npm run build:server`
+# The runtime stage carries no node_modules at all. `pnpm run build:server`
 # bundles Hono and @hono/node-server into one file, so the image is the Node
 # base plus dist/ and a single .mjs. That also keeps every build-time dependency
 # out of the published image, which is the cheapest way to keep its
 # vulnerability surface close to whatever the base image has.
 
-# Pinned to the major that `npm run verify:api` already requires (Node's type
+# Pinned to the major that `pnpm run verify:api` already requires (Node's type
 # stripping sets that floor). Alpine because nothing here needs glibc.
 FROM node:22-alpine AS build
 
 WORKDIR /app
 
 # Copied first and separately so this layer caches on the lockfile alone. Source
-# edits then rebuild without re-resolving every dependency.
-COPY package.json package-lock.json ./
-RUN npm ci
+# edits then rebuild without re-resolving every dependency. pnpm-workspace.yaml
+# comes too, because it says which dependencies may run install scripts.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+# corepack ships with Node 22 and fetches the pnpm that `packageManager` pins.
+RUN corepack enable pnpm && pnpm install --frozen-lockfile
 
 COPY . .
 
-# `npm run build` runs `tsc -b` before Vite, so a type error fails the image
+# `pnpm run build` runs `tsc -b` before Vite, so a type error fails the image
 # build rather than shipping. Both outputs are needed: dist/ is the site,
 # dist-server/ is the process that serves it.
-RUN npm run build && npm run build:server
+RUN pnpm run build && pnpm run build:server
 
 FROM node:22-alpine AS runtime
 

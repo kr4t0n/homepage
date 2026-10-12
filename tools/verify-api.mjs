@@ -9,7 +9,7 @@
  * src/server/api.ts from client code, and the key ships to every visitor with no
  * warning from any tool. This test is that warning.
  *
- * Run: npm run build && node tools/verify-api.mjs [base-url]
+ * Run: pnpm run build && node tools/verify-api.mjs [base-url]
  *
  * The live proxy section needs this project's own server answering at
  * `base-url` (default http://localhost:5173, or VERIFY_BASE). When it is not
@@ -44,7 +44,7 @@ const walk = (dir) =>
   })
 
 if (!existsSync('dist')) {
-  fails.push('dist/ missing — run npm run build first')
+  fails.push('dist/ missing — run pnpm run build first')
 } else {
   const files = walk('dist')
   const text = files
