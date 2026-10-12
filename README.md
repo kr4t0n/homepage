@@ -95,6 +95,7 @@ fix it is an alias map in `fetchNames`.
 | `pnpm run start` | Run that server against `dist/`. Needs both builds first |
 | `pnpm run preview` | Serve the production build |
 | `pnpm run lint` | ESLint (flat config) |
+| `pnpm run lint:fix` | ESLint, applying the fixes it can make |
 | `pnpm run typecheck` | `tsc --noEmit` |
 | `pnpm run verify:api` | Secret containment, proxy disclosure, payload and ranking maths |
 | `pnpm run verify:proxy` | Proxy contract tests against a stubbed upstream. No credential needed |
