@@ -117,7 +117,9 @@ const server = serve({ fetch: app.fetch, port: PORT, hostname: HOST }, (info) =>
   // unlit, which is a supported state -- but it is worth one line at startup,
   // because the alternative is diagnosing it from 502s later.
   if (!process.env.ARGUS || !process.env.ARGUS_KEY) {
-    console.warn('[serve] ARGUS and ARGUS_KEY are not both set; /api/pixels will 502 and the wall boards stay unlit')
+    console.warn(
+      '[serve] ARGUS and ARGUS_KEY are not both set; /api/pixels will 502 and the wall boards stay unlit',
+    )
   }
 })
 

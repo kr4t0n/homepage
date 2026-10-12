@@ -964,6 +964,11 @@ upstream's manifest carries it.
 - `pre-commit install` once per clone. gitleaks scans every commit before it is
   made, and CI scans the whole history again.
 - TypeScript strict, `tsc --noEmit` and `eslint .` must both pass.
+- Prettier formats every file it can parse, apart from what `.prettierignore`
+  lists, and `pnpm run format:check` must pass; CI runs it. Class order in a
+  `className` is `prettier-plugin-tailwindcss`'s, read from the theme in
+  `src/index.css`, so do not order classes by hand. The chart's YAML keeps
+  Helm's double quotes through an override in `prettier.config.js`.
 - Tailwind v4 via `@tailwindcss/vite`, tokens in the `@theme` block of
   `src/index.css`. One accent colour (`--color-acid`), one radius scale.
 - GSAP only for animation. Do not add Motion; the two fight over frames in the

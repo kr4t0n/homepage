@@ -1,0 +1,8 @@
+# Commits that `git blame` skips, because they move code without changing it.
+# GitHub reads this file by itself. For the command line, run once per clone:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+# A rebase changes these SHAs, so update them if one of these commits is ever
+# rewritten.
+
+# style: format the codebase with Prettier
+e797e4fbf181d080f20d960892fc0e4086ef8e01

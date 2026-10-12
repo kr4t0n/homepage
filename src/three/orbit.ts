@@ -129,19 +129,11 @@ export function attachOrbit(el: HTMLElement, onUse: () => void): () => void {
     last = { x: e.clientX, y: e.clientY }
     travelled += Math.abs(dx) + Math.abs(dy)
 
-    orbit.dTheta = THREE.MathUtils.clamp(
-      orbit.dTheta - dx * 0.0042,
-      -LIMITS.theta,
-      LIMITS.theta,
-    )
+    orbit.dTheta = THREE.MathUtils.clamp(orbit.dTheta - dx * 0.0042, -LIMITS.theta, LIMITS.theta)
     // Clamped at the source as well as at apply time. If it were only clamped
     // when applied, dragging past the limit would bank up offset that has to be
     // unwound before the camera responds to a drag back.
-    orbit.dPhi = THREE.MathUtils.clamp(
-      orbit.dPhi - dy * 0.0034,
-      -LIMITS.phi,
-      LIMITS.phi,
-    )
+    orbit.dPhi = THREE.MathUtils.clamp(orbit.dPhi - dy * 0.0034, -LIMITS.phi, LIMITS.phi)
     if (travelled > 8) onUse()
   }
 

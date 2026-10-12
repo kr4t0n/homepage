@@ -90,10 +90,7 @@ const poseForScreen = (id: string | null, cam: THREE.Camera): Pose | null => {
   const vFov = THREE.MathUtils.degToRad(p.fov ?? 34)
   const hFov = 2 * Math.atan(Math.tan(vFov / 2) * (p.aspect || 1.6))
   const dist =
-    Math.max(
-      s.width / 2 / Math.tan(hFov / 2),
-      s.height / 2 / Math.tan(vFov / 2),
-    ) * SCREEN_MARGIN
+    Math.max(s.width / 2 / Math.tan(hFov / 2), s.height / 2 / Math.tan(vFov / 2)) * SCREEN_MARGIN
 
   const n = new THREE.Vector3(...s.normal).normalize()
   const centre = new THREE.Vector3(...s.centre)
@@ -104,8 +101,7 @@ const poseForScreen = (id: string | null, cam: THREE.Camera): Pose | null => {
 const homePose = () => poseBetween(HOME_CAMERA.position, HOME_CAMERA.target)
 
 const prefersReduced = () =>
-  typeof window !== 'undefined' &&
-  window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 /**
  * Owns the camera outright.
@@ -165,8 +161,7 @@ export function CameraDirector({
     if (leavingHome) rememberHomeView()
     prevTarget.current = target
 
-    const next =
-      poseForHotspot(focus) ?? poseForScreen(screen, camera) ?? homePose()
+    const next = poseForHotspot(focus) ?? poseForScreen(screen, camera) ?? homePose()
     const orbitTo =
       target === null
         ? { dTheta: homeView.dTheta, dPhi: homeView.dPhi, zoom: homeView.zoom }
@@ -208,11 +203,7 @@ export function CameraDirector({
     }
 
     const theta = p.theta + orbit.dTheta + driftT
-    const phi = THREE.MathUtils.clamp(
-      p.phi + orbit.dPhi + driftP,
-      LIMITS.phiMin,
-      LIMITS.phiMax,
-    )
+    const phi = THREE.MathUtils.clamp(p.phi + orbit.dPhi + driftP, LIMITS.phiMin, LIMITS.phiMax)
     _s.set(p.radius * orbit.zoom, phi, theta)
     _v.setFromSpherical(_s)
 

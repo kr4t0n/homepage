@@ -206,8 +206,11 @@ const get = (app, path = '/api/pixels') => app.fetch(new Request(`http://proxy${
   )
 
   check('the grid survives intact', json.slotCount === 4 && json.winners.length === 4)
-  check('breakdown survives, rebuilt', JSON.stringify(json.breakdown) === '{"1":{"0":415,"1":301}}',
-    JSON.stringify(json.breakdown))
+  check(
+    'breakdown survives, rebuilt',
+    JSON.stringify(json.breakdown) === '{"1":{"0":415,"1":301}}',
+    JSON.stringify(json.breakdown),
+  )
 
   // The names lookup is what turns a hash into a word, and it reads the most
   // revealing endpoint to do it. Both halves matter: the name arrives, the rest
@@ -220,7 +223,8 @@ const get = (app, path = '/api/pixels') => app.fetch(new Request(`http://proxy${
   )
   check(
     'tokens are renamed to in/out/cached',
-    json.projects[0].tokens.in === 980 && json.projects[0].tokens.out === 20 &&
+    json.projects[0].tokens.in === 980 &&
+      json.projects[0].tokens.out === 20 &&
       json.projects[0].tokens.cached === 850,
     JSON.stringify(json.projects[0].tokens),
   )
@@ -299,7 +303,10 @@ const get = (app, path = '/api/pixels') => app.fetch(new Request(`http://proxy${
   const app = await freshProxy(up.base)
 
   const first = await get(app)
-  check('first request populates the cache', first.status === 200 && first.headers.has('x-pixels-age'))
+  check(
+    'first request populates the cache',
+    first.status === 200 && first.headers.has('x-pixels-age'),
+  )
   const callsAfterFirst = up.seen.paths.length
 
   const second = await get(app)
@@ -319,8 +326,11 @@ const get = (app, path = '/api/pixels') => app.fetch(new Request(`http://proxy${
     third.status === 200,
     `got ${third.status}`,
   )
-  check('and it is marked stale', third.headers.has('x-pixels-stale'),
-    `headers: ${[...third.headers.keys()].join(', ')}`)
+  check(
+    'and it is marked stale',
+    third.headers.has('x-pixels-stale'),
+    `headers: ${[...third.headers.keys()].join(', ')}`,
+  )
 }
 
 {
@@ -344,5 +354,7 @@ const get = (app, path = '/api/pixels') => app.fetch(new Request(`http://proxy${
 
 rmSync(workdir, { recursive: true, force: true })
 
-console.log(`\n${fails.length ? `${fails.length} FAILED: ${fails.join(', ')}` : 'all checks passed'}`)
+console.log(
+  `\n${fails.length ? `${fails.length} FAILED: ${fails.join(', ')}` : 'all checks passed'}`,
+)
 process.exit(fails.length ? 1 : 0)

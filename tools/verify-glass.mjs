@@ -61,8 +61,20 @@ const TYPES = {
  */
 const PIXEL_FIXTURE = (() => {
   const slotCount = 1008
-  const names = ['fluvio', 'experiments', 'harbor', 'modal-labs', 'homepage', 'seed',
-    'argus', 'researchers', 'blender', 'climage', 'helm-charts', 'homelab']
+  const names = [
+    'fluvio',
+    'experiments',
+    'harbor',
+    'modal-labs',
+    'homepage',
+    'seed',
+    'argus',
+    'researchers',
+    'blender',
+    'climage',
+    'helm-charts',
+    'homelab',
+  ]
   return JSON.stringify({
     start: new Date(Date.now() - slotCount * 3600_000).toISOString(),
     slotMinutes: 60,
@@ -282,11 +294,15 @@ for (const id of PANELS) {
     let out = null
     for (let y = PAD; y + T < height - PAD; y += 6) {
       for (let x = PAD; x + T < width - PAD; x += 6) {
-        let r = 0, g = 0, bl = 0
+        let r = 0,
+          g = 0,
+          bl = 0
         for (let dy = 0; dy < T; dy++) {
           for (let dx = 0; dx < T; dx++) {
             const i = ((y + dy) * width + (x + dx)) * 4
-            r += data[i]; g += data[i + 1]; bl += data[i + 2]
+            r += data[i]
+            g += data[i + 1]
+            bl += data[i + 2]
           }
         }
         const n = T * T
@@ -340,15 +356,15 @@ for (const id of PANELS) {
       ...under,
     )
   } else {
-    waived.push(`${id}: ${under.length} run(s) under AA, tightest ${tightest.toFixed(2)}:1 (accepted ${baseline}:1)`)
+    waived.push(
+      `${id}: ${under.length} run(s) under AA, tightest ${tightest.toFixed(2)}:1 (accepted ${baseline}:1)`,
+    )
   }
 
   rows.push({ id, worst, specs: specs.length, culprit })
 }
 
-console.log(
-  `\n${'panel'.padEnd(9)}${'worst backdrop'.padEnd(19)}${'texts'.padEnd(7)}tightest text`,
-)
+console.log(`\n${'panel'.padEnd(9)}${'worst backdrop'.padEnd(19)}${'texts'.padEnd(7)}tightest text`)
 for (const r of rows) {
   const c = r.culprit
   const tight = c

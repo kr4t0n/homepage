@@ -8,14 +8,7 @@ import { NeonSign } from './NeonSign'
 import { CameraDirector } from './CameraDirector'
 import { HOME_CAMERA } from '../content'
 import { useScene } from '../store'
-import {
-  ACCENT_COLOUR,
-  FILL_COLOUR,
-  GROUND,
-  KEY_COLOUR,
-  SKY,
-  lighting,
-} from './lighting'
+import { ACCENT_COLOUR, FILL_COLOUR, GROUND, KEY_COLOUR, SKY, lighting } from './lighting'
 
 /**
  * The asset ships with no baked lighting and no textures, so the scene is lit
@@ -31,21 +24,9 @@ function Lighting() {
     <>
       <ambientLight intensity={lighting.ambient} color={SKY} />
       <hemisphereLight args={[SKY, GROUND, lighting.hemi]} />
-      <directionalLight
-        position={[7, 10, 7]}
-        intensity={lighting.key}
-        color={KEY_COLOUR}
-      />
-      <directionalLight
-        position={[-5, 4, 8]}
-        intensity={lighting.fill}
-        color={FILL_COLOUR}
-      />
-      <directionalLight
-        position={[-6, 3, -2]}
-        intensity={lighting.accent}
-        color={ACCENT_COLOUR}
-      />
+      <directionalLight position={[7, 10, 7]} intensity={lighting.key} color={KEY_COLOUR} />
+      <directionalLight position={[-5, 4, 8]} intensity={lighting.fill} color={FILL_COLOUR} />
+      <directionalLight position={[-6, 3, -2]} intensity={lighting.accent} color={ACCENT_COLOUR} />
     </>
   )
 }
@@ -78,11 +59,7 @@ export function Scene() {
         <NeonSign />
         <Preload all />
       </Suspense>
-      <CameraDirector
-        focus={focus}
-        screen={screen}
-        idle={focus === null && screen === null}
-      />
+      <CameraDirector focus={focus} screen={screen} idle={focus === null && screen === null} />
     </Canvas>
   )
 }

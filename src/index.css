@@ -127,6 +127,8 @@
     /* Sub-pixel on purpose. On a 2x or 3x display this is a true hairline; at 1x
        the browser antialiases it to a lighter line rather than dropping it. */
     border: 0.5px solid rgba(255, 255, 255, 0.42);
+    /* Prettier would indent the line after the second comment one step too far. */
+    /* prettier-ignore */
     box-shadow:
       /* Depth, so it floats rather than being cut out of the scene. */
       0 20px 50px -20px rgba(0, 0, 0, 0.6),

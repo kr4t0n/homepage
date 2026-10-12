@@ -13,7 +13,7 @@ gsap.registerPlugin(useGSAP)
 function Pending({ what }: { what: string }) {
   return (
     <div className="hairline rounded-[14px] border border-dashed p-6">
-      <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-mute">
+      <p className="font-mono text-[11px] tracking-[0.2em] text-mute uppercase">
         Not published yet
       </p>
       <p className="mt-3 text-body">{what}</p>
@@ -116,8 +116,8 @@ function Player() {
   if (!available) {
     return (
       <p className="text-sm leading-relaxed text-mute">
-        No track is being served. Audio is not part of this repo or its image,
-        so the room runs in silence until a track and its
+        No track is being served. Audio is not part of this repo or its image, so the room runs in
+        silence until a track and its
         <span className="text-body"> media/track.json</span> are provided.
       </p>
     )
@@ -192,7 +192,7 @@ function Player() {
         {/* The artist line is the attribution. It is not decoration: the track
             is somebody else's record, so this credit stays even though the
             longer disclaimer that used to sit below the card is gone. */}
-        <p className="truncate font-mono text-[10.5px] uppercase tracking-[0.18em] text-body">
+        <p className="truncate font-mono text-[10.5px] tracking-[0.18em] text-body uppercase">
           {track.artist}
         </p>
 
@@ -206,10 +206,7 @@ function Player() {
             aria-label="Seek"
             className="h-1 w-full min-w-0 cursor-pointer accent-acid"
           />
-          <span
-            data-elapsed
-            className="shrink-0 font-mono text-[10.5px] tabular-nums text-body"
-          >
+          <span data-elapsed className="shrink-0 font-mono text-[10.5px] text-body tabular-nums">
             {mmss(time)} / {mmss(duration)}
           </span>
         </div>
@@ -254,7 +251,7 @@ function Keys() {
     return (
       <div className="hairline rounded-[14px] border p-8 text-center">
         <MusicNote size={26} className="mx-auto text-acid" />
-        <p className="mt-4 max-w-[46ch] mx-auto text-body">
+        <p className="mx-auto mt-4 max-w-[46ch] text-body">
           The keys are playable, in the browser, with nothing to download.
         </p>
         <button
@@ -270,7 +267,7 @@ function Keys() {
 
   return (
     <div>
-      <div className="relative flex h-44 select-none justify-center gap-1">
+      <div className="relative flex h-44 justify-center gap-1 select-none">
         {NOTES.filter((n) => !('sharp' in n && n.sharp)).map((n) => (
           <button
             key={n.midi}
@@ -281,15 +278,15 @@ function Keys() {
               lit === n.midi ? 'bg-acid' : 'bg-ink-2 hover:bg-hair'
             }`}
           >
-            <span className="absolute bottom-2 left-0 right-0 text-center font-mono text-[10px] text-mute">
+            <span className="absolute right-0 bottom-2 left-0 text-center font-mono text-[10px] text-mute">
               {n.key}
             </span>
           </button>
         ))}
       </div>
       <p className="mt-5 max-w-[52ch] text-sm text-mute">
-        Click, or use your keyboard row. My own tracks will live here once they
-        are mixed; this is the instrument, not the record.
+        Click, or use your keyboard row. My own tracks will live here once they are mixed; this is
+        the instrument, not the record.
       </p>
     </div>
   )
@@ -299,15 +296,13 @@ function About() {
   return (
     <div className="space-y-4 text-body">
       <p className="max-w-[58ch]">
-        I work on AI systems, mostly the unglamorous part: making agents
-        observable when you are running a dozen of them across machines you do
-        not have a window into.
+        I work on AI systems, mostly the unglamorous part: making agents observable when you are
+        running a dozen of them across machines you do not have a window into.
       </p>
       <p className="max-w-[58ch] text-mute">
-        <ProjectLink name="Argus" /> came out of that problem.{' '}
-        <ProjectLink name="nodex" /> came out of a different frustration, that
-        component libraries organise by framework when what you actually pick by
-        is design language.
+        <ProjectLink name="Argus" /> came out of that problem. <ProjectLink name="nodex" /> came out
+        of a different frustration, that component libraries organise by framework when what you
+        actually pick by is design language.
       </p>
       <p className="max-w-[58ch] text-mute">
         The rest of the room is accurate. The keys get more use than the guitar.

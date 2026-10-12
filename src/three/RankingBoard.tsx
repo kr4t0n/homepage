@@ -70,12 +70,16 @@ function indexRows(root: THREE.Object3D): Row[] {
   for (let p = 1; p <= ROWS; p++) {
     const segments: THREE.MeshStandardMaterial[] = []
     for (let s = 1; s <= SEGMENTS; s++) {
-      const m = found.get(`Ranking - LED P${String(p).padStart(2, '0')} S${String(s).padStart(2, '0')}`)
+      const m = found.get(
+        `Ranking - LED P${String(p).padStart(2, '0')} S${String(s).padStart(2, '0')}`,
+      )
       if (m) segments.push(m)
     }
     if (segments.length !== SEGMENTS) continue
     const brightest = segments.reduce((a, b) =>
-      a.emissive.r + a.emissive.g + a.emissive.b >= b.emissive.r + b.emissive.g + b.emissive.b ? a : b,
+      a.emissive.r + a.emissive.g + a.emissive.b >= b.emissive.r + b.emissive.g + b.emissive.b
+        ? a
+        : b,
     )
     rows.push({ segments, lit: brightest.emissive.clone() })
   }

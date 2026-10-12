@@ -31,7 +31,10 @@ const browser = await chromium.launch({
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
 })
 // Reduced motion so the camera holds still and every capture shares a frame.
-const page = await browser.newPage({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' })
+const page = await browser.newPage({
+  viewport: { width: 1280, height: 800 },
+  reducedMotion: 'reduce',
+})
 await page.goto(BASE, { waitUntil: 'networkidle', timeout: 120_000 })
 await page
   .waitForFunction(() => !document.querySelector('[role="status"]'), { timeout: 120_000 })
