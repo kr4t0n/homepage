@@ -622,19 +622,25 @@ build` on the machine that owns those files does, and Vite copies `public/` into
 `dist/` verbatim. Without those lines a local build bakes a commercial release
 into an image and a push publishes it. Verified by listing the image, which is
 the only way to see it: built on a machine with the track in `public/media`, the
-image has no `/app/dist/media` and no `.mp3` anywhere.
+image has no `/app/dist/media` and no `.mp3` anywhere. `image.yml` repeats that
+on every build: it plants stand-in media where a local track would sit, builds,
+and fails if any of it reaches the image.
 
 Note that `.dockerignore` matches with Go's `filepath.Match`, where `*` does not
 cross a path separator. `*.mp3` matches only the context root and silently leaves
 a nested `.mp3` in the build; the pattern has to be `**/*.mp3`.
 
 `.github/workflows/image.yml` builds and pushes to Docker Hub on every push to
-`main`, on `v*` tags, and on demand. Pull requests build without pushing, so a
-broken Dockerfile is caught before merge. It needs `DOCKERHUB_USERNAME` and
-`DOCKERHUB_TOKEN` as repository secrets, and publishes
-`<DOCKERHUB_USERNAME>/homepage` tagged `latest` on main, the branch or PR name,
-the version on a `v*` tag, and the commit SHA every time. Deploy a version (the
-chart does by default) or a SHA; `latest` is for convenience, not for rollbacks.
+`main`, on `v*` tags, and on demand. Before any push it runs the image it just
+built: `/api/health` has to answer, `/` has to serve the app and `room.glb`,
+nothing under `/media` may be served, and there may be no `.mp3` and no
+`dist/media` inside. Pull requests run the same checks without pushing, so a
+broken Dockerfile or a server that will not start is caught before merge. It
+needs `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` as repository secrets, and
+publishes `<DOCKERHUB_USERNAME>/homepage` tagged `latest` on main, the branch or
+PR name, the version on a `v*` tag, and the commit SHA every time. Deploy a
+version (the chart does by default) or a SHA; `latest` is for convenience, not
+for rollbacks.
 
 The build is `linux/amd64` only. Adding `linux/arm64` is a one-line change to
 `platforms:`, but it builds under QEMU emulation and a `pnpm install` plus a Vite
@@ -761,7 +767,7 @@ helm/homepage/          the Helm chart for the cluster
 .github/dependabot.yml  monthly grouped updates for npm and the actions
 .github/workflows/
   ci.yml                secret scan, lint, typecheck, both builds, chart lint
-  image.yml             build and push to Docker Hub
+  image.yml             build, run and check the image, push to Docker Hub
   helm-publish.yml      package the chart to gh-pages
 ```
 
