@@ -6,8 +6,8 @@
 # out of the published image, which is the cheapest way to keep its
 # vulnerability surface close to whatever the base image has.
 
-# Pinned to the major that `pnpm run verify:api` already requires (Node's type
-# stripping sets that floor). Alpine because nothing here needs glibc.
+# Node 22, the major CI runs; Vite 7 and Vitest 5 need 22.12 or later. Alpine
+# because nothing here needs glibc.
 FROM node:22-alpine AS build
 
 WORKDIR /app
