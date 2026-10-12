@@ -59,13 +59,13 @@ jobs:
         with:
           context: .
           # linux/amd64 only. Adding linux/arm64 here works, but it builds under
-          # QEMU emulation and `npm ci` plus a Vite build of this scene is slow
-          # enough under it to dominate the run. Add it when a cluster node
+          # QEMU emulation and `pnpm install` plus a Vite build of this scene is
+          # slow enough under it to dominate the run. Add it when a cluster node
           # actually needs it.
           platforms: linux/amd64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # Caches the npm ci layer across runs, which is most of the build.
+          # Caches the pnpm install layer across runs, which is most of the build.
           cache-from: type=gha
           cache-to: type=gha,mode=max

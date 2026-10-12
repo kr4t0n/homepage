@@ -1,0 +1,4 @@
+# pnpm runs no dependency's install scripts unless it is listed here.
+allowBuilds:
+  # Its postinstall checks the platform binary and fetches it if missing.
+  esbuild: true

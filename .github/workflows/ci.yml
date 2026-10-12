@@ -10,21 +10,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Installs the pnpm version pinned in package.json's `packageManager`.
+      # It goes first so setup-node can find pnpm's store to cache.
+      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm run build
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run lint
+      - run: pnpm run typecheck
+      - run: pnpm run build
       # The production server is bundled separately from the site, so a break in
       # it would otherwise surface only in the image build.
-      - run: npm run build:server
+      - run: pnpm run build:server
       # Contract tests for the /api/pixels proxy against a stubbed upstream.
       # Deliberately needs no credential and no network, so it runs on every
       # pull request including ones from forks, where secrets are unavailable.
-      - run: npm run verify:proxy
+      - run: pnpm run verify:proxy
 
   # helm-publish lints too, but only after merge. A published version is
   # immutable, so a chart that does not render is cheaper to catch here.
