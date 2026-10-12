@@ -25,7 +25,7 @@ page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 
 await page.goto(BASE, { waitUntil: 'networkidle', timeout: 120_000 })
 await page
-  .waitForFunction(() => !document.querySelector('[role="status"]'), { timeout: 120_000 })
+  .waitForFunction(() => !document.querySelector('output'), { timeout: 120_000 })
   .catch(() => console.log('! preloader stuck'))
 await page.waitForTimeout(2500)
 await page.screenshot({ path: `${OUT}/0_start.png` })

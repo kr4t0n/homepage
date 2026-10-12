@@ -14,8 +14,8 @@ gsap.registerPlugin(useGSAP)
 export function Preloader() {
   const { progress, active } = useProgress()
   const [gone, setGone] = useState(false)
-  const root = useRef<HTMLDivElement>(null)
-  const bar = useRef<HTMLDivElement>(null)
+  const root = useRef<HTMLOutputElement>(null)
+  const bar = useRef<HTMLSpanElement>(null)
 
   useGSAP(
     () => {
@@ -43,20 +43,21 @@ export function Preloader() {
 
   if (gone) return null
 
+  // <output> is a status region, as role="status" on a div was. It takes only
+  // phrasing content, so its children are spans made block.
   return (
-    <div
+    <output
       ref={root}
       className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-void"
-      role="status"
       aria-live="polite"
     >
-      <p className="font-mono text-sm tracking-tight text-bright">kr4t0n</p>
-      <div className="mt-5 h-px w-40 overflow-hidden bg-hair">
-        <div ref={bar} className="h-full origin-left scale-x-0 bg-acid" />
-      </div>
-      <p className="mt-4 font-mono text-[11px] tracking-[0.2em] text-mute uppercase">
+      <span className="block font-mono text-sm tracking-tight text-bright">kr4t0n</span>
+      <span className="mt-5 block h-px w-40 overflow-hidden bg-hair">
+        <span ref={bar} className="block h-full origin-left scale-x-0 bg-acid" />
+      </span>
+      <span className="mt-4 block font-mono text-[11px] tracking-[0.2em] text-mute uppercase">
         Loading the room {Math.round(progress)}%
-      </p>
-    </div>
+      </span>
+    </output>
   )
 }

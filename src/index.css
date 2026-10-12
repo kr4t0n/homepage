@@ -58,6 +58,15 @@
     display: block;
     touch-action: none;
   }
+
+  /* The browser gives a <dialog> the system text colour, which under this dark
+     scheme is white. Every text element in a panel sets its own colour today, so
+     without this nothing visible changes, but text added without a colour class
+     would come out white instead of the page's body colour. Preflight already
+     resets the dialog's border, margin and padding. */
+  dialog {
+    color: inherit;
+  }
 }
 
 @layer utilities {

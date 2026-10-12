@@ -894,6 +894,18 @@ what a visitor does. To open a hotspot, `press` Enter on a pill or click the
 object. Hovering a pill never drove the 3D hover state reliably anyway: the
 canvas-to-HTML pointer handoff raced.
 
+**The panel is a native `<dialog>` and the preloader an `<output>`, so tests
+find them by tag or by role, never by a `role` attribute.** Both were divs with
+`role="dialog"` and `role="status"` until jsx-a11y's `prefer-tag-over-role`
+replaced them, and every script in `tools/` selected them with `[role=...]`.
+Such a selector now matches nothing. The preloader wait would return at once,
+and the "no panel opens" checks in `verify-boards` and `verify-screens` would
+pass without having looked. Those two ask `getByRole('dialog')`, which finds a
+dialog however it is marked up. The panel opens by its `open` attribute rather
+than `show()`, because `show()` would move focus into it. A `dialog` base rule
+in `index.css` puts back the page's text colour, which the browser replaces with
+white.
+
 **`runAsNonRoot` cannot be enforced against a named user.** The Dockerfile says
 `USER node`, and kubelet cannot prove a name is not root, so `runAsNonRoot:
 true` on its own leaves the pod stuck in `CreateContainerConfigError`. The

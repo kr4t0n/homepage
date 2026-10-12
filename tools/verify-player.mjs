@@ -127,7 +127,7 @@ const check = (name, ok, detail = '') => {
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
 await page.goto(BASE, { waitUntil: 'networkidle', timeout: 120_000 })
 await page
-  .waitForFunction(() => !document.querySelector('[role="status"]'), { timeout: 120_000 })
+  .waitForFunction(() => !document.querySelector('output'), { timeout: 120_000 })
   .catch(() => {})
 await page.waitForTimeout(1500)
 
@@ -168,7 +168,7 @@ check(
 )
 
 // --- 2. Track metadata is what the manifest says -----------------------------
-const body = (await page.textContent('[role="dialog"]')) ?? ''
+const body = (await page.textContent('dialog')) ?? ''
 check('shows the title from the manifest', body.includes(manifest.title), manifest.title)
 check('shows the artist from the manifest', body.includes(manifest.artist), manifest.artist)
 
@@ -176,7 +176,7 @@ check('shows the artist from the manifest', body.includes(manifest.artist), mani
 // a wrong MIME type would leave it present but undecoded. naturalWidth proves
 // the bytes arrived and decoded.
 const art = await page.evaluate(() => {
-  const img = document.querySelector('[role="dialog"] img')
+  const img = document.querySelector('dialog img')
   if (!img) return { present: false }
   return { present: true, w: img.naturalWidth, h: img.naturalHeight, alt: img.alt }
 })
@@ -200,7 +200,7 @@ const decksWith = async () => {
   const text = await p
     .waitForFunction(
       () => {
-        const d = document.querySelector('[role="dialog"]')
+        const d = document.querySelector('dialog')
         const done =
           d &&
           (d.querySelector('[data-elapsed]') || d.textContent.includes('No track is being served'))
@@ -282,7 +282,7 @@ check('playback progresses', t2 > t1, `${t1}s -> ${t2}s`)
 // and happens to be moving".
 const angle = () =>
   page.evaluate(() => {
-    const img = document.querySelector('[role="dialog"] img')
+    const img = document.querySelector('dialog img')
     if (!img) return null
     const t = getComputedStyle(img).transform
     if (!t || t === 'none') return 0
@@ -324,13 +324,13 @@ const rmCtx = await browser.newContext({
 const rm = await rmCtx.newPage()
 await rm.goto(`${BASE}/#/player`, { waitUntil: 'networkidle', timeout: 120_000 })
 await rm
-  .waitForFunction(() => !document.querySelector('[role="status"]'), { timeout: 120_000 })
+  .waitForFunction(() => !document.querySelector('output'), { timeout: 120_000 })
   .catch(() => {})
 await rm.keyboard.press('Space')
 await rm.waitForTimeout(2200)
 const rmAngle = async () =>
   rm.evaluate(() => {
-    const img = document.querySelector('[role="dialog"] img')
+    const img = document.querySelector('dialog img')
     const t = img ? getComputedStyle(img).transform : 'none'
     if (!t || t === 'none') return 0
     const m = new DOMMatrixReadOnly(t)
@@ -380,7 +380,7 @@ const coldCtx = await browser.newContext({ viewport: { width: 1440, height: 900 
 const cold = await coldCtx.newPage()
 await cold.goto(`${BASE}/#/player`, { waitUntil: 'networkidle', timeout: 120_000 })
 await cold
-  .waitForFunction(() => !document.querySelector('[role="status"]'), { timeout: 120_000 })
+  .waitForFunction(() => !document.querySelector('output'), { timeout: 120_000 })
   .catch(() => {})
 await cold.waitForTimeout(1800)
 
@@ -407,7 +407,7 @@ const roomCtx = await browser.newContext({ viewport: { width: 1440, height: 900 
 const room = await roomCtx.newPage()
 await room.goto(`${BASE}/#/player`, { waitUntil: 'networkidle', timeout: 120_000 })
 await room
-  .waitForFunction(() => !document.querySelector('[role="status"]'), { timeout: 120_000 })
+  .waitForFunction(() => !document.querySelector('output'), { timeout: 120_000 })
   .catch(() => {})
 await room.waitForTimeout(1800)
 check('room click: silent to begin with', (await elapsedOn(room)) === 0)
@@ -426,11 +426,11 @@ const bareCtx = await browser.newContext({ viewport: { width: 1440, height: 900 
 const bare = await bareCtx.newPage()
 await bare.goto(`${BASE}/#/player`, { waitUntil: 'networkidle', timeout: 120_000 })
 await bare
-  .waitForFunction(() => !document.querySelector('[role="status"]'), { timeout: 120_000 })
+  .waitForFunction(() => !document.querySelector('output'), { timeout: 120_000 })
   .catch(() => {})
 await bare.waitForTimeout(1800)
-check('a missing cover removes the image entirely', (await bare.$('[role="dialog"] img')) === null)
-const bareBody = (await bare.textContent('[role="dialog"]')) ?? ''
+check('a missing cover removes the image entirely', (await bare.$('dialog img')) === null)
+const bareBody = (await bare.textContent('dialog')) ?? ''
 check(
   'the bar still works without artwork',
   bareBody.includes(manifest.title) && (await bare.$('[data-elapsed]')) !== null,

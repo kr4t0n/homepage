@@ -33,7 +33,7 @@ const page = await browser.newPage({
 })
 await page.goto(BASE, { waitUntil: 'networkidle', timeout: 120_000 })
 await page
-  .waitForFunction(() => !document.querySelector('[role="status"]'), { timeout: 120_000 })
+  .waitForFunction(() => !document.querySelector('output'), { timeout: 120_000 })
   .catch(() => {})
 await page.waitForTimeout(2500)
 
@@ -52,7 +52,7 @@ const active = () =>
       text: (el.textContent ?? '').trim().slice(0, 40),
       href: el.getAttribute('href'),
       inNav: !!el.closest('nav[aria-label="Places in the room"]'),
-      inDialog: !!el.closest('[role="dialog"]'),
+      inDialog: !!el.closest('dialog'),
     }
   })
 

@@ -334,7 +334,7 @@ const COMPACT = new Set<PanelKind>(['player'])
 export function Panel() {
   const focus = useScene((s) => s.focus)
   const setFocus = useScene((s) => s.setFocus)
-  const root = useRef<HTMLDivElement>(null)
+  const root = useRef<HTMLDialogElement>(null)
   const spot = hotspotById(focus)
 
   // The camera moves first, then the glass arrives. The panel's fade waits
@@ -374,14 +374,17 @@ export function Panel() {
   const Body = BODY[spot.kind] ?? (() => null)
   const compact = COMPACT.has(spot.kind)
 
+  // A non-modal <dialog>, opened by its attribute rather than show(). show()
+  // would move focus into the panel; the attribute leaves it on whatever opened
+  // the panel, as the role="dialog" div this replaced did.
+  //
   // The visible heading is dropped in compact mode, so the dialog's accessible
   // name comes from aria-label alone — which it already did.
   if (compact) {
     return (
-      <div
+      <dialog
         ref={root}
-        role="dialog"
-        aria-modal="false"
+        open
         aria-label={spot.label}
         className="glass pointer-events-auto fixed inset-x-0 bottom-6 z-30 mx-auto flex w-[calc(100%-3rem)] max-w-[540px] items-center gap-4 rounded-[22px] p-4"
       >
@@ -394,15 +397,14 @@ export function Panel() {
         >
           <X size={14} weight="bold" />
         </button>
-      </div>
+      </dialog>
     )
   }
 
   return (
-    <div
+    <dialog
       ref={root}
-      role="dialog"
-      aria-modal="false"
+      open
       aria-label={spot.label}
       className="glass pointer-events-auto fixed inset-x-0 bottom-0 z-30 mx-auto flex max-h-[68dvh] w-full max-w-[820px] flex-col rounded-t-[22px] sm:inset-x-6 sm:bottom-6 sm:rounded-[22px] lg:max-w-[880px]"
     >
@@ -427,6 +429,6 @@ export function Panel() {
         </div>
         <Body />
       </div>
-    </div>
+    </dialog>
   )
 }
