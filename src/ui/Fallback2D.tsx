@@ -11,7 +11,7 @@ export function Fallback2D({ reason }: { reason: 'nogl' | 'small' }) {
     <main className="mx-auto min-h-[100dvh] max-w-[46rem] px-6 py-16 sm:px-8">
       <p className="font-mono text-sm tracking-tight text-bright">{PROFILE.handle}</p>
 
-      <h1 className="mt-10 text-4xl font-medium leading-[1.05] tracking-tight text-bright sm:text-5xl">
+      <h1 className="mt-10 text-4xl leading-[1.05] font-medium tracking-tight text-bright sm:text-5xl">
         {PROFILE.role},
         <br />
         and the room it happens in.
@@ -25,7 +25,7 @@ export function Fallback2D({ reason }: { reason: 'nogl' | 'small' }) {
             <article key={p.name} className="bg-ink p-6">
               <div className="flex flex-wrap items-baseline gap-x-3">
                 <h3 className="text-xl tracking-tight text-bright">{p.name}</h3>
-                <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-acid">
+                <span className="font-mono text-[11px] tracking-[0.18em] text-acid uppercase">
                   {p.status === 'live' ? 'Live' : 'In design'}
                 </span>
               </div>
@@ -60,7 +60,11 @@ export function Fallback2D({ reason }: { reason: 'nogl' | 'small' }) {
           </li>
         </ul>
         <p className="mt-6 text-sm text-mute">
-          Still to come: {HOTSPOTS.filter((h) => h.placeholder).map((h) => h.label.toLowerCase()).join(', ')}.
+          Still to come:{' '}
+          {HOTSPOTS.filter((h) => h.placeholder)
+            .map((h) => h.label.toLowerCase())
+            .join(', ')}
+          .
         </p>
       </section>
 

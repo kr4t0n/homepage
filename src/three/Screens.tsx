@@ -30,10 +30,7 @@ function orientation(screen: ScreenDef) {
   // A plane's own normal is +Z, so rotate that onto the panel normal. These
   // normals are horizontal, which makes it a pure yaw and leaves the image the
   // right way up without an explicit roll.
-  const quaternion = new THREE.Quaternion().setFromUnitVectors(
-    new THREE.Vector3(0, 0, 1),
-    n,
-  )
+  const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), n)
   return { position, quaternion }
 }
 

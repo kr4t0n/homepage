@@ -69,7 +69,7 @@ export function PixelTooltip() {
       className="glass pointer-events-none fixed z-40 rounded-[14px] bg-void/92 px-3.5 py-3"
       style={{ left, top: Math.min(y + MARGIN, window.innerHeight - 150), width: W }}
     >
-      <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-mute">
+      <p className="font-mono text-[10.5px] tracking-[0.18em] text-mute uppercase">
         {slotLabel(data, slot)}
       </p>
 
@@ -93,11 +93,9 @@ export function PixelTooltip() {
                   {data.projects[s.projectIndex]?.name ??
                     data.projects[s.projectIndex]?.key ??
                     'unknown'}
-                  {s.projectIndex >= PALETTE_SIZE && (
-                    <span className="text-mute"> · tail</span>
-                  )}
+                  {s.projectIndex >= PALETTE_SIZE && <span className="text-mute"> · tail</span>}
                 </span>
-                <span className="ml-auto shrink-0 font-mono text-[10.5px] tabular-nums text-body">
+                <span className="ml-auto shrink-0 font-mono text-[10.5px] text-body tabular-nums">
                   {seconds(s.seconds)}
                 </span>
               </li>

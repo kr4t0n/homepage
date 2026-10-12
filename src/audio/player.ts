@@ -198,14 +198,7 @@ const attach = (track: Track) => {
   // fallbacks for older WebKit, where Pointer Events are absent and the whole
   // arming mechanism would silently never fire. `start()` is safe to call
   // repeatedly: `play()` on an already-playing element resolves as a no-op.
-  const EVENTS = [
-    'pointerdown',
-    'mousedown',
-    'click',
-    'keydown',
-    'wheel',
-    'touchstart',
-  ] as const
+  const EVENTS = ['pointerdown', 'mousedown', 'click', 'keydown', 'wheel', 'touchstart'] as const
   const onGesture = () => start()
   disarm = () => EVENTS.forEach((e) => window.removeEventListener(e, onGesture))
   EVENTS.forEach((e) => window.addEventListener(e, onGesture, { passive: true }))

@@ -70,10 +70,7 @@ if (!existsSync('dist')) {
     !text.includes('me/pixels'),
     'client should only ever know /api/pixels',
   )
-  check(
-    'the server module is not bundled into the client',
-    !text.includes('X-API-Key'),
-  )
+  check('the server module is not bundled into the client', !text.includes('X-API-Key'))
 }
 
 // ------------------------------------------------ what the proxy discloses --
@@ -88,8 +85,17 @@ if (!existsSync('dist')) {
 // deliberately: they only appear in a response that spread `...p.usage`, and
 // that spread carries costUsd out with them. The proxy renames to in/out/cached
 // precisely so a leak of the whole object cannot pass as the intended feature.
-const FORBIDDEN = ['workingDir', 'machineId', 'projectId', 'costUsd', 'inputTokens',
-  'outputTokens', 'cacheReadTokens', 'turns', 'cliTypes']
+const FORBIDDEN = [
+  'workingDir',
+  'machineId',
+  'projectId',
+  'costUsd',
+  'inputTokens',
+  'outputTokens',
+  'cacheReadTokens',
+  'turns',
+  'cliTypes',
+]
 const ALLOWED_PROJECT_FIELDS = ['key', 'name', 'wonSeconds', 'tokens', 'other']
 const ALLOWED_TOKEN_FIELDS = ['in', 'out', 'cached']
 
@@ -159,7 +165,11 @@ if (proxy.state !== 'live') {
   // should surface as a crash rather than be swallowed as "server unreachable".
   const { body, json } = proxy
   const leaked = FORBIDDEN.filter((f) => body.includes(f))
-  check('the proxy discloses no path, machine or cost fields', leaked.length === 0, leaked.join(', '))
+  check(
+    'the proxy discloses no path, machine or cost fields',
+    leaked.length === 0,
+    leaked.join(', '),
+  )
 
   const extra = [...new Set(json.projects.flatMap(Object.keys))].filter(
     (f) => !ALLOWED_PROJECT_FIELDS.includes(f),
@@ -192,8 +202,11 @@ if (proxy.state !== 'live') {
   // exceed it. If it does, the two numbers came from different fields and the
   // panel's "N% of input is cache reads" is above 100.
   const impossible = withTokens.filter((p) => p.tokens.cached > p.tokens.in)
-  check('cache reads never exceed input', impossible.length === 0,
-    impossible.map((p) => p.name ?? p.key).join(', '))
+  check(
+    'cache reads never exceed input',
+    impossible.length === 0,
+    impossible.map((p) => p.name ?? p.key).join(', '),
+  )
 }
 
 // ------------------------------------------------------------- validation --
@@ -204,7 +217,10 @@ const good = () => ({
   tz: 'Asia/Shanghai',
   winners: [null, 0, 1, null],
   intensity: [0, 50, 100, 0],
-  projects: [{ key: 'a', wonSeconds: 10 }, { key: 'b', wonSeconds: 5 }],
+  projects: [
+    { key: 'a', wonSeconds: 10 },
+    { key: 'b', wonSeconds: 5 },
+  ],
   live: [0],
 })
 const rejects = (name, mutate) => {
@@ -258,14 +274,24 @@ p.intensity = Array(1008).fill(0)
 // The trap: the last column runs to end-of-day, so slotCount-1 is in the future.
 const startMs = Date.parse(p.start)
 const midCol = startMs + (984 * 60 + 30) * 60_000
-check('liveSlot finds the current slot, not the last', liveSlot(p, midCol) === 984, `got ${liveSlot(p, midCol)}`)
+check(
+  'liveSlot finds the current slot, not the last',
+  liveSlot(p, midCol) === 984,
+  `got ${liveSlot(p, midCol)}`,
+)
 check('liveSlot clamps before the grid starts', liveSlot(p, startMs - 1) === -1)
 check('liveSlot clamps past the grid end', liveSlot(p, startMs + 1e12) === 1007)
 
 check('gridPos: slot 0 is row 0 col 0', JSON.stringify(gridPos(p, 0)) === '{"row":0,"col":0}')
-check('gridPos: slot 23 is the last row of col 0', JSON.stringify(gridPos(p, 23)) === '{"row":23,"col":0}')
+check(
+  'gridPos: slot 23 is the last row of col 0',
+  JSON.stringify(gridPos(p, 23)) === '{"row":23,"col":0}',
+)
 check('gridPos: slot 24 starts col 1', JSON.stringify(gridPos(p, 24)) === '{"row":0,"col":1}')
-check('gridPos: slot 1007 is the last cell', JSON.stringify(gridPos(p, 1007)) === '{"row":23,"col":41}')
+check(
+  'gridPos: slot 1007 is the last cell',
+  JSON.stringify(gridPos(p, 1007)) === '{"row":23,"col":41}',
+)
 
 // The board is 24 rows x 42 columns of materials; every slot must land on one.
 const seen = new Set()
@@ -290,52 +316,103 @@ const withTok = (tokens) =>
   tokens.map(([key, i, o]) => ({ key, wonSeconds: 0, tokens: { in: i, out: o, cached: 0 } }))
 const payload = (projects) => ({ ...good(), projects, winners: [null, null, null, null] })
 
-const r = rankByTokens(payload(withTok([
-  ['a', 100, 5],     // 105
-  ['b', 1000, 10],   // 1010  <- leader
-  ['c', 500, 1],     // 501
-  ['d', 10, 0],      // 10
-  ['e', 300, 0],     // 300
-  ['f', 900, 0],     // 900   <- second
-  ['g', 1, 0],       // 1     falls off a five-row board
-])))
-check('ranks by in + out, not by in alone', r.map((x) => x.project.key).join('') === 'bfcea',
-  r.map((x) => x.project.key).join(''))
+const r = rankByTokens(
+  payload(
+    withTok([
+      ['a', 100, 5], // 105
+      ['b', 1000, 10], // 1010  <- leader
+      ['c', 500, 1], // 501
+      ['d', 10, 0], // 10
+      ['e', 300, 0], // 300
+      ['f', 900, 0], // 900   <- second
+      ['g', 1, 0], // 1     falls off a five-row board
+    ]),
+  ),
+)
+check(
+  'ranks by in + out, not by in alone',
+  r.map((x) => x.project.key).join('') === 'bfcea',
+  r.map((x) => x.project.key).join(''),
+)
 check('truncates to the board’s rows', r.length === ROWS, `${r.length} rows`)
 check('the leader scores 100', Math.round(r[0].score) === 100, `${r[0].score.toFixed(1)}`)
 check('the leader fills every segment', r[0].lit === SEGMENTS, `${r[0].lit}/${SEGMENTS}`)
-check('scores fall monotonically', r.every((x, i) => i === 0 || x.score <= r[i - 1].score))
-check('segment counts stay in range', r.every((x) => x.lit >= 1 && x.lit <= SEGMENTS))
+check(
+  'scores fall monotonically',
+  r.every((x, i) => i === 0 || x.score <= r[i - 1].score),
+)
+check(
+  'segment counts stay in range',
+  r.every((x) => x.lit >= 1 && x.lit <= SEGMENTS),
+)
 // A row carrying a name above an entirely unlit bar reads as a broken board
 // rather than a small project, and the spread here reaches 500:1.
-const tiny = rankByTokens(payload(withTok([['big', 1e9, 0], ['tiny', 1, 0]])))
-check('a project that made the board always lights one segment', tiny[1].lit === 1,
-  `${tiny[1].lit}`)
+const tiny = rankByTokens(
+  payload(
+    withTok([
+      ['big', 1e9, 0],
+      ['tiny', 1, 0],
+    ]),
+  ),
+)
+check(
+  'a project that made the board always lights one segment',
+  tiny[1].lit === 1,
+  `${tiny[1].lit}`,
+)
 
 // The names lookup may fail without taking the board down, and then no project
 // has tokens. An empty board is right; a board ranking everything at zero is not.
-const untokened = rankByTokens(payload([{ key: 'x', wonSeconds: 99 }, { key: 'y', wonSeconds: 1 }]))
-check('projects with no token data are dropped, not ranked as zero',
-  untokened.length === 0, `${untokened.length} ranked`)
+const untokened = rankByTokens(
+  payload([
+    { key: 'x', wonSeconds: 99 },
+    { key: 'y', wonSeconds: 1 },
+  ]),
+)
+check(
+  'projects with no token data are dropped, not ranked as zero',
+  untokened.length === 0,
+  `${untokened.length} ranked`,
+)
 
-const tied = rankByTokens(payload(withTok([['zeta', 500, 0], ['alpha', 500, 0]])))
-check('ties break on key so rows do not swap between polls',
-  tied.map((x) => x.project.key).join() === 'alpha,zeta', tied.map((x) => x.project.key).join())
+const tied = rankByTokens(
+  payload(
+    withTok([
+      ['zeta', 500, 0],
+      ['alpha', 500, 0],
+    ]),
+  ),
+)
+check(
+  'ties break on key so rows do not swap between polls',
+  tied.map((x) => x.project.key).join() === 'alpha,zeta',
+  tied.map((x) => x.project.key).join(),
+)
 
-check('shortTokens abbreviates without inventing precision',
-  shortTokens(5_676_270_874) === '5.7B' && shortTokens(450_141_549) === '450M' &&
-  shortTokens(84_341_190) === '84M',
-  `${shortTokens(5_676_270_874)} ${shortTokens(450_141_549)} ${shortTokens(84_341_190)}`)
+check(
+  'shortTokens abbreviates without inventing precision',
+  shortTokens(5_676_270_874) === '5.7B' &&
+    shortTokens(450_141_549) === '450M' &&
+    shortTokens(84_341_190) === '84M',
+  `${shortTokens(5_676_270_874)} ${shortTokens(450_141_549)} ${shortTokens(84_341_190)}`,
+)
 
 // The anchors are measured at export from objects the export then deletes. If
 // the board is re-modelled with a different row count the frontend would draw
 // live text into rows that no longer exist.
-check('the exported anchors describe exactly the board’s rows',
-  anchors.rows.length === ROWS, `${anchors.rows.length} anchor rows`)
-check('every anchor row carries a name and a score box',
-  anchors.rows.every((row) => row.name?.min && row.score?.min))
-check('the text plane has real extent',
-  anchors.screen.max[1] > anchors.screen.min[1] && anchors.screen.max[2] > anchors.screen.min[2])
+check(
+  'the exported anchors describe exactly the board’s rows',
+  anchors.rows.length === ROWS,
+  `${anchors.rows.length} anchor rows`,
+)
+check(
+  'every anchor row carries a name and a score box',
+  anchors.rows.every((row) => row.name?.min && row.score?.min),
+)
+check(
+  'the text plane has real extent',
+  anchors.screen.max[1] > anchors.screen.min[1] && anchors.screen.max[2] > anchors.screen.min[2],
+)
 
 // ------------------------------------------------- signals covers both boards --
 // Signals is one hotspot over two meshes. Everything about that is data in
@@ -344,13 +421,15 @@ check('the text plane has real extent',
 // anyway (moving the mouse moves the camera, so two frames differ everywhere).
 const signals = HOTSPOTS.find((h) => h.id === 'signals')
 const nodes = signals ? hotspotNodes(signals) : []
-check('signals covers both wall boards',
-  nodes.includes('hot_pixelboard') && nodes.includes('hot_ranking'), nodes.join(', '))
+check(
+  'signals covers both wall boards',
+  nodes.includes('hot_pixelboard') && nodes.includes('hot_ranking'),
+  nodes.join(', '),
+)
 
 const known = new Set(Object.values(manifest).map((e) => e.node))
 const unknown = nodes.filter((n) => !known.has(n))
-check('every node signals claims exists in the manifest', unknown.length === 0,
-  unknown.join(', '))
+check('every node signals claims exists in the manifest', unknown.length === 0, unknown.join(', '))
 
 // Framing is the union of both boxes. If it silently fell back to the first
 // node the camera would centre on the pixel board and push the ranking board
@@ -360,9 +439,11 @@ const boxes = nodes.map((n) => Object.values(manifest).find((e) => e.node === n)
 const unionZ = [Math.min(...boxes.map((b) => b.min[2])), Math.max(...boxes.map((b) => b.max[2]))]
 const pixelBox = Object.values(manifest).find((e) => e.node === 'hot_pixelboard')
 const unionCentreZ = (unionZ[0] + unionZ[1]) / 2
-check('the union framing is not just the pixel board’s',
+check(
+  'the union framing is not just the pixel board’s',
   Math.abs(unionCentreZ - pixelBox.centre[2]) > 0.1,
-  `union z centre ${unionCentreZ.toFixed(3)} vs board ${pixelBox.centre[2].toFixed(3)}`)
+  `union z centre ${unionCentreZ.toFixed(3)} vs board ${pixelBox.centre[2].toFixed(3)}`,
+)
 
 // The pair has to fit the frame at whatever standoff is set, and fill enough of
 // it to be readable -- these boards ARE the panel now, so the labels have to
@@ -373,11 +454,16 @@ check('the union framing is not just the pixel board’s',
 const unionWidth = unionZ[1] - unionZ[0]
 const frameWidth = 2 * 0.49 * (signals?.offset?.[0] ?? 0)
 const fill = unionWidth / frameWidth
-check('both boards fit the frame and fill most of it', fill > 0.5 && fill < 0.92,
-  `${(fill * 100).toFixed(0)}% of frame width at ${signals?.offset?.[0]} standoff`)
+check(
+  'both boards fit the frame and fill most of it',
+  fill > 0.5 && fill < 0.92,
+  `${(fill * 100).toFixed(0)}% of frame width at ${signals?.offset?.[0]} standoff`,
+)
 
 // No panel: the boards carry the readout themselves.
 check('the boards hotspot opens no panel', signals?.bare === true)
 
-console.log(`\n${fails.length ? `${fails.length} FAILED: ${fails.join(', ')}` : 'all checks passed'}`)
+console.log(
+  `\n${fails.length ? `${fails.length} FAILED: ${fails.join(', ')}` : 'all checks passed'}`,
+)
 process.exit(fails.length ? 1 : 0)

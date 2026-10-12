@@ -94,9 +94,7 @@ export function Hud() {
               onFocus={() => setHover(h.id)}
               onBlur={() => setHover(null)}
               className={`hairline rounded-full border bg-void/50 px-3.5 py-1.5 text-sm backdrop-blur-sm transition-colors active:scale-[0.98] ${
-                hover === h.id
-                  ? 'border-acid text-acid'
-                  : 'text-mute hover:text-bright'
+                hover === h.id ? 'border-acid text-acid' : 'text-mute hover:text-bright'
               }`}
             >
               {h.label}
@@ -116,9 +114,7 @@ export function Hud() {
               onFocus={() => setHover(l.id)}
               onBlur={() => setHover(null)}
               className={`hairline inline-flex items-center gap-1 rounded-full border bg-void/50 px-3.5 py-1.5 text-sm backdrop-blur-sm transition-colors active:scale-[0.98] ${
-                hover === l.id
-                  ? 'border-acid text-acid'
-                  : 'text-mute hover:text-bright'
+                hover === l.id ? 'border-acid text-acid' : 'text-mute hover:text-bright'
               }`}
             >
               {l.label}
@@ -162,7 +158,7 @@ export function Hud() {
       )}
 
       {/* Bottom-right controls. Reset appears only once the view has moved. */}
-      <div className="absolute bottom-8 right-6 flex items-center gap-2 sm:right-10">
+      <div className="absolute right-6 bottom-8 flex items-center gap-2 sm:right-10">
         <button
           type="button"
           onClick={() => {
@@ -200,13 +196,12 @@ export function Hud() {
         onClick={() => setOn(!playing)}
         aria-label={playing ? 'Turn the music off' : 'Turn the music on'}
         aria-pressed={playing}
-        className={`hairline pointer-events-auto absolute right-6 top-6 grid size-[34px] place-items-center rounded-full border bg-void/50 backdrop-blur-sm transition-all active:scale-[0.96] sm:right-10 sm:top-8 ${
+        className={`hairline pointer-events-auto absolute top-6 right-6 grid size-[34px] place-items-center rounded-full border bg-void/50 backdrop-blur-sm transition-all active:scale-[0.96] sm:top-8 sm:right-10 ${
           audio && screen === null ? 'opacity-100' : 'pointer-events-none opacity-0'
         } ${playing ? 'border-acid/40 text-acid' : 'text-mute hover:text-bright'}`}
       >
         {playing ? <SpeakerSimpleHigh size={15} /> : <SpeakerSimpleSlash size={15} />}
       </button>
-
     </div>
   )
 }

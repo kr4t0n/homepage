@@ -57,7 +57,8 @@ export const PROFILE = {
   handle: 'kr4t0n',
   role: 'AI engineer',
   /** Max 20 words, has to fit the hero without scrolling. */
-  intro: 'I build tools for people who work with coding agents. Occasionally I play something loud.',
+  intro:
+    'I build tools for people who work with coding agents. Occasionally I play something loud.',
   github: 'https://github.com/kr4t0n',
 } as const
 
@@ -239,7 +240,6 @@ export const ROOM_LINKS: RoomLink[] = [
     label: 'GitHub',
   },
 ]
-
 
 /**
  * The three monitor panels, as independently interactive surfaces.

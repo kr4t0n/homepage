@@ -30,7 +30,10 @@ const check = (name, ok, detail = '') => {
 const browser = await chromium.launch({
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
 })
-const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' })
+const page = await browser.newPage({
+  viewport: { width: 1440, height: 900 },
+  reducedMotion: 'reduce',
+})
 const errors = []
 page.on('pageerror', (e) => errors.push(e.message))
 
@@ -38,7 +41,9 @@ await page.goto(`${BASE}/`, { waitUntil: 'networkidle', timeout: 120_000 })
 await page.waitForFunction(() => !document.querySelector('[role="status"]'), { timeout: 120_000 })
 await page.waitForTimeout(3000)
 
-const sig = page.locator('nav[aria-label="Places in the room"] button', { hasText: 'Signals' }).first()
+const sig = page
+  .locator('nav[aria-label="Places in the room"] button', { hasText: 'Signals' })
+  .first()
 await sig.focus()
 await page.waitForTimeout(400)
 const sigHover = await page.evaluate(() => window.__hover?.())
@@ -57,14 +62,17 @@ const hits = []
 for (let y = 140; y <= 460; y += 20) {
   for (let x = 220; x <= 760; x += 12) {
     await page.mouse.move(x, y)
-    if (await page.evaluate(() => window.__hover?.()) === 'signals') hits.push({ x, y })
+    if ((await page.evaluate(() => window.__hover?.())) === 'signals') hits.push({ x, y })
   }
 }
 check('the boards are pickable in the room', hits.length > 0, `${hits.length} points`)
 const xs = hits.map((h) => h.x)
 const span = hits.length ? Math.max(...xs) - Math.min(...xs) : 0
-check('the pickable region spans both boards', span > SPAN_FLOOR,
-  `${span}px, x ${Math.min(...xs)}..${Math.max(...xs)}`)
+check(
+  'the pickable region spans both boards',
+  span > SPAN_FLOOR,
+  `${span}px, x ${Math.min(...xs)}..${Math.max(...xs)}`,
+)
 
 // The far end of that region is the ranking board. It must open Signals too,
 // which is the whole point of it sharing the hotspot.
@@ -73,8 +81,11 @@ await page.mouse.move(far.x, far.y)
 await page.waitForTimeout(300)
 await page.mouse.click(far.x, far.y)
 await page.waitForTimeout(1600)
-check('clicking the far board opens Signals', page.url().includes('#/signals'),
-  `url=${page.url()} from (${far.x},${far.y})`)
+check(
+  'clicking the far board opens Signals',
+  page.url().includes('#/signals'),
+  `url=${page.url()} from (${far.x},${far.y})`,
+)
 
 // Focused, the boards are the whole readout: no glass panel, and the only
 // chrome is the way back out. A panel here would cover the bottom of both
@@ -103,10 +114,11 @@ check('a way back out is still on screen', await exit.isVisible())
 // dialog for the keyboard to reach, so this is the keyboard route.
 await page.keyboard.press('Escape')
 await page.waitForTimeout(1400)
-check('Escape leaves the focused boards', !page.url().includes('#/signals'),
-  `url=${page.url()}`)
+check('Escape leaves the focused boards', !page.url().includes('#/signals'), `url=${page.url()}`)
 
 check('no page errors', errors.length === 0, errors.join('; ').slice(0, 120))
-console.log(`\n${fails.length ? `${fails.length} FAILED: ${fails.join(', ')}` : 'all checks passed'}`)
+console.log(
+  `\n${fails.length ? `${fails.length} FAILED: ${fails.join(', ')}` : 'all checks passed'}`,
+)
 await browser.close()
 process.exit(fails.length ? 1 : 0)

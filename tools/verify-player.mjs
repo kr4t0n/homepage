@@ -66,7 +66,10 @@ const server = createServer(async (req, res) => {
   const rel = normalize(url === '/' ? '/index.html' : url).replace(/^(\.\.[/\\])+/, '')
   if (url === MANIFEST_PATH && manifestOverride !== undefined) {
     if (manifestOverride === null) res.writeHead(404).end('absent')
-    else res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(manifestOverride))
+    else
+      res
+        .writeHead(200, { 'content-type': 'application/json' })
+        .end(JSON.stringify(manifestOverride))
     return
   }
   if (blockCover && manifest.cover && rel.endsWith(manifest.cover)) {
@@ -198,7 +201,9 @@ const decksWith = async () => {
     .waitForFunction(
       () => {
         const d = document.querySelector('[role="dialog"]')
-        const done = d && (d.querySelector('[data-elapsed]') || d.textContent.includes('No track is being served'))
+        const done =
+          d &&
+          (d.querySelector('[data-elapsed]') || d.textContent.includes('No track is being served'))
         return done ? d.textContent : false
       },
       null,
@@ -217,7 +222,10 @@ const decksWith = async () => {
 manifestOverride = null
 {
   const { ctx, p, settled, text } = await decksWith()
-  check('no manifest: the decks say no track is served', settled && text.includes('No track is being served'))
+  check(
+    'no manifest: the decks say no track is served',
+    settled && text.includes('No track is being served'),
+  )
   check('no manifest: no transport is rendered', (await p.$('[data-elapsed]')) === null)
   await ctx.close()
 }
@@ -229,15 +237,23 @@ manifestOverride = { ...manifest, src: '../room.glb' }
 {
   const before = requested.length
   const { ctx, settled, text } = await decksWith()
-  const strays = requested.slice(before).filter((u) => u.includes('room.glb') && u.startsWith('/media'))
-  check('a traversal src is refused as no track', settled && text.includes('No track is being served'))
+  const strays = requested
+    .slice(before)
+    .filter((u) => u.includes('room.glb') && u.startsWith('/media'))
+  check(
+    'a traversal src is refused as no track',
+    settled && text.includes('No track is being served'),
+  )
   check('and the stray path is never requested', strays.length === 0, strays.join(' '))
   await ctx.close()
 }
 manifestOverride = { ...manifest, src: 'https://example.com/x.mp3' }
 {
   const { ctx, settled, text } = await decksWith()
-  check('an absolute URL src is refused as no track', settled && text.includes('No track is being served'))
+  check(
+    'an absolute URL src is refused as no track',
+    settled && text.includes('No track is being served'),
+  )
   await ctx.close()
 }
 manifestOverride = undefined
@@ -344,11 +360,7 @@ await page.waitForTimeout(1500)
 await page.keyboard.press('Space')
 await page.waitForTimeout(2200)
 const afterReload = await elapsed()
-check(
-  'the choice survives a reload',
-  afterReload === 0,
-  `elapsed=${afterReload}s after a gesture`,
-)
+check('the choice survives a reload', afterReload === 0, `elapsed=${afterReload}s after a gesture`)
 
 // --- 6. Turning it back on resumes -----------------------------------------
 await page.click('button[aria-label="Turn the music on"]')
@@ -375,7 +387,11 @@ await cold.waitForTimeout(1800)
 const c0 = await elapsedOn(cold)
 check('a genuinely cold visit starts silent', c0 === 0, `elapsed=${c0}s`)
 const coldBtn = await cold.getAttribute('button[aria-label^="Turn the music"]', 'aria-label')
-check('cold speaker offers to start, not to stop', coldBtn === 'Turn the music on', `label="${coldBtn}"`)
+check(
+  'cold speaker offers to start, not to stop',
+  coldBtn === 'Turn the music on',
+  `label="${coldBtn}"`,
+)
 await cold.click('button[aria-label="Turn the music on"]')
 await cold.waitForTimeout(2600)
 const c1 = await elapsedOn(cold)
@@ -429,11 +445,17 @@ await page.goto(BASE, { waitUntil: 'networkidle' })
 await page.waitForTimeout(2000)
 await page.press('nav[aria-label="Places in the room"] button:has-text("Now playing")', 'Enter')
 await page.waitForTimeout(2800)
-check('the keyboard index opens the decks', page.url().includes('#/player'), page.url().split('/').pop())
+check(
+  'the keyboard index opens the decks',
+  page.url().includes('#/player'),
+  page.url().split('/').pop(),
+)
 await page.screenshot({ path: 'tools/shots/player.png' })
 
 await browser.close()
 server.close()
 
-console.log(`\n${fails.length ? `${fails.length} FAILED: ${fails.join(', ')}` : 'all checks passed'}`)
+console.log(
+  `\n${fails.length ? `${fails.length} FAILED: ${fails.join(', ')}` : 'all checks passed'}`,
+)
 process.exit(fails.length ? 1 : 0)

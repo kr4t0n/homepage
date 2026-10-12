@@ -11,10 +11,7 @@ const SCREEN_IDS = new Set(SCREENS.map((s) => s.id))
  *   #/about           a content panel
  *   #/screen/nodex    a monitor, framed dead-on, no panel
  */
-type Route =
-  | { kind: 'home' }
-  | { kind: 'panel'; id: string }
-  | { kind: 'screen'; id: string }
+type Route = { kind: 'home' } | { kind: 'panel'; id: string } | { kind: 'screen'; id: string }
 
 const readRoute = (): Route => {
   const raw = window.location.hash.replace(/^#\/?/, '')
@@ -118,8 +115,7 @@ export const bindHistory = () => {
 // scraping the hover readout out of the DOM; with that gone, they read the
 // state directly. Stripped from production builds.
 if (import.meta.env.DEV) {
-  ;(window as unknown as Record<string, unknown>).__hover = () =>
-    useScene.getState().hover
+  ;(window as unknown as Record<string, unknown>).__hover = () => useScene.getState().hover
 }
 
 /** Escape leaves any focused mode, from anywhere on the page. */

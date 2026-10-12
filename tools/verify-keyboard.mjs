@@ -24,7 +24,6 @@ import { BASE, requireOurServer } from './base.mjs'
 // something else owns, this would otherwise time out hunting for a canvas.
 await requireOurServer()
 
-
 const browser = await chromium.launch({
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
 })
@@ -73,9 +72,10 @@ const navBox = () =>
   page.evaluate(() => {
     const nav = document.querySelector('nav[aria-label="Places in the room"]')
     const r = nav?.getBoundingClientRect()
-    const f = document.activeElement?.closest('nav') === nav
-      ? document.activeElement.getBoundingClientRect()
-      : null
+    const f =
+      document.activeElement?.closest('nav') === nav
+        ? document.activeElement.getBoundingClientRect()
+        : null
     return {
       w: r ? Math.round(r.width) : null,
       h: r ? Math.round(r.height) : null,
@@ -121,7 +121,10 @@ check(page.url().includes('#/about'), 'Enter opens the focused hotspot')
 // Reach a real anchor inside the panel. About carries the Argus and nodex
 // links, which the monitors otherwise hold behind a pointer.
 const inPanel = await tabTo((a) => a.tag === 'a' && a.inDialog)
-check(inPanel !== null, `a panel's links are reachable by keyboard (${inPanel?.href ?? 'not found'})`)
+check(
+  inPanel !== null,
+  `a panel's links are reachable by keyboard (${inPanel?.href ?? 'not found'})`,
+)
 
 // Escape returns to the room.
 await page.keyboard.press('Escape')

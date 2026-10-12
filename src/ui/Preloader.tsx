@@ -54,7 +54,7 @@ export function Preloader() {
       <div className="mt-5 h-px w-40 overflow-hidden bg-hair">
         <div ref={bar} className="h-full origin-left scale-x-0 bg-acid" />
       </div>
-      <p className="mt-4 font-mono text-[11px] uppercase tracking-[0.2em] text-mute">
+      <p className="mt-4 font-mono text-[11px] tracking-[0.2em] text-mute uppercase">
         Loading the room {Math.round(progress)}%
       </p>
     </div>

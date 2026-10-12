@@ -81,11 +81,11 @@ await away()
 await page.mouse.click(nodex[0], nodex[1])
 await page.waitForTimeout(2000)
 await page.screenshot({ path: `${OUT}/1_framed.png` })
-check(page.url().includes('#/screen/nodex'), `first click frames the screen (${page.url().split('/').pop()})`)
 check(
-  (await page.locator('[role="dialog"]').count()) === 0,
-  'no panel opens for a monitor',
+  page.url().includes('#/screen/nodex'),
+  `first click frames the screen (${page.url().split('/').pop()})`,
 )
+check((await page.locator('[role="dialog"]').count()) === 0, 'no panel opens for a monitor')
 check(
   (await page.locator('text=Back to the room').count()) === 1,
   'framed screen offers a way back',

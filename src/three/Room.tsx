@@ -99,9 +99,7 @@ export function Room() {
     const shared = new Map<THREE.Material, THREE.Material>()
     ;[...originals].sort((a, b) => idOf(a) - idOf(b)).forEach((m) => shared.set(m, m.clone()))
     hotspotMeshes.forEach((o) => {
-      o.material = Array.isArray(o.material)
-        ? o.material.map((m) => m.clone())
-        : o.material.clone()
+      o.material = Array.isArray(o.material) ? o.material.map((m) => m.clone()) : o.material.clone()
     })
     root.traverse((o) => {
       if (!(o instanceof THREE.Mesh) || isHotspot.has(o)) return

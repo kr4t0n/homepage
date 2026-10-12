@@ -13,10 +13,7 @@ import { bindTrack } from './audio/player'
 const hasWebGL = (): boolean => {
   try {
     const c = document.createElement('canvas')
-    return !!(
-      window.WebGLRenderingContext &&
-      (c.getContext('webgl2') || c.getContext('webgl'))
-    )
+    return !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl')))
   } catch {
     return false
   }

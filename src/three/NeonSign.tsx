@@ -184,11 +184,7 @@ export function NeonSign() {
     // Ease toward the hover state rather than snapping, so brushing past the
     // sign does not strobe it. Frame-rate independent.
     const want = hovered ? 1 : 0
-    lift.current = THREE.MathUtils.lerp(
-      lift.current,
-      want,
-      reduce ? 1 : 1 - Math.pow(0.002, dt),
-    )
+    lift.current = THREE.MathUtils.lerp(lift.current, want, reduce ? 1 : 1 - Math.pow(0.002, dt))
     const gain = 1 + (HOVER_GAIN - 1) * lift.current
 
     if (material.current) {
@@ -211,11 +207,7 @@ export function NeonSign() {
       {/* Click target. Separate from the glow so the hit area can be padded
           without enlarging what is drawn. */}
       <mesh
-        position={[
-          PLACEMENT.centre[0],
-          PLACEMENT.centre[1],
-          PLACEMENT.centre[2] + 0.004,
-        ]}
+        position={[PLACEMENT.centre[0], PLACEMENT.centre[1], PLACEMENT.centre[2] + 0.004]}
         quaternion={quaternion}
         onPointerMove={(e) => {
           // Stops the room's own move handler, which sits behind this and would
@@ -259,11 +251,7 @@ export function NeonSign() {
           the room rather than being a decal stuck on it. */}
       <pointLight
         ref={light}
-        position={[
-          PLACEMENT.centre[0],
-          PLACEMENT.centre[1],
-          PLACEMENT.centre[2] + 0.30,
-        ]}
+        position={[PLACEMENT.centre[0], PLACEMENT.centre[1], PLACEMENT.centre[2] + 0.3]}
         color={NEON}
         intensity={neon.light}
         distance={2.1}

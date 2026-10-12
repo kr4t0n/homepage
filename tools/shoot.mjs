@@ -110,7 +110,9 @@ await page.waitForTimeout(800)
 await page.screenshot({ path: `${OUT}/90_fallback.png`, fullPage: true })
 console.log('shot fallback')
 
-console.log(errors.length ? `\nCONSOLE ERRORS:\n${[...new Set(errors)].join('\n')}` : '\nno console errors')
+console.log(
+  errors.length ? `\nCONSOLE ERRORS:\n${[...new Set(errors)].join('\n')}` : '\nno console errors',
+)
 
 await browser.close()
 server.close()
