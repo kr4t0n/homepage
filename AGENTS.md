@@ -978,8 +978,9 @@ upstream's manifest carries it.
 - TypeScript strict, `tsc --noEmit` and `oxlint` must both pass. Oxlint runs
   with the TypeScript, React and jsx-a11y plugins, lints `tools/*.mjs` as well
   as `src/`, and fails on warnings. A rule turned off in `.oxlintrc.json` says
-  why beside it; the React Compiler rules that are off conflict with
-  react-three-fiber, which sets fields on three.js objects from hooks.
+  why beside it. Three React Compiler rules are off: two flag the way
+  react-three-fiber code sets fields on three.js objects from hooks, and one
+  serves only the compiler, which this project doesn't run.
 - Prettier formats every file it can parse, apart from what `.prettierignore`
   lists, and `pnpm run format:check` must pass; CI runs it. Class order in a
   `className` is `prettier-plugin-tailwindcss`'s, read from the theme in

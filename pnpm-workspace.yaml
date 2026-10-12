@@ -8,8 +8,8 @@ allowBuilds:
 # major it was not written against.
 overrides:
   # Bound recursion and rewrite work in brace expansion, which minimatch 9 pulls
-  # in at major 2. ESLint brought majors 1 and 5 through minimatch 3 and 10; if a
-  # dependency brings either back, add its own patched floor here.
+  # in at major 2. A dependency that brings in another major needs its own
+  # patched floor here.
   # https://github.com/advisories/GHSA-6j4f-fj2g-mc7p
   # https://github.com/advisories/GHSA-qhr7-859c-m2p7
   # https://github.com/advisories/GHSA-q2hr-2g5m-vwhr

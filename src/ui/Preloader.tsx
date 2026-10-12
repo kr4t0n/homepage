@@ -43,8 +43,8 @@ export function Preloader() {
 
   if (gone) return null
 
-  // <output> is a status region, as role="status" on a div was. It takes only
-  // phrasing content, so its children are spans made block.
+  // <output> is the native status region. It takes only phrasing content, so
+  // its children are spans made block.
   return (
     <output
       ref={root}
