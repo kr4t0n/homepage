@@ -1,0 +1,17 @@
+# Prettier also reads .gitignore, so build output and node_modules are covered.
+
+# Prose, wrapped by hand.
+*.md
+
+# Written by tools/export_glb.py; a re-export would undo any formatting.
+src/scene-manifest.json
+src/ranking-anchors.json
+
+# Written by pnpm.
+pnpm-lock.yaml
+
+# three's Draco decoder, copied verbatim by `pnpm run draco`.
+public/draco/
+
+# Go templates. Prettier would parse them as YAML and break the {{ }} blocks.
+helm/homepage/templates/

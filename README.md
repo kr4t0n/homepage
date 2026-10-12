@@ -104,6 +104,8 @@ fix it is an alias map in `fetchNames`.
 | `pnpm run preview` | Serve the production build |
 | `pnpm run lint` | ESLint (flat config) |
 | `pnpm run lint:fix` | ESLint, applying the fixes it can make |
+| `pnpm run format` | Prettier, rewriting files in place, Tailwind classes sorted |
+| `pnpm run format:check` | Prettier, listing the files it would change and failing if there are any |
 | `pnpm run typecheck` | `tsc --noEmit` |
 | `pnpm run verify:api` | Secret containment, proxy disclosure, payload and ranking maths |
 | `pnpm run verify:proxy` | Proxy contract tests against a stubbed upstream. No credential needed |
@@ -647,8 +649,8 @@ The build is `linux/amd64` only. Adding `linux/arm64` is a one-line change to
 build of this scene is slow enough there to dominate the run.
 
 Lint is not a gate on the image. The Dockerfile runs `pnpm run build`, which runs
-`tsc -b` first, so a type error does fail the image; `ci.yml` covers lint in
-parallel on the same commit.
+`tsc -b` first, so a type error does fail the image; `ci.yml` covers lint and
+formatting in parallel on the same commit.
 
 The site is never published to GitHub Pages. An earlier revision of this repo
 had a Pages workflow; it was never the intended target and has been removed.
@@ -764,9 +766,10 @@ Dockerfile              two-stage build; runtime stage has no node_modules
 .dockerignore           keeps .env and the licensed media out of the context
 helm/homepage/          the Helm chart for the cluster
 .pre-commit-config.yaml gitleaks before every commit
+prettier.config.js      formatting, including Tailwind class order
 .github/dependabot.yml  monthly grouped updates for npm and the actions
 .github/workflows/
-  ci.yml                secret scan, lint, typecheck, both builds, chart lint
+  ci.yml                secret scan, lint, format, typecheck, both builds, chart lint
   image.yml             build, run and check the image, push to Docker Hub
   helm-publish.yml      package the chart to gh-pages
 ```
