@@ -138,7 +138,9 @@
   "overrides": [
     {
       // typescript-eslint turns these off for TypeScript because the compiler
-      // reports the same mistakes. They stay on for the .mjs scripts.
+      // reports the same mistakes. They stay on for the .mjs scripts. It turns
+      // off no-unreachable too, but tsc only hints at unreachable code unless
+      // allowUnreachableCode is false, so that one stays on everywhere.
       "files": ["**/*.{ts,tsx}"],
       "rules": {
         "constructor-super": "off",
@@ -155,7 +157,6 @@
         "no-setter-return": "off",
         "no-this-before-super": "off",
         "no-undef": "off",
-        "no-unreachable": "off",
         "no-unsafe-negation": "off",
         "no-with": "off"
       }
