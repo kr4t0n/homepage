@@ -28,8 +28,6 @@
 # filepath.Match, where `*` does not cross a path separator: a bare `*.mp3`
 # matches only the context root and silently leaves public/track.mp3 in the
 # build. That exact mistake was made here first and caught by listing the image.
-**/*.mp3
-public/media
 
 # Bulk that has no business in a build. The .blend files are ~6.5 MB each and
 # the tools venv holds bpy at ~357 MB; neither is used to build the site, since
