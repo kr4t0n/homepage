@@ -3,6 +3,7 @@
 
 Run: uv run --project tools --group blender python tools/diff_blend.py room.blend room-v2.blend
 """
+
 import os
 import sys
 
@@ -29,8 +30,13 @@ def scan(path):
         if o.type == "MESH":
             tris = sum(len(p.vertices) - 2 for p in o.data.polygons)
         body = o.data.body if o.type == "FONT" else ""
-        out[o.name] = (o.type, tuple(round(v, 3) for v in mn),
-                       tuple(round(v, 3) for v in mx), tris, body)
+        out[o.name] = (
+            o.type,
+            tuple(round(v, 3) for v in mn),
+            tuple(round(v, 3) for v in mx),
+            tris,
+            body,
+        )
     return out
 
 
@@ -60,6 +66,7 @@ for n in sorted(set(a) & set(b)):
 print(f"MOVED: {len(moved)} objects")
 if moved:
     from collections import Counter
+
     deltas = Counter(m[1] for m in moved)
     for delta, count in deltas.most_common(8):
         print(f"  delta {delta}  x{count}")
@@ -90,9 +97,11 @@ for t, names in by_type.items():
     tris = sum(b[n][3] for n in names)
     print(f"  {t:6} x{len(names):<5} tris={tris:,}")
     print(f"         e.g. {', '.join(names[:8])}")
-print(f"\n  combined bbox  X[{gmn.x:.3f},{gmx.x:.3f}]  "
-      f"Y[{gmn.y:.3f},{gmx.y:.3f}]  Z[{gmn.z:.3f},{gmx.z:.3f}]")
-print(f"  size           {gmx.x-gmn.x:.3f} x {gmx.y-gmn.y:.3f} x {gmx.z-gmn.z:.3f}")
+print(
+    f"\n  combined bbox  X[{gmn.x:.3f},{gmx.x:.3f}]  "
+    f"Y[{gmn.y:.3f},{gmx.y:.3f}]  Z[{gmn.z:.3f},{gmx.z:.3f}]"
+)
+print(f"  size           {gmx.x - gmn.x:.3f} x {gmx.y - gmn.y:.3f} x {gmx.z - gmn.z:.3f}")
 
 if fonts:
     print(f"\n  FONT bodies ({len(fonts)}):")

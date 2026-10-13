@@ -4,6 +4,7 @@
 No Blender required. Parses the documented .blend block format:
 header -> [block: code, size, old_ptr, sdna_idx, count, data]* -> DNA1 -> ENDB
 """
+
 import struct
 import sys
 from collections import defaultdict
@@ -29,7 +30,7 @@ class Blend:
             raise SystemExit(
                 "this .blend is zstd-compressed (Blender 3.0+ default).\n"
                 "  decompress first:  zstd -d room.blend -o /tmp/raw.blend\n"
-                "  or just use bpy:   uv run --project tools --group blender python -c \"import bpy; "
+                '  or just use bpy:   uv run --project tools --group blender python -c "import bpy; '
                 "bpy.ops.wm.open_mainfile(filepath='room.blend')\""
             )
         if h[:7] != b"BLENDER":
@@ -60,8 +61,7 @@ class Blend:
             sdna, count = struct.unpack_from(e + "ii", self.buf, off + 8 + ps)
             data = off + 16 + ps
             self.blocks.append(
-                {"code": code, "size": size, "old": old, "sdna": sdna,
-                 "count": count, "data": data}
+                {"code": code, "size": size, "old": old, "sdna": sdna, "count": count, "data": data}
             )
             off = data + size
 
@@ -101,7 +101,7 @@ class Blend:
         p += 4
         nstruct = struct.unpack_from(e + "i", buf, p)[0]
         p += 4
-        self.structs = []          # [(type_idx, [(type_idx, name_idx), ...]), ...]
+        self.structs = []  # [(type_idx, [(type_idx, name_idx), ...]), ...]
         self.struct_by_name = {}
         for i in range(nstruct):
             tidx, nfield = struct.unpack_from(e + "hh", buf, p)
@@ -154,23 +154,36 @@ class Blend:
         return raw.split(b"\0")[0].decode("utf-8", "replace")
 
 
-OB_TYPES = {0: "EMPTY", 1: "MESH", 2: "CURVE", 3: "SURF", 4: "FONT", 5: "MBALL",
-            10: "LAMP", 11: "CAMERA", 22: "LATTICE", 25: "ARMATURE",
-            26: "SPEAKER", 28: "GPENCIL", 29: "LIGHTPROBE"}
+OB_TYPES = {
+    0: "EMPTY",
+    1: "MESH",
+    2: "CURVE",
+    3: "SURF",
+    4: "FONT",
+    5: "MBALL",
+    10: "LAMP",
+    11: "CAMERA",
+    22: "LATTICE",
+    25: "ARMATURE",
+    26: "SPEAKER",
+    28: "GPENCIL",
+    29: "LIGHTPROBE",
+}
 
 
 def main(path):
     b = Blend(path)
     print(f"# {path}")
-    print(f"Blender {b.version[0]}.{b.version[1:]}  ptr={b.ptr_size*8}bit  "
-          f"blocks={len(b.blocks)}  structs={len(b.structs)}")
+    print(
+        f"Blender {b.version[0]}.{b.version[1:]}  ptr={b.ptr_size * 8}bit  "
+        f"blocks={len(b.blocks)}  structs={len(b.structs)}"
+    )
 
     counts = defaultdict(int)
     for blk in b.blocks:
         counts[blk["code"].decode()] += 1
     print("\n## block codes")
-    print("  " + "  ".join(f"{k}:{v}" for k, v in sorted(counts.items(),
-                                                         key=lambda x: -x[1])[:24]))
+    print("  " + "  ".join(f"{k}:{v}" for k, v in sorted(counts.items(), key=lambda x: -x[1])[:24]))
 
     # ---- Objects with transforms -----------------------------------------
     ob_si = b.struct_by_name.get("Object")
@@ -193,7 +206,8 @@ def main(path):
         if "parent" in fo:
             o, sz, tn, _ = fo["parent"]
             rec["parent"] = struct.unpack_from(
-                e + ("Q" if b.ptr_size == 8 else "I"), b.buf, blk["data"] + o)[0]
+                e + ("Q" if b.ptr_size == 8 else "I"), b.buf, blk["data"] + o
+            )[0]
         rec["_old"] = blk["old"]
         objs.append(rec)
 
@@ -202,8 +216,10 @@ def main(path):
     tcount = defaultdict(int)
     for o in objs:
         tcount[OB_TYPES.get(o.get("type"), o.get("type"))] += 1
-    print("  by type: " + ", ".join(f"{k}={v}" for k, v in sorted(
-        tcount.items(), key=lambda x: -x[1])))
+    print(
+        "  by type: "
+        + ", ".join(f"{k}={v}" for k, v in sorted(tcount.items(), key=lambda x: -x[1]))
+    )
     print()
     for o in sorted(objs, key=lambda x: x["name"].lower()):
         t = OB_TYPES.get(o.get("type"), str(o.get("type")))
@@ -211,16 +227,24 @@ def main(path):
         sz = o.get("size", (1, 1, 1))
         par = by_old.get(o.get("parent", 0), {}).get("name", "")
         par = f"  parent={par}" if par else ""
-        print(f"  [{t:7}] {o['name']:<44} "
-              f"loc=({loc[0]:8.3f},{loc[1]:8.3f},{loc[2]:8.3f}) "
-              f"scl=({sz[0]:6.3f},{sz[1]:6.3f},{sz[2]:6.3f}){par}")
+        print(
+            f"  [{t:7}] {o['name']:<44} "
+            f"loc=({loc[0]:8.3f},{loc[1]:8.3f},{loc[2]:8.3f}) "
+            f"scl=({sz[0]:6.3f},{sz[1]:6.3f},{sz[2]:6.3f}){par}"
+        )
 
     # ---- Other ID blocks --------------------------------------------------
-    for code, label in ((b"ME", "MESHES"), (b"MA", "MATERIALS"),
-                        (b"CA", "CAMERAS"), (b"LA", "LIGHTS"),
-                        (b"SC", "SCENES"), (b"WO", "WORLDS"),
-                        (b"GR", "COLLECTIONS"), (b"TE", "TEXTURES"),
-                        (b"NT", "NODETREES")):
+    for code, label in (
+        (b"ME", "MESHES"),
+        (b"MA", "MATERIALS"),
+        (b"CA", "CAMERAS"),
+        (b"LA", "LIGHTS"),
+        (b"SC", "SCENES"),
+        (b"WO", "WORLDS"),
+        (b"GR", "COLLECTIONS"),
+        (b"TE", "TEXTURES"),
+        (b"NT", "NODETREES"),
+    ):
         names = [b.read_id_name(x) for x in b.blocks if x["code"] == code]
         if not names:
             continue
@@ -228,7 +252,7 @@ def main(path):
         for n in sorted(names)[:80]:
             print(f"  {n}")
         if len(names) > 80:
-            print(f"  ... +{len(names)-80} more")
+            print(f"  ... +{len(names) - 80} more")
 
     # ---- Images: packed or external? --------------------------------------
     im_si = b.struct_by_name.get("Image")
@@ -245,7 +269,7 @@ def main(path):
             # Image.name is the filepath field in 2.8x (after ID)
             pass
         # ID struct size varies; scan for a plausible path right after ID
-        raw = b.buf[blk["data"]: blk["data"] + blk["size"]]
+        raw = b.buf[blk["data"] : blk["data"] + blk["size"]]
         # find "//" relative path marker
         idx = raw.find(b"//")
         if idx >= 0:
@@ -255,8 +279,9 @@ def main(path):
         pf = ""
         if packed:
             o, sz, tn, _ = imfo["packedfile"]
-            ptr = struct.unpack_from(e + ("Q" if b.ptr_size == 8 else "I"),
-                                     b.buf, blk["data"] + o)[0]
+            ptr = struct.unpack_from(e + ("Q" if b.ptr_size == 8 else "I"), b.buf, blk["data"] + o)[
+                0
+            ]
             pf = "PACKED" if ptr else "external"
         print(f"  {nm:<40} {pf:<9} {filepath}")
     if nim == 0:
@@ -287,7 +312,7 @@ def main(path):
     for v, p, nm in sorted(rows, reverse=True)[:40]:
         print(f"  {v:>9,} verts  {p:>9,} polys   {nm}")
     if len(rows) > 40:
-        print(f"  ... +{len(rows)-40} more meshes")
+        print(f"  ... +{len(rows) - 40} more meshes")
     print(f"\n  TOTAL: {tot_v:,} verts   {tot_p:,} polys   across {len(rows)} meshes")
 
 

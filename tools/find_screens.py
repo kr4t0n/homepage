@@ -10,6 +10,7 @@ Emits glTF-space (Y up) values, matching src/scene-manifest.json.
 
 Run: uv run --group blender python find_screens.py ../room.blend
 """
+
 import json
 import math
 import os

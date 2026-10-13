@@ -11,6 +11,7 @@ not, the faces exist but point the wrong way, which this asset has form for.
 
 Run: uv run --group blender python diagnose_keys.py
 """
+
 import os
 import tempfile
 
@@ -56,9 +57,9 @@ def add_light(sc, at):
     o = bpy.data.objects.new("Key", d)
     sc.collection.objects.link(o)
     o.location = at + Vector((1.5, -1.5, 3.0))
-    o.rotation_euler = (Vector((0, 0, 0)) - Vector((1.5, -1.5, 3.0))).to_track_quat(
-        "-Z", "Y"
-    ).to_euler()
+    o.rotation_euler = (
+        (Vector((0, 0, 0)) - Vector((1.5, -1.5, 3.0))).to_track_quat("-Z", "Y").to_euler()
+    )
 
 
 def strip_lights():
