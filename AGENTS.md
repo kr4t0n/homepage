@@ -1014,6 +1014,14 @@ upstream's manifest carries it.
   has the `.blend`. Line length is 100, Prettier's width. There is no type
   checker: bpy ships no stubs, so Pyright would type nearly every value these
   scripts touch as unknown.
+- CI's `check` job runs `ruff check` and `ruff format --check` through
+  `uv run --locked`, which also fails when `uv.lock` no longer matches
+  `pyproject.toml`. pre-commit runs the same two on staged files. Both hooks are
+  scoped to `tools/`: unscoped, `ruff-format` also formats Markdown and rewrites
+  the Python examples in README.md. Ruff is pinned exactly in
+  `tools/pyproject.toml` because the hook's `rev` has to be the same release, so
+  bump the two together. `setup-uv`'s `version` in `ci.yml` is outside
+  Dependabot's reach as well; bump it by hand.
 - TypeScript strict, `tsc --noEmit` and `oxlint` must both pass. Oxlint runs
   with the TypeScript, React and jsx-a11y plugins, lints `tools/*.mjs` as well
   as `src/`, and fails on warnings. A rule turned off, in `.oxlintrc.json` or

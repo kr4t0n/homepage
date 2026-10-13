@@ -45,6 +45,15 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run lint
       - run: pnpm run format:check
+      # uv for the Python in tools/. uv has no Dependabot coverage here, so
+      # `version` is bumped by hand.
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: 0.12.13
+      # Installs Ruff alone: bpy sits in a dependency group that no plain sync
+      # includes. --locked fails if uv.lock no longer matches pyproject.toml.
+      - run: uv run --project tools --locked ruff check tools
+      - run: uv run --project tools --locked ruff format --check tools
       - run: pnpm run typecheck
       # Unit tests, the /api/pixels proxy against a stubbed upstream among them.
       # Deliberately needs no credential and no network, so it runs on every

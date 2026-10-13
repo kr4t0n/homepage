@@ -1,8 +1,8 @@
 # Hooks that run before every commit. Set up once per clone with
 # `pre-commit install`; see README.
 #
-# 3.2.0 is the floor this config was run on, a fake token included. The hook
-# below declares no minimum of its own.
+# 3.2.0 is the floor this config was run on: the secret scan with a fake token,
+# and the Ruff hooks over tools/. No hook below asks for a higher one.
 minimum_pre_commit_version: '3.2.0'
 
 repos:
@@ -17,3 +17,17 @@ repos:
         # then appends the staged file names, and `gitleaks git` refuses more
         # than one argument, so every commit would fail.
         pass_filenames: false
+
+  # The same Ruff as tools/pyproject.toml pins: bump this rev and that pin
+  # together.
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: 44b5042edab9382aba712eed4f9c7bab7a3d6a3e # frozen: v0.17.0
+    hooks:
+      # Scoped to tools/, the only Python here and what CI checks. Unscoped,
+      # ruff-format also takes Markdown and would rewrite the Python examples
+      # in README.md.
+      - id: ruff-check
+        args: [--fix]
+        files: ^tools/
+      - id: ruff-format
+        files: ^tools/

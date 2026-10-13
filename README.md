@@ -28,17 +28,20 @@ plain, fully readable 2D page when WebGL is unavailable or the viewport is small
 ```bash
 pnpm install
 uv sync --project tools # Ruff for the Python in tools/; leaves bpy out
-pre-commit install      # once per clone: scan staged changes for secrets
+pre-commit install      # once per clone: secret scan and Ruff on staged changes
 git config blame.ignoreRevsFile .git-blame-ignore-revs   # once per clone
 pnpm run dev            # http://localhost:5173
 ```
 
-The hook scans only what is staged, so `pre-commit run --all-files` passes
-without having read the tree. To scan every commit, as CI does, run
-`gitleaks git --redact`.
+The secret scan reads only what is staged, so `pre-commit run --all-files`
+passes without having read the tree. To scan every commit, as CI does, run
+`gitleaks git --redact`. The Ruff hooks fix what they can in staged Python
+files and format them. When they change a file the commit stops, so you can
+look at the change and stage it.
 
-The blame setting skips the commit that formatted the codebase with Prettier,
-so `git blame` shows who last changed a line rather than who reformatted it.
+The blame setting skips the commits that reformatted the code, with Prettier
+and with Ruff, so `git blame` shows who last changed a line rather than who
+reformatted it.
 GitHub's blame view reads `.git-blame-ignore-revs` on its own.
 
 `public/room.glb` is committed, so the site runs without touching Blender.
@@ -166,10 +169,10 @@ Delete it once you have looked.
 its settings are under `[tool.ruff]` in `tools/pyproject.toml`.
 
 ```bash
-uv run --project tools ruff check tools            # lint
+uv run --project tools ruff check tools            # lint, as CI does
 uv run --project tools ruff check --fix tools      # apply the fixes Ruff can make
 uv run --project tools ruff format tools           # format in place
-uv run --project tools ruff format --check tools   # list what would change
+uv run --project tools ruff format --check tools   # as CI does
 ```
 
 There is no type checker. bpy ships no type stubs, so nearly everything these
@@ -838,14 +841,14 @@ tools/
 Dockerfile              two-stage build; runtime stage has no node_modules
 .dockerignore           keeps .env and the licensed media out of the context
 helm/homepage/          the Helm chart for the cluster
-.pre-commit-config.yaml gitleaks before every commit
+.pre-commit-config.yaml gitleaks and Ruff before every commit
 .oxlintrc.json          lint rules, and why the ones turned off are off
 prettier.config.js      formatting, including Tailwind class order
 vitest.config.ts        unit tests, kept apart from vite.config.ts and its .env
-.git-blame-ignore-revs  the reformat commit, which git blame skips
+.git-blame-ignore-revs  the reformat commits, which git blame skips
 .github/dependabot.yml  monthly grouped updates for npm and the actions
 .github/workflows/
-  ci.yml                secret scan, lint, format, typecheck, unit tests, both builds, chart lint
+  ci.yml                secret scan, lint, format, Ruff, typecheck, unit tests, both builds, chart lint
   image.yml             build, run and check the image, push to Docker Hub
   helm-publish.yml      package the chart to gh-pages
 ```
