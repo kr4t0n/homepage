@@ -825,7 +825,7 @@ tools/
   find_walls.py         measures the wall planes
   compare_view.py       source vs export from any camera
   diagnose_keys.py      source vs export vs flat-material render
-  diagnose_lighting.py  material colours, neutral vs site light rig
+  diagnose_lighting.py  material colours, neutral light vs the site's key without fill
   wall_occupancy.py     lists wall decor and finds clear bands
   base.mjs              shared target URL, strict flag, and "is this us?" probe
   captures.mjs          a fresh temp directory for a script's screenshots

@@ -157,10 +157,10 @@ floor; with one key and a flat ambient, everything not facing the key crushes to
 black. `lighting.ts` adds a hemisphere term for sky and floor plus a weak
 opposite-side bounce. Before changing the model, compare against an offline
 render of the same GLB: `tools/diagnose_keys.py` (source, export, flat-material
-export) and `tools/diagnose_lighting.py` (a bright neutral light, then a dim
-ambient and one sun with no fill; that sun is not the site's key, since it takes
-the site's Y-up `(7, 10, 7)` as Blender's Z-up and lands about 76° away, behind
-the back wall).
+export) and `tools/diagnose_lighting.py` (a bright neutral light, then the
+site's key and ambient with no fill, read from `Scene.tsx` and `lighting.ts`, so
+a change to either JSX element or the `lighting` object needs the script's
+patterns updated).
 
 **Never overwrite an authored `emissiveIntensity`.** Every glowing material
 carries `KHR_materials_emissive_strength` between 1 and 10; forcing one value
