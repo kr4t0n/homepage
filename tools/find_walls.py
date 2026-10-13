@@ -6,7 +6,7 @@ ask where a wall is. This measures the large vertical faces and prints each as a
 plane plus in-plane extents, in glTF space (Y up), which is enough to place a
 sign flat against one.
 
-Run: ./.venv/bin/python find_walls.py ../room.blend
+Run: uv run --group blender python find_walls.py ../room.blend
 """
 import json
 import os

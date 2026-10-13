@@ -15,9 +15,10 @@ plain, fully readable 2D page when WebGL is unavailable or the viewport is small
   support.
 - pnpm, at the version pinned in `packageManager` in `package.json`. Node 22
   and 24 ship corepack, so `corepack enable pnpm` once is enough.
-- Python 3.11 exactly, only if you need to re-run the asset pipeline. The `bpy`
-  wheel is built against a specific CPython minor version.
-- [uv](https://docs.astral.sh/uv/) for the Python side
+- [uv](https://docs.astral.sh/uv/), for the Python in `tools/`: Ruff, and the
+  asset pipeline when you re-run it. That needs Python 3.11 exactly, because
+  each `bpy` release is built for one CPython minor. uv reads the version from
+  `tools/.python-version` and downloads it if the machine doesn't have it.
 - [pre-commit](https://pre-commit.com/) and [gitleaks](https://github.com/gitleaks/gitleaks),
   for the secret scan that runs before every commit. The hook calls the
   `gitleaks` on your PATH.
@@ -26,6 +27,7 @@ plain, fully readable 2D page when WebGL is unavailable or the viewport is small
 
 ```bash
 pnpm install
+uv sync --project tools # Ruff for the Python in tools/; leaves bpy out
 pre-commit install      # once per clone: scan staged changes for secrets
 git config blame.ignoreRevsFile .git-blame-ignore-revs   # once per clone
 pnpm run dev            # http://localhost:5173
@@ -155,6 +157,24 @@ the system temp dir and prints its path when it finishes: `captures: <dir>` from
 the browser scripts, `done -> <dir>` or `wrote <file>` from the Blender ones.
 Delete it once you have looked.
 
+## The Python in tools/
+
+`tools/` is a uv project of its own: `pyproject.toml`, `uv.lock` and
+`.python-version` sit beside the scripts, and the environment goes in
+`tools/.venv`. bpy is in a dependency group named `blender`, which a plain
+`uv sync` leaves out and CI never installs. Ruff lints and formats the scripts;
+its settings are under `[tool.ruff]` in `tools/pyproject.toml`.
+
+```bash
+uv run --project tools ruff check tools            # lint
+uv run --project tools ruff check --fix tools      # apply the fixes Ruff can make
+uv run --project tools ruff format tools           # format in place
+uv run --project tools ruff format --check tools   # list what would change
+```
+
+There is no type checker. bpy ships no type stubs, so nearly everything these
+scripts touch would type as unknown.
+
 ## The asset pipeline
 
 The source file is `room-v3.blend`: the purchased isometric studio scene plus a
@@ -248,13 +268,19 @@ that is the owner's call.
 ### Re-running it
 
 ```bash
-cd tools
-uv venv --python 3.11 .venv
-uv pip install --python .venv/bin/python bpy
-cd .. && pnpm run room
+uv sync --project tools --group blender   # once: Python 3.11 and bpy into tools/.venv
+pnpm run room
 ```
 
-No Blender install needed; `bpy` is Blender as a Python module.
+No Blender install needed; `bpy` is Blender as a Python module. `pnpm run room`
+asks uv for the `blender` group itself, so the first line only does the large
+download up front. A later `uv sync --project tools` without `--group blender`
+takes bpy out of the environment again, and the next `pnpm run room` puts it
+back from uv's cache.
+
+The lock holds bpy 5.0.1, which has wheels for Linux x86-64, Apple silicon and
+Windows, and none for Intel Macs. It is the last bpy built for Python 3.11; see
+`tools/pyproject.toml` for what moving past it involves.
 
 ### The Draco decoder
 
@@ -557,8 +583,8 @@ never renders.
 The three panels are entries in `SCREENS` in `src/content.ts`. Give one an
 `image` and it renders; give it an `href` and a second click on the framed
 screen opens that URL. Geometry for all three is already measured; to re-derive
-it run `tools/.venv/bin/python tools/find_screens.py` and negate the normal it
-prints, for the reason in AGENTS.md.
+it run `uv run --project tools --group blender python tools/find_screens.py
+room-v3.blend` and negate the normal it prints, for the reason in AGENTS.md.
 
 Images are cover-fitted, never stretched: the panels are 2.4:1 and screenshots
 rarely are, so something gets cropped. Set `anchor: 'top'` for a page
@@ -781,6 +807,9 @@ src/
     player.ts           backing-track playback, autoplay policy, ducking
     track.ts            the runtime track manifest: URL and validation
 tools/
+  pyproject.toml        the Python side: Python 3.11, Ruff, bpy in the blender group
+  uv.lock               exact versions for all of it
+  .python-version       3.11, for uv
   export_glb.py         the asset pipeline
   inspect_blend.py      dependency-free .blend parser
   inspect_scene.py      bpy scene report + preview renders

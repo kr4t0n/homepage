@@ -8,7 +8,7 @@ matching the site's (dim ambient plus one directional, ACES-ish exposure).
 If the colours are light and only the second render goes black, the asset is
 fine and the scene lighting is the problem.
 
-Run: ./.venv/bin/python diagnose_lighting.py
+Run: uv run --group blender python diagnose_lighting.py
 """
 import os
 import tempfile

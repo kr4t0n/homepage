@@ -29,7 +29,7 @@ class Blend:
             raise SystemExit(
                 "this .blend is zstd-compressed (Blender 3.0+ default).\n"
                 "  decompress first:  zstd -d room.blend -o /tmp/raw.blend\n"
-                "  or just use bpy:   tools/.venv/bin/python -c \"import bpy; "
+                "  or just use bpy:   uv run --project tools --group blender python -c \"import bpy; "
                 "bpy.ops.wm.open_mainfile(filepath='room.blend')\""
             )
         if h[:7] != b"BLENDER":

@@ -992,6 +992,28 @@ upstream's manifest carries it.
   scripts, `tempfile.mkdtemp` in the Blender ones. Script output never gets an
   ignore entry. `.argus/` is ignored because the Argus sidecar writes a prompt's
   attachments there, not for anything in this repo.
+- The Python in `tools/` is a uv project of its own, with `pyproject.toml`,
+  `uv.lock` and `.python-version` beside the scripts. Nothing at the root
+  needs Python, and the environment stays in `tools/.venv`, which `.gitignore`
+  and `.dockerignore` already exclude. Run it from the root with
+  `uv run --project tools`, which keeps the working directory where it is.
+  Never `pip install` or `uv pip install` into it; `uv add` and `uv sync`.
+- bpy lives in the `blender` dependency group and is never a default group, so
+  a plain `uv sync` and CI install Ruff alone and skip a 357 MB wheel.
+  `requires-python` is `==3.11.*` because each bpy release is built for one
+  CPython minor: 5.0.x is the last for 3.11, and 5.1 onwards needs 3.13. Moving
+  bpy forward changes `requires-python`, `.python-version` and the lock
+  together, and the owner re-runs the export, since a new Blender can export
+  the same `.blend` differently. Only the owner can run the export, since the
+  `.blend` is never committed. Even headless, bpy needs X11's client libraries:
+  without them, `import bpy` fails on `libSM.so.6`.
+- Ruff lints and formats `tools/*.py`. Its rules are named in
+  `tools/pyproject.toml` rather than left to Ruff's default, which covers about
+  400 rules and moves between releases. The set holds rules whose fixes don't
+  change what a script does, because the pipeline can only be run by whoever
+  has the `.blend`. Line length is 100, Prettier's width. There is no type
+  checker: bpy ships no stubs, so Pyright would type nearly every value these
+  scripts touch as unknown.
 - TypeScript strict, `tsc --noEmit` and `oxlint` must both pass. Oxlint runs
   with the TypeScript, React and jsx-a11y plugins, lints `tools/*.mjs` as well
   as `src/`, and fails on warnings. A rule turned off, in `.oxlintrc.json` or

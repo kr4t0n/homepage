@@ -7,7 +7,7 @@
   4. join each group into one mesh named `hot_<group>` / `static_<group>`
   5. export GLB (+Y up), then Draco-compress via gltf-transform if available
 
-Run: ./.venv/bin/python export_glb.py ../room.blend ../public/room.glb
+Run: uv run --group blender python export_glb.py ../room.blend ../public/room.glb
 """
 import json
 import os

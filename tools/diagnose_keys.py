@@ -9,7 +9,7 @@ A vs B separates a source problem from an export problem. B vs C separates a
 material problem from a winding/normals problem: if C shows keycaps that B does
 not, the faces exist but point the wrong way, which this asset has form for.
 
-Run: ./.venv/bin/python diagnose_keys.py
+Run: uv run --group blender python diagnose_keys.py
 """
 import os
 import sys

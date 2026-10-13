@@ -4,7 +4,7 @@
 Reports every object sitting near the wall plane with its glTF-space extents,
 then scans for horizontal bands of clear wall.
 
-Run: ./.venv/bin/python wall_occupancy.py ../room.blend
+Run: uv run --group blender python wall_occupancy.py ../room.blend
 """
 import os
 import sys

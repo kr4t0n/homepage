@@ -5,7 +5,7 @@ Renders the same framing from the original .blend and from our exported GLB, so
 a suspect object can be compared directly. Defaults to the front-right of the
 room, where the MIDI keyboard sits.
 
-Run: ./.venv/bin/python compare_view.py [eyeX eyeY eyeZ atX atY atZ] [name]
+Run: uv run --group blender python compare_view.py [eyeX eyeY eyeZ atX atY atZ] [name]
 """
 import os
 import sys
