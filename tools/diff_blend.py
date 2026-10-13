@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Diff two .blend scenes: what objects appeared, vanished or moved.
 
 Run: uv run --project tools --group blender python tools/diff_blend.py room.blend room-v2.blend

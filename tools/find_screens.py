@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Locate the monitor screen faces and emit their world-space placement.
 
 The screens are merged into one node at export, so the frontend cannot address

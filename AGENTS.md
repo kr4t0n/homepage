@@ -157,10 +157,10 @@ floor; with one key and a flat ambient, everything not facing the key crushes to
 black. `lighting.ts` adds a hemisphere term for sky and floor plus a weak
 opposite-side bounce. Before changing the model, compare against an offline
 render of the same GLB: `tools/diagnose_keys.py` (source, export, flat-material
-export) and `tools/diagnose_lighting.py` (a bright neutral light, then a dim
-ambient and one sun with no fill; that sun is not the site's key, since it takes
-the site's Y-up `(7, 10, 7)` as Blender's Z-up and lands about 76° away, behind
-the back wall).
+export) and `tools/diagnose_lighting.py` (a bright neutral light, then the
+site's key and ambient with no fill, read from `Scene.tsx` and `lighting.ts`, so
+a change to either JSX element or the `lighting` object needs the script's
+patterns updated).
 
 **Never overwrite an authored `emissiveIntensity`.** Every glowing material
 carries `KHR_materials_emissive_strength` between 1 and 10; forcing one value
@@ -675,7 +675,9 @@ sets it, and must keep it when bumping `rev` until upstream does.
   root with `uv run --project tools`. Never `pip install` or `uv pip install`
   into it; use `uv add` and `uv sync`.
 - bpy is in the `blender` dependency group, never a default one, so `uv sync`
-  and CI install Ruff alone and skip a 357 MB wheel. `requires-python` is
+  and CI install the dev group (Ruff, pip-audit) and skip a 357 MB wheel.
+  pip-audit audits the environment, not the lock, so CI's run never sees bpy's
+  group: after a change to it, run `pip-audit` with `--group blender` too. `requires-python` is
   `==3.11.*` because each bpy release targets one CPython minor (5.0.x is the
   last for 3.11). Moving bpy changes `requires-python`, `.python-version` and
   the lock together, and the owner re-runs the export, since only the owner has

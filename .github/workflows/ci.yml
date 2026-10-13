@@ -50,10 +50,14 @@ jobs:
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: 0.12.13
-      # Installs Ruff alone: bpy sits in a dependency group that no plain sync
-      # includes. --locked fails if uv.lock no longer matches pyproject.toml.
+      # Installs the dev group, Ruff and pip-audit: bpy sits in a dependency
+      # group that no plain sync includes. --locked fails if uv.lock no longer
+      # matches pyproject.toml.
       - run: uv run --project tools --locked ruff check tools
       - run: uv run --project tools --locked ruff format --check tools
+      # Audits the environment installed above, so bpy's group is audited only
+      # where it is installed, by whoever runs the export.
+      - run: uv run --project tools --locked pip-audit --strict
       - run: pnpm run typecheck
       # Unit tests, the /api/pixels proxy against a stubbed upstream among them.
       # Deliberately needs no credential and no network, so it runs on every

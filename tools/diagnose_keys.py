@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Three-way render of the DJ controller, to locate where it breaks.
 
   A  the original .blend, materials as authored
@@ -12,14 +11,19 @@ not, they exist but point the wrong way, which this asset has form for.
 Run: uv run --project tools --group blender python tools/diagnose_keys.py
 """
 
+import json
 import os
+import shlex
 import tempfile
 
 import bpy
 from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-BLEND = os.path.join(HERE, "..", "room.blend")
+# The .blend `pnpm run room` exports, so the source is the one room.glb came from.
+with open(os.path.join(HERE, "..", "package.json")) as f:
+    ROOM = shlex.split(json.load(f)["scripts"]["room"])
+BLEND = os.path.join(HERE, "..", ROOM[ROOM.index("tools/export_glb.py") + 1])
 GLB = os.path.join(HERE, "..", "public", "room.glb")
 OUT = tempfile.mkdtemp(prefix="homepage-diagnose_keys-")
 

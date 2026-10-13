@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Locate the room's wall planes and report where things can be mounted.
 
 The shell is merged into `static_shell` at export, so the frontend has no way to

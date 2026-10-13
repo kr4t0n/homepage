@@ -1,10 +1,9 @@
-#!/usr/bin/env python3
 """Is the DJ controller dark because of its materials, or because of our lights?
 
 Loads the exported GLB, prints the base colours of the controller's materials,
-then renders it twice: once with a bright neutral light, and once with a dim
-cool ambient and one sun at low exposure, with none of the site's fill. That sun
-is not the site's key: see the comment above it.
+then renders it twice: once with a bright neutral light, and once under the
+site's key and ambient at its exposure, read from src/three/, with none of the
+site's fill.
 
 If the colours are light and only the second render goes black, the asset is
 fine and the scene lighting is the problem.
@@ -12,7 +11,9 @@ fine and the scene lighting is the problem.
 Run: uv run --project tools --group blender python tools/diagnose_lighting.py
 """
 
+import math
 import os
+import re
 import tempfile
 
 import bpy
@@ -24,6 +25,36 @@ OUT = tempfile.mkdtemp(prefix="homepage-diagnose_lighting-")
 
 FOCUS = Vector((1.89, -3.70, 0.62))
 EYE = Vector((3.30, -6.00, 2.35))
+
+with open(os.path.join(HERE, "..", "src", "three", "Scene.tsx")) as f:
+    SCENE = f.read()
+with open(os.path.join(HERE, "..", "src", "three", "lighting.ts")) as f:
+    RIG = f.read()
+
+
+def find(pattern, text):
+    m = re.search(pattern, text)
+    if not m:
+        raise SystemExit(f"nothing in src/three/ matches {pattern}; update this script")
+    return m.group(1)
+
+
+def site_light(tag, level):
+    """Strength, linear colour and JSX element of the site's light at `lighting.<level>`."""
+    el = find(rf"(<{tag}\b[^>]*intensity=\{{lighting\.{level}\}}[^>]*>)", SCENE)
+    name = find(r"color=\{(\w+)\}", el)
+    hex_ = find(rf"\b{name} = new THREE\.Color\('#([0-9a-fA-F]{{6}})'\)", RIG)
+    # three.js converts an sRGB hex to linear, the space Blender's colours are in.
+    srgb = (int(hex_[i : i + 2], 16) / 255 for i in (0, 2, 4))
+    colour = tuple(c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in srgb)
+    return float(find(rf"\b{level}: ([\d.]+),", RIG)), colour, el
+
+
+KEY, KEY_COLOUR, key_el = site_light("directionalLight", "key")
+AMBIENT, AMBIENT_COLOUR, _ = site_light("ambientLight", "ambient")
+x, y, z = (float(v) for v in find(r"position=\{\[([^\]]+)\]\}", key_el).split(","))
+KEY_AT = (x, -z, y)  # the site's position is glTF's Y-up
+EXPOSURE = float(find(r"\bexposure: ([\d.]+),", RIG))
 
 bpy.ops.wm.read_homefile(use_empty=True)
 bpy.ops.import_scene.gltf(filepath=GLB)
@@ -114,17 +145,16 @@ sc.render.filepath = os.path.join(OUT, "light_1_neutral")
 bpy.ops.render.render(write_still=True)
 print("\nwrote light_1_neutral.png (bright neutral)")
 
-# Dim cool ambient and one sun, no fill; AgX stands in for the site's ACES. The
-# sun takes the site's key position (7, 10, 7), which is Y-up, as Z-up, so it
-# sits about 76 degrees from the site's key, behind the back wall; in Blender's
-# axes the site's key is (7, -7, 10).
+# The site's key and ambient, no fill; AgX stands in for the site's ACES. three.js
+# lights a diffuse surface by intensity/pi from both, as Cycles does from a sun,
+# but Cycles lights it by a world's full strength.
 clear_lights()
-world(0.18, (0.486, 0.573, 0.8))
-sun(0.75, (7, 10, 7), (0.804, 0.851, 1.0))
+world(AMBIENT / math.pi, AMBIENT_COLOUR)
+sun(KEY, KEY_AT, KEY_COLOUR)
 sc.view_settings.view_transform = "AgX"
-sc.view_settings.exposure = -0.47  # 2**-0.47 is 0.72; lighting.ts now uses 0.78
-sc.render.filepath = os.path.join(OUT, "light_2_site_rig")
+sc.view_settings.exposure = math.log2(EXPOSURE)
+sc.render.filepath = os.path.join(OUT, "light_2_site_key")
 bpy.ops.render.render(write_still=True)
-print("wrote light_2_site_rig.png (matching the site)")
+print("wrote light_2_site_key.png (the site's key and ambient, none of its fill, AgX for ACES)")
 
 print("\ndone ->", OUT)

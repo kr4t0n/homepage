@@ -15,6 +15,7 @@ blender = [
     "bpy>=5.0.1",
 ]
 dev = [
+    "pip-audit>=2.10.1",
     # Pinned exactly because the Ruff hook's `rev` in .pre-commit-config.yaml
     # has to name the same version. Bump both together.
     "ruff==0.17.0",
@@ -27,5 +28,7 @@ line-length = 100
 [tool.ruff.lint]
 # Named rather than left to Ruff's default, which covers about 400 rules and
 # changes between releases. Pyflakes, the pycodestyle errors, import order and
-# pyupgrade, whose fixes don't change what a script does.
-select = ["E4", "E7", "E9", "F", "I", "UP"]
+# pyupgrade, whose fixes don't change what a script does. Then two checks with
+# no fix: a shebang must match the file's mode (the scripts run through uv and
+# have neither), and a file is opened with a context manager.
+select = ["E4", "E7", "E9", "F", "I", "UP", "EXE", "SIM115"]

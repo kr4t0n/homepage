@@ -1,15 +1,17 @@
-#!/usr/bin/env python3
 """Source vs export, from an arbitrary camera.
 
-Renders the same framing from room.blend at the repo root (gitignored, never
-committed) and public/room.glb, so a suspect object can be compared directly.
+Renders the same framing from the .blend that `pnpm run room` exports (at the
+repo root, gitignored, never committed) and public/room.glb, so a suspect object
+can be compared directly.
 Defaults to the front-right of the room, where the DJ controller sits.
 
 Run: uv run --project tools --group blender python tools/compare_view.py
        [eyeX eyeY eyeZ atX atY atZ] [name]
 """
 
+import json
 import os
+import shlex
 import sys
 import tempfile
 
@@ -17,7 +19,10 @@ import bpy
 from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-BLEND = os.path.join(HERE, "..", "room.blend")
+# The .blend `pnpm run room` exports, so the source is the one room.glb came from.
+with open(os.path.join(HERE, "..", "package.json")) as f:
+    ROOM = shlex.split(json.load(f)["scripts"]["room"])
+BLEND = os.path.join(HERE, "..", ROOM[ROOM.index("tools/export_glb.py") + 1])
 GLB = os.path.join(HERE, "..", "public", "room.glb")
 OUT = tempfile.mkdtemp(prefix="homepage-compare_view-")
 
