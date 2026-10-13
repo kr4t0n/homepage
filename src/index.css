@@ -58,15 +58,6 @@
 }
 
 @layer utilities {
-  /* Small caps label. Rationed to one per three sections. */
-  .label {
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: var(--color-mute);
-  }
-
   .hairline {
     border-color: var(--color-hair);
   }
