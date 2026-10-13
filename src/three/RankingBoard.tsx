@@ -7,19 +7,11 @@ import anchors from '../ranking-anchors.json'
 /**
  * Drives the project ranking board on the -x wall, beside the pixel board.
  *
- * Two halves with different constraints. The LED bars are real geometry with
- * one material per segment, so they are lit exactly the way the pixel board
- * lights its cells. The names and token counts cannot be: glTF has no text
- * primitive, the source scene baked them as `PROJECT 01`..`PROJECT 05`, and
- * the export deletes those. They are drawn here into a canvas and mapped onto
- * one transparent plane sitting just in front of the board face.
- *
- * A canvas rather than troika/drei `<Text>`, which would be the obvious choice:
- * troika needs a .ttf/.otf/.woff and only converts WOFF1, while the project
- * ships Geist Mono as WOFF2 only. Using `<Text>` would mean committing a
- * duplicate font binary, or letting troika fetch Roboto off a CDN at runtime.
- * A canvas draws with the webfont the page has already loaded, so the board is
- * set in the same typeface as everything else and costs no new asset.
+ * The LED bars are lit through their per-segment materials, as the pixel board
+ * lights its cells. glTF has no text, so names and totals are drawn into a
+ * canvas on a transparent plane just in front of the board face, in place of
+ * the placeholder labels the export deletes. A canvas rather than drei `<Text>`
+ * because troika cannot read the WOFF2-only webfont.
  */
 
 /** Pixels per metre for the text canvas. The board's text is ~27mm tall. */
@@ -43,16 +35,9 @@ interface Row {
 }
 
 /**
- * Find the board's LED materials and recover each row's intended colour.
- *
- * The colour is read from the asset rather than hardcoded because the five
- * rows carry a designed ramp -- gold at the top through to olive at the
- * bottom -- and duplicating those values here would mean the board silently
- * stopped matching its own model the first time the ramp was retouched.
- *
- * The segments arrive carrying a scattered on/off pattern from the mockup,
- * which is noise rather than data, so the brightest segment in a row is the
- * only reliable sample of what "lit" was meant to look like.
+ * Find the board's LED materials and read each row's colour off the asset, so
+ * the model's gold-to-olive ramp is not duplicated here. The mockup leaves a
+ * scattered on/off pattern, so a row's brightest segment is its lit colour.
  */
 function indexRows(root: THREE.Object3D): Row[] {
   const found = new Map<string, THREE.MeshStandardMaterial>()
@@ -135,8 +120,8 @@ export function RankingBoard({ root }: { root: THREE.Object3D }) {
     rows.forEach((row, i) => {
       const entry = ranked[i]
       row.segments.forEach((m, s) => {
-        // A row with no project behind it goes fully dark rather than keeping
-        // the mockup's pattern, which would read as data.
+        // A row with no project behind it is all unlit rather than keeping the
+        // mockup's pattern, which would read as data.
         const on = entry ? s < entry.lit : false
         const colour = on ? row.lit : row.lit.clone().multiplyScalar(DIM)
         m.emissive.copy(colour)
@@ -190,8 +175,8 @@ export function RankingBoard({ root }: { root: THREE.Object3D }) {
         ctx.fillText(shortTokens(entry.total), px(row.score.min[2]), py(row.score.min[1]))
       })
 
-      // Replaces the mockup's `SAMPLE PROJECTS`, which said the numbers above
-      // it were invented. They are not any more, so it names the metric.
+      // Where the mockup printed `SAMPLE PROJECTS`; the figures are real, so it
+      // names the metric instead.
       ctx.textAlign = 'left'
       fitCaps(anchors.caption.max[1] - anchors.caption.min[1])
       ctx.fillText('BY TOTAL TOKENS', px(anchors.caption.max[2]), py(anchors.caption.min[1]))
@@ -208,9 +193,7 @@ export function RankingBoard({ root }: { root: THREE.Object3D }) {
       texture.needsUpdate = true
     }
 
-    // The webfont is the whole point of drawing to a canvas, so wait for it.
-    // Drawing early silently falls back to the monospace default and the board
-    // ends up set in a different face from the rest of the room.
+    // Drawing before the webfont loads silently falls back to default monospace.
     if (document.fonts?.status === 'loaded') draw()
     else void document.fonts?.ready.then(draw)
 

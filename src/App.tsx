@@ -33,7 +33,6 @@ export default function App() {
 
   useEffect(() => bindHistory(), [])
   useEffect(() => bindCursor(), [])
-  // Escape leaves any focused mode, panel or framed screen alike.
   useEffect(() => bindEscape(), [])
 
   // Live activity for the wall board. Only in the 3D route: the 2D fallback has
@@ -43,10 +42,8 @@ export default function App() {
     return bindPixels()
   }, [gl, wide])
 
-  // Only the 3D room gets a soundtrack. The 2D fallback is what phones and
-  // WebGL-less browsers see, and unprompted audio on a phone is worse than
-  // silence: it is likely to be in public, and the fallback has no player to
-  // turn it off from. The hook runs either way to keep hook order stable.
+  // Only the 3D room gets a soundtrack. The fallback is what phones see, where
+  // unprompted audio is likely to be in public, and it has no player to stop it.
   useEffect(() => {
     if (!gl || !wide) return
     return bindTrack()

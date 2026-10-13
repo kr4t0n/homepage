@@ -1,27 +1,17 @@
 /**
  * Keyboard reachability check.
  *
- * The neon wordmark links to GitHub, but a 3D click target cannot be tabbed to
- * or announced, so it can only ever be a redundant affordance. This asserts the
- * non-pointer routes still exist: tab through every place in the room to the
- * GitHub link at the end of the index, then open a hotspot and reach a real
- * anchor inside its panel. The link used to live in a Contact panel on the
- * sofa; when that went, the index became its only keyboard route, so it is
- * worth a test rather than an assumption.
- *
- * The hotspot index is also the one piece of chrome that is hidden from a
- * pointer on purpose: the room is left unlabelled so it can be explored, and the
- * index appears only while a pill has keyboard focus. Both halves are asserted.
- * Hidden at rest, or the room is labelled again; visible once focused, or a
- * keyboard visitor is tabbing through buttons nobody can see.
+ * A 3D click target cannot be tabbed to or announced, so this walks the
+ * non-pointer routes: Tab through every place in the room to the GitHub link at
+ * the end of the index, the room's only keyboard route to GitHub, then open a
+ * hotspot and reach a real anchor inside its panel. It also asserts the index is
+ * hidden at rest and visible once focused.
  *
  * Run against the dev server: node tools/verify-keyboard.mjs [url]
  */
 import { chromium } from 'playwright'
 import { BASE, requireOurServer } from './base.mjs'
 
-// Identify the target before launching a browser at it: aimed at a port
-// something else owns, this would otherwise time out hunting for a canvas.
 await requireOurServer()
 
 const browser = await chromium.launch({

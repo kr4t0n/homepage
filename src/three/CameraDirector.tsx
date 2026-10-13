@@ -11,12 +11,8 @@ type ManifestEntry = { node: string; centre: number[]; min: number[]; max: numbe
 const NODES = Object.values(manifest as unknown as Record<string, ManifestEntry>)
 
 /**
- * Where to aim for a hotspot: the centre of every node it owns, together.
- *
- * A hotspot made of two meshes framed on its first one puts the rest of itself
- * off to the side, or off screen. Taking the union means the framing is a
- * property of the asset, so moving the parts relative to each other re-frames
- * the shot instead of quietly decentring it.
+ * Where to aim for a hotspot: the centre of the union of every node it owns, so
+ * a multi-mesh hotspot is framed whole and the shot follows the asset.
  */
 const centreFor = (h: Hotspot): number[] => {
   const boxes = hotspotNodes(h)
@@ -29,11 +25,9 @@ const centreFor = (h: Hotspot): number[] => {
 }
 
 /**
- * Authored camera pose, expressed as an orbit rather than a point.
- *
- * Spherical is the important choice here: user drag and zoom manipulate the
- * same three numbers GSAP tweens, so manual control and scripted flights
- * compose instead of overwriting each other.
+ * Authored camera pose, as an orbit around a target rather than a point: drag
+ * and zoom offset the same numbers GSAP tweens, so manual control and scripted
+ * flights compose instead of overwriting each other.
  */
 interface Pose {
   theta: number
@@ -150,11 +144,8 @@ export function CameraDirector({
     return () => window.removeEventListener('pointermove', onMove)
   }, [])
 
-  // Fly to the new pose whenever focus changes.
-  //
-  // Going into a hotspot eases the user's orbit out so the panel gets its
-  // authored framing; coming back out restores whatever view they had set up
-  // before, rather than dumping them at the default angle.
+  // Fly to the new pose whenever focus changes. Going in eases the user's orbit
+  // out for the authored framing; coming home restores the orbit they left.
   useEffect(() => {
     const target = focus ?? screen
     const leavingHome = prevTarget.current === null && target !== null

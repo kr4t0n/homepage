@@ -5,23 +5,10 @@ import { MANIFEST, parseTrack, type Track } from './track'
 /**
  * The room's backing track.
  *
- * Streamed through an HTMLAudioElement rather than the Web Audio API on
- * purpose: decoding a four-minute file into an AudioBuffer costs ~100 MB of
- * resident memory and delays first sound until the whole body has arrived,
- * whereas the element starts on the first few packets and seeks without
- * re-decoding. The synth in `synth.ts` keeps its own AudioContext; the two are
- * independent graphs and mix at the output device.
- *
- * What plays is decided at runtime by `/media/track.json` (see `track.ts`), and
- * neither the manifest nor the audio is in git or the image, so `available`
- * going false is a supported state and not an error path: anyone cloning this
- * repo gets a silent room with the player UI honestly reporting that there is
- * no track.
- *
- * There is deliberately one piece of user state, `on`, and not a mute flag as
- * well as a paused flag. Two flags meant the speaker button and the transport
- * button could disagree about the same track: pausing from the decks left the
- * HUD still claiming the sound was on. Both controls now write `on`.
+ * An HTMLAudioElement rather than Web Audio: decoding a four-minute file into an
+ * AudioBuffer costs ~100 MB and waits for the whole body, while the element
+ * starts on the first packets. `available` false is a fresh clone's normal
+ * state, not an error. `on` is the only user state, written by both controls.
  */
 
 /** Playing at full tilt while someone explores the room is obnoxious; this is a bed. */
@@ -40,10 +27,9 @@ interface PlayerState {
   /** The manifest once it has loaded; null before that and when there is none. */
   track: Track | null
   /**
-   * The visitor's intent: should this room be playing music. Persisted, so a
-   * second visit does not re-litigate a decision already made. Distinct from
-   * `playing`, because between load and the first gesture the intent is yes and
-   * the browser's answer is still no.
+   * The visitor's intent, persisted across visits. Distinct from `playing`:
+   * between load and the first gesture the intent is yes and the browser's
+   * answer is still no.
    */
   on: boolean
   /** Whether sound is actually coming out right now. */
@@ -85,17 +71,9 @@ const fadeTo = (v: number, done?: () => void) => {
 /**
  * Make the element audible and start it, in that order, synchronously.
  *
- * There is deliberately no fade-in, and this is a correctness constraint rather
- * than taste. WebKit classifies volume-0 media as silent, allows it to play, and
- * then *pauses it* the moment it becomes audible without a user gesture. An
- * earlier version started at volume 0 and ramped up over 1.6s from a GSAP tick,
- * which is a rAF callback and therefore never a gesture: Safari started the
- * track and immediately stopped it, so clicking the room did nothing at all
- * while Chromium was perfectly happy. Setting the volume before `play()`, in the
- * same synchronous turn as the gesture, is what makes this work on both.
- *
- * iOS Safari also ignores writes to `volume` entirely, which is a second reason
- * never to let audibility depend on a ramp completing.
+ * No fade-in: WebKit lets volume-0 media play, then pauses it once it becomes
+ * audible outside a gesture, and a GSAP tick is never a gesture. iOS Safari
+ * ignores `volume` writes anyway.
  */
 const playAudible = () => {
   if (!el) return Promise.reject(new Error('no element'))
@@ -140,14 +118,9 @@ export const usePlayer = create<PlayerState>((set, get) => ({
 }))
 
 /**
- * Start the track, working with the autoplay policy rather than against it.
- *
- * Chrome and Safari refuse audible playback until the visitor has interacted
- * with the page, and this page has no click-to-enter — the preloader dismisses
- * itself. So: attempt playback immediately, since a returning visitor with
- * media engagement is allowed it, and if the attempt is rejected, wait for the
- * first gesture of any kind. Exploring the room is itself the gesture, which is
- * why no "click to enable sound" prompt is needed.
+ * Start the track at once, since a returning visitor with media engagement may
+ * autoplay, and otherwise on the first gesture of any kind. There is no
+ * click-to-enter, so exploring the room is that gesture.
  */
 const attach = (track: Track) => {
   el = new Audio(track.src)
@@ -178,11 +151,8 @@ const attach = (track: Track) => {
     if (!el || !on || !available) return
     void playAudible()
       .then(() => {
-        // Guard the case where the gesture that unblocked playback was itself a
-        // request to stop: `play()` resolves a turn later and would otherwise
-        // start a track the visitor just declined. Since the controls show
-        // "turn on" whenever the room is silent, this is now hard to reach from
-        // the UI, but the ordering hazard is real and cheap to hold closed.
+        // `play()` resolves after the gesture that unblocked it, and that
+        // gesture may have been a request to stop.
         if (!usePlayer.getState().on) {
           el?.pause()
           return
@@ -194,10 +164,9 @@ const attach = (track: Track) => {
       })
   }
 
-  // `pointerdown` covers Safari 13+, but `mousedown` and `click` are kept as
-  // fallbacks for older WebKit, where Pointer Events are absent and the whole
-  // arming mechanism would silently never fire. `start()` is safe to call
-  // repeatedly: `play()` on an already-playing element resolves as a no-op.
+  // `mousedown` and `click` back up `pointerdown` for WebKit before Safari 13,
+  // which has no Pointer Events. Repeat calls are harmless: `play()` on a
+  // playing element resolves as a no-op.
   const EVENTS = ['pointerdown', 'mousedown', 'click', 'keydown', 'wheel', 'touchstart'] as const
   const onGesture = () => start()
   disarm = () => EVENTS.forEach((e) => window.removeEventListener(e, onGesture))
@@ -221,10 +190,9 @@ const attach = (track: Track) => {
 /**
  * Load the manifest, then attach the track it names.
  *
- * Fetched with `no-cache` so a song swapped on the volume is picked up on the
- * next page load; the audio and cover need no such care, because a new song
- * arrives under a new file name. The abort covers StrictMode's mount, unmount,
- * mount in development, which would otherwise attach two elements.
+ * `no-cache` so a song swapped on the volume shows on the next load; the audio
+ * and cover need no such care, as a new song arrives under a new file name. The
+ * abort stops StrictMode's double mount in dev from attaching two elements.
  */
 export const bindTrack = () => {
   const ctrl = new AbortController()

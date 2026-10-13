@@ -2,12 +2,9 @@
  * API checks that need a build or a running server: secret containment in the
  * built client, and what the live proxy discloses.
  *
- * The first section is the important one. A leaked credential would show up as
- * nothing at all until someone read the bundle. The proxy exists solely so
- * ARGUS_KEY never reaches the browser, and exactly one thing protects it: the
- * variable is not prefixed VITE_. Rename it to VITE_ARGUS_KEY, or import
- * src/server/api.ts from client code, and the key ships to every visitor with no
- * warning from any tool. This test is that warning.
+ * Only the missing VITE_ prefix keeps ARGUS_KEY out of the bundle. Renaming it
+ * to VITE_ARGUS_KEY, or importing src/server/api.ts from client code, ships the
+ * key to every visitor with no warning from any tool but the secrets section.
  *
  * The payload validator, the grid and ranking maths, and the proxy against a
  * stubbed upstream are unit tests beside the code: `pnpm run test`.
@@ -17,12 +14,8 @@
  * The live proxy section needs this project's own server answering at
  * `base-url` (default http://localhost:5173, or VERIFY_BASE). When it is not
  * there the section is skipped with the actual reason -- unless VERIFY_STRICT=1,
- * under which a section that could not run is a failure.
- *
- * CI must set VERIFY_STRICT=1. Without it these checks pass by never executing,
- * which is precisely how they behaved before: with nothing of ours on the port
- * the run printed "all checks passed" and exited 0, having tested none of the
- * disclosure invariants that are the reason this file exists.
+ * under which a section that could not run is a failure. A CI run must set it,
+ * or these checks can pass by never executing.
  */
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
@@ -72,17 +65,11 @@ if (!existsSync('dist')) {
 }
 
 // ------------------------------------------------ what the proxy discloses --
-// The naming lookup reads /me/usage/by-project, which is far more revealing
-// than the pixel payload: absolute workingDir paths carrying a username and
-// machine layout, machineId, projectId, per-project token counts and costUsd in
-// the thousands. The proxy reduces all that to a name and a token count.
-// Forwarding the raw object instead — an easy "just pass it through" change —
-// would publish every one of those fields to any visitor who opens devtools.
-//
-// The raw usage field names stay forbidden even though tokens are now published
-// deliberately: they only appear in a response that spread `...p.usage`, and
-// that spread carries costUsd out with them. The proxy renames to in/out/cached
-// precisely so a leak of the whole object cannot pass as the intended feature.
+// /me/usage/by-project carries absolute workingDir paths, machineId, projectId
+// and costUsd; the proxy publishes only a name and token counts per project.
+// The raw usage names stay forbidden although tokens are published: they appear
+// only if `usage` is spread whole, costUsd with it, and the in/out/cached rename
+// keeps that leak from passing as the intended feature.
 const FORBIDDEN = [
   'workingDir',
   'machineId',
@@ -98,19 +85,10 @@ const ALLOWED_PROJECT_FIELDS = ['key', 'name', 'wonSeconds', 'tokens', 'other']
 const ALLOWED_TOKEN_FIELDS = ['in', 'out', 'cached']
 
 /**
- * Work out what is answering at BASE before asserting anything against it.
- *
- * The previous version fetched /api/pixels inside a try/catch and reported every
- * failure as "dev server not reachable". That message was capable of being
- * false, and was: with an unrelated app on port 5173 the fetch succeeded, the
- * body parsed, `the proxy discloses no path, machine or cost fields` was
- * evaluated against that app's response and PASSED, and the run only stopped
- * when `json.projects` came back undefined -- which was then reported as the
- * server being unreachable. A security assertion passing against a different
- * application is worse than one that does not run.
- *
- * `identify` in base.mjs settles which server it is. This adds the part specific
- * to these checks: whether that server is actually serving a payload.
+ * Work out what is answering at BASE before asserting anything against it, so
+ * a disclosure check can never pass against another application's response.
+ * `identify` in base.mjs settles whose server it is; this adds whether it is
+ * serving a payload.
  */
 async function reachProxy() {
   const found = await identify(BASE)
@@ -136,9 +114,8 @@ async function reachProxy() {
   } catch {
     return { state: 'malformed', why: '/api/pixels did not return JSON' }
   }
-  // Shape-checked here rather than inside the assertions, so a payload we cannot
-  // read is reported as such instead of crashing an assertion and being caught
-  // as a connection problem.
+  // Shape-checked here, so an unreadable payload is reported as malformed
+  // rather than crashing an assertion.
   if (!Array.isArray(json?.projects)) {
     return { state: 'malformed', why: '/api/pixels returned JSON with no projects array' }
   }
@@ -148,9 +125,7 @@ async function reachProxy() {
 const proxy = await reachProxy()
 
 if (proxy.state !== 'live') {
-  // Deliberately a failure under STRICT rather than a note. These are the
-  // checks the file exists for; silently not running them is the failure mode
-  // this branch was written to remove.
+  // A failure under STRICT, not a note: these are the checks this file exists for.
   if (STRICT) {
     check('the live proxy checks ran', false, proxy.why)
   } else {
@@ -158,9 +133,8 @@ if (proxy.state !== 'live') {
     console.log('      (VERIFY_STRICT=1 makes this a failure; CI sets it)')
   }
 } else {
-  // Note the absence of a try/catch around the assertions themselves. If one of
-  // these throws it is a real defect in the payload or in this file, and it
-  // should surface as a crash rather than be swallowed as "server unreachable".
+  // No try/catch on purpose: a throw here is a real defect and should crash, not
+  // read as an unreachable server.
   const { body, json } = proxy
   const leaked = FORBIDDEN.filter((f) => body.includes(f))
   check(
@@ -196,9 +170,8 @@ if (proxy.state !== 'live') {
     withTokens.length > 0,
     `${withTokens.length}/${json.projects.length} counted`,
   )
-  // `in` is the sum that includes cache reads, so cached can equal it but never
-  // exceed it. If it does, the two numbers came from different fields and the
-  // panel's "N% of input is cache reads" is above 100.
+  // `in` includes cache reads, so cached can equal it but never exceed it; if it
+  // does, the two numbers came from different upstream fields.
   const impossible = withTokens.filter((p) => p.tokens.cached > p.tokens.in)
   check(
     'cache reads never exceed input',

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Source vs export, from an arbitrary camera.
 
-Renders the same framing from the original .blend and from our exported GLB, so
-a suspect object can be compared directly. Defaults to the front-right of the
-room, where the MIDI keyboard sits.
+Renders the same framing from the repo's room.blend and public/room.glb, so a
+suspect object can be compared directly. Defaults to the front-right of the
+room, where the DJ controller sits.
 
-Run: uv run --group blender python compare_view.py [eyeX eyeY eyeZ atX atY atZ] [name]
+Run: uv run --project tools --group blender python tools/compare_view.py
+       [eyeX eyeY eyeZ atX atY atZ] [name]
 """
 
 import os

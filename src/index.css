@@ -20,11 +20,8 @@
   --color-acid-dim: #6aa60f;
   --color-lav: #b9a7f0;
 
-  /* Lifted from #7b88a8. That value was chosen against an opaque near-black
-     panel, where it measures 5.1:1. On translucent glass over the lit room it
-     collapsed to 3.2:1 — the single thing blocking AA on the whole design. This
-     is 6.6:1 on opaque ink and 4.7:1 on glass, so it is strictly better
-     everywhere and still clearly secondary to --color-body. */
+  /* Lifted for text on glass over the lit room, not just opaque ink (6.6:1
+     there), while staying clearly secondary to --color-body. */
   --color-mute: #8b98b6;
   --color-body: #b6c0d6;
   --color-bright: #eef2fb;
@@ -61,7 +58,7 @@
 }
 
 @layer utilities {
-  /* Small caps label. Rationed: the skill allows one per three sections. */
+  /* Small caps label. Rationed to one per three sections. */
   .label {
     font-family: var(--font-mono);
     font-size: 10.5px;
@@ -76,48 +73,21 @@
 }
 
 /*
- * Glass lives in `components`, not `utilities`, and that placement is load-
- * bearing rather than tidiness. It sets `position: relative` so its specular
- * pseudo-element has something to anchor to — and as a utility that rule
- * outranked Tailwind's own `fixed` on the same element, because both sit in the
- * utilities layer and this file is emitted later. The panel silently detached
- * from `bottom-6` and rendered at the top of the viewport. In `components`,
- * every utility on the element wins, which is the correct precedence for a
- * component base style anyway.
+ * Glass is in `components` so every utility on the element outranks it. In
+ * `utilities` its `position: relative` would beat Tailwind's `fixed`, since this
+ * file is emitted later.
  */
 @layer components {
   /*
-   * One glass material for every panel in the room.
+   * One glass material for every panel, with no variants. An approximation of
+   * Apple's Liquid Glass, which has no web implementation: an optically clear
+   * pane (no blur, tint or fill), a hairline specular edge and a depth shadow.
+   * Panels over the lit monitors ship under AA by choice; the measured waivers
+   * are in tools/verify-glass.mjs.
    *
-   * Being accurate about what this is: Apple documents Liquid Glass for Apple
-   * platforms and there is no official web implementation, so this is an
-   * approximation — an unfiltered pane, a hairline specular edge and a depth
-   * shadow. It will not match Apple's material pixel for pixel.
-   *
-   * The base is optically clear: no blur, no tint, no fill. The room passes
-   * through sharp and unmodified and the edge does all the work. That was
-   * arrived at by measuring a supplied reference whose backdrop is pin-sharp
-   * through the glass, and it turned out to beat the frosted version on contrast
-   * too — behind the decks bar the worst backdrop went from rgb(63,72,93)
-   * frosted to rgb(52,63,88) clear, and body text from 5.01:1 to 5.76:1. A blur
-   * pulls bright pixels in from neighbouring areas and a white fill adds
-   * luminance outright, so frosting was costing legibility as well as
-   * transparency. A faint white fill over clear measured 4.42:1, under AA, which
-   * is why there is no fill at all.
-   *
-   * Every panel uses this and nothing else — there is no dim modifier and no
-   * per-panel variant. An earlier version dimmed the content panels' own
-   * backdrops via brightness(0.16) so their text would clear WCAG AA in front of
-   * the lit monitors and the hexagon wall. That was dropped deliberately, by the
-   * owner, after looking at both in a real browser: the crystal-clear render is
-   * the point of the design. The cost is recorded, with measured numbers, in
-   * tools/verify-glass.mjs — read that before assuming the panels are fine.
-   *
-   * No SVG feDisplacementMap edge refraction, deliberately, even though that is
-   * the mechanism in the reference and `backdrop-filter: url(#…)` does work in
-   * Chromium. Safari does not support SVG filters in backdrop-filter, and Safari
-   * is where this site gets checked, so it would be an effect its owner never
-   * sees. The rim, the inner catches and the drop shadow carry it, everywhere.
+   * No SVG feDisplacementMap edge refraction, though the reference uses it and
+   * Chromium supports it: Safari, where this site is checked, does not support
+   * SVG filters in backdrop-filter.
    */
   .glass {
     position: relative;
@@ -132,10 +102,8 @@
     box-shadow:
       /* Depth, so it floats rather than being cut out of the scene. */
       0 20px 50px -20px rgba(0, 0, 0, 0.6),
-      /* One hairline, not three. This edge previously stacked the border, a 1px
-         inset highlight and the ::before specular ring on top of each other,
-         which read as a thick white outline rather than the rim of a thin pane.
-         The inset catches now stay well under the border's weight. */
+      /* Inset catches stay well under the border's weight, so the edge reads as
+         one hairline rather than a thick white outline. */
       inset 0 0.5px 0 rgba(255, 255, 255, 0.22),
       inset 0 -0.5px 0 rgba(255, 255, 255, 0.1),
       inset 0 0 28px rgba(255, 255, 255, 0.05);
@@ -157,12 +125,8 @@
       rgba(255, 255, 255, 0.04) 52%,
       transparent 68%
     );
-    /* No hand-written -webkit- prefixes anywhere in this file. Lightning CSS
-       autoprefixes from the build's browser targets, and it treats the -webkit-
-       form as an alias of the standard property — so writing both collapses them
-       to whichever came last. Writing the prefix second here shipped a rule with
-       *only* -webkit-backdrop-filter, which current Chromium does not recognise,
-       and the panels rendered translucent but completely unblurred. */
+    /* No hand-written -webkit- properties: Lightning CSS adds prefixes from the
+       build targets and collapses a hand-written pair to whichever came last. */
     mask:
       linear-gradient(#000 0 0) content-box,
       linear-gradient(#000 0 0);
@@ -177,9 +141,8 @@
     background: rgba(255, 255, 255, 0.035);
   }
 
-  /* Without backdrop-filter there is no dimming to be had, and this material
-     carries no fill of its own, so text would sit directly on a sharp lit room.
-     It needs a real background rather than a thinner one. */
+  /* This material carries no fill of its own, so without backdrop-filter it
+     gets a real background rather than leaving text on the sharp lit room. */
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
     .glass {
       background: rgba(7, 10, 18, 0.95);

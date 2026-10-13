@@ -5,13 +5,9 @@ import { usePixels } from '../pixels/usePixels'
 import { cellAppearance, indexCells } from '../pixels/palette'
 
 /**
- * Lights the wall board from live Argus activity.
- *
- * Renders nothing itself. The geometry already exists in the GLB as
- * `hot_pixelboard`; this only writes emissive on the 1008 pixel materials the
- * export preserved. Kept out of Room.tsx so the room stays about the room, but
- * it takes Room's cloned scene, because those are the material instances the
- * room actually renders.
+ * Lights the pixel board (`hot_pixelboard`) from live Argus activity. Renders
+ * nothing: it writes emissive on the 1008 pixel materials in Room's cloned
+ * scene, since those are the instances the room actually draws.
  */
 
 /** One revolution of the blink. Slow enough to read as a pulse, not a strobe. */
@@ -22,13 +18,10 @@ export function PixelBoard({ root }: { root: THREE.Object3D }) {
   const live = usePixels((s) => s.live)
   const blink = useRef<gsap.core.Tween | null>(null)
 
-  // Walking 1009 primitives is not something to repeat on every poll, and the
-  // mapping cannot change without re-exporting the asset.
+  // Once per clone, not per poll: the mapping only changes with a re-export.
   const cells = useMemo(() => indexCells(root), [root])
 
-  // Dev-only handle, matching the __hover and __orbit hooks the room already
-  // exposes. The verification harnesses cannot reach into the R3F store, and
-  // asserting on pixel state through screenshots alone is far too blunt.
+  // Dev-only handle for the verify scripts, like __hover and __orbit.
   useEffect(() => {
     if (!import.meta.env.DEV) return
     ;(window as unknown as Record<string, unknown>).__board = () => ({
@@ -50,16 +43,12 @@ export function PixelBoard({ root }: { root: THREE.Object3D }) {
     }
   }, [data, live, cells])
 
-  // The blink marks the hour currently being worked in. The integration brief
-  // asks for CSS keyframes; these are 3D materials with no DOM node, so it goes
-  // on GSAP instead — which is also the room's single owner of animation, the
-  // same rule the spinning album art follows.
+  // The blink marks the hour currently being worked in.
   useEffect(() => {
     blink.current?.kill()
     blink.current = null
     if (!data || live < 0) return
-    // `live` non-empty means something is running right now. When it empties the
-    // hour is over: stop pulsing and leave the winner painted.
+    // Pulse only while something is running; otherwise the winner stays painted.
     if (data.live.length === 0) return
 
     const cell = cells.get(live)

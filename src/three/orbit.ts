@@ -50,12 +50,8 @@ export const resetOrbit = () => {
 }
 
 /**
- * The user's orbit on the home view, remembered across a hotspot visit.
- *
- * Focused hotspots are always framed by their authored pose, so the user's
- * orbit is eased out on the way in. Without stashing it first, closing the
- * panel would drop them back at the default angle and silently discard the
- * view they had set up.
+ * The user's home-view orbit, stashed while a focused hotspot eases it out for
+ * the authored framing, and restored on the way back.
  */
 export const homeView = { dTheta: 0, dPhi: 0, zoom: 1 }
 

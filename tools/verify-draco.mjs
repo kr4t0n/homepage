@@ -1,13 +1,10 @@
 /**
  * Draco decoder origin check.
  *
- * `room.glb` is Draco-compressed, and drei's `useGLTF` fetches the decoder from
- * Google's CDN unless told otherwise. That default is silent and easy to
- * reintroduce, and where gstatic is unreachable the room never appears. This
- * loads the built site and fails if the decoder came from anywhere but the
- * site's own origin, or if any request at all left it. The second assertion is
- * the stronger property: this page makes no third-party request today, and that
- * should stay a decision rather than drift.
+ * drei's `useGLTF` fetches the Draco decoder from Google's CDN unless told
+ * otherwise. This loads the built site and fails if the decoder came from
+ * anywhere but the site's own origin, or if any request at all left it: the page
+ * makes no third-party request, and that should stay a decision, not drift.
  *
  * Run: pnpm run build && node tools/verify-draco.mjs
  */

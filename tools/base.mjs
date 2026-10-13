@@ -2,32 +2,15 @@
  * Where the dev-server scripts point, and how they establish that whatever is
  * there is actually this project.
  *
- * Two separate problems, one module.
- *
- * The first is that the target used to be written out in each script, so
- * pointing the suite anywhere else meant passing an argument to every one of
- * them, and two scripts had it hardcoded with no argument to pass at all.
- *
- * The second is worse and is why `requireOurServer` exists. A script aimed at a
- * port something else owns does not fail in a way that says so: it describes
- * what it found in terms of this project, because that is the only vocabulary it
- * has. `verify-api` reported an unrelated app on port 5173 as "dev server not
- * reachable" while one of its security assertions quietly passed against that
- * app's response. Every browser-driven script here has the same exposure, and
- * for those the symptom is a Playwright timeout hunting for a canvas that was
- * never going to be there.
- *
- * So: identify the server before driving it, and say plainly which of the three
- * situations you are in.
+ * A script aimed at a port something else owns describes what it finds in
+ * terms of this project, so identify the server before driving it and say
+ * plainly which of the three situations you are in.
  */
 
 /**
- * Precedence is argument, then environment, then the dev server's default.
- *
- * The argument comes first because it is the more specific of the two and is
- * what a person types while debugging one script; the variable is what CI sets
- * once for all of them. Trailing slashes are stripped so callers can append
- * `/#/about` without producing a double slash.
+ * Argument, then VERIFY_BASE, then the dev server's default: the argument is
+ * what a person types for one script, the variable is set once for all of them.
+ * Trailing slashes are stripped so callers can append `/#/about`.
  */
 export const BASE = (process.argv[2] ?? process.env.VERIFY_BASE ?? 'http://localhost:5173').replace(
   /\/+$/,
@@ -35,12 +18,9 @@ export const BASE = (process.argv[2] ?? process.env.VERIFY_BASE ?? 'http://local
 )
 
 /**
- * Whether a check that could not run counts as a failure.
- *
- * Off by default, because running a script without a dev server up and having it
- * tell you what it skipped is genuinely useful. On in CI, because there a
- * section that does not execute is indistinguishable from one that passed, and
- * the whole point of a gate is that it cannot pass by not running.
+ * Whether a check that could not run counts as a failure. Off by default, where
+ * a report of what was skipped is useful; on for a gate such as CI, where a
+ * section that did not run is indistinguishable from one that passed.
  */
 export const STRICT = process.env.VERIFY_STRICT === '1'
 
@@ -58,10 +38,8 @@ export const describe = (err) => {
 /**
  * Work out what is answering at `base`.
  *
- * `/api/health` is the probe because it is ours, it is cheap, and it
- * deliberately does not touch Argus -- so it distinguishes "our server is not
- * there" from "our server is there and the upstream is down", which are
- * different problems with different fixes.
+ * `/api/health` is the probe because it does not touch Argus, so "our server is
+ * not there" stays distinct from "our server is there and the upstream is down".
  *
  * Returns one of:
  *   { state: 'absent'  }  nothing accepted the connection

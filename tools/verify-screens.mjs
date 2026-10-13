@@ -12,8 +12,6 @@ import { chromium } from 'playwright'
 import { BASE, requireOurServer } from './base.mjs'
 import { captureDir } from './captures.mjs'
 
-// Identify the target before launching a browser at it: aimed at a port
-// something else owns, this would otherwise time out hunting for a canvas.
 await requireOurServer()
 
 const OUT = captureDir()
@@ -41,10 +39,7 @@ const check = (ok, msg) => {
   if (!ok) failures++
 }
 
-/**
- * Hovered id, straight from the store. Previously scraped from a hover readout
- * in the DOM, which no longer exists.
- */
+/** Hovered id, from the store rather than from anything visible. */
 const hovered = () => page.evaluate(() => window.__hover?.() ?? null)
 
 const away = async () => {
@@ -131,10 +126,8 @@ const LINKED = [
 for (const [id, href] of LINKED) {
   await page.goto(`${BASE}/#/screen/${id}`, { waitUntil: 'networkidle' })
 
-  // Wait for the condition, not for a duration. A fixed sleep was enough for
-  // the first screen and not the second, because the flight between two screens
-  // is longer than the flight in from the home view, so the click landed while
-  // the camera was still moving and missed.
+  // Poll rather than sleep: the flight between two screens is longer than the
+  // flight in from the home view.
   let settled = false
   for (let i = 0; i < 40 && !settled; i++) {
     await page.mouse.move(705, 445)
@@ -143,10 +136,8 @@ for (const [id, href] of LINKED) {
   }
   check(settled, `${id} is under the pointer once framed`)
 
-  // Record the window.open call rather than wait for a real popup. Chromium
-  // rate-limits popups per page, and two real ones have already fired above, so
-  // a third would be blocked for reasons that say nothing about our code. The
-  // genuine end-to-end popup is covered once, earlier in this file.
+  // Record the window.open call rather than wait for a real popup: Chromium
+  // rate-limits popups per page, and a real one is already proven above.
   await page.evaluate(() => {
     window.__opened = []
     window.open = (url) => {
@@ -169,11 +160,7 @@ for (const [id, href] of LINKED) {
 await page.goto(BASE, { waitUntil: 'networkidle' })
 await page.waitForTimeout(2400)
 
-// The Work panel used to be asserted here, as the only keyboard route to the
-// project links. It has been removed — the monitors carry those projects and are
-// the real presentation — so what has to hold now is that the links did not
-// vanish with it. The monitors are raycast targets with no tabIndex, so About
-// carries them for anyone not using a pointer.
+// The monitors take no keyboard focus, so About has to carry their links.
 await page.goto(`${BASE}/#/about`, { waitUntil: 'networkidle' })
 await page.waitForTimeout(2200)
 const links = await page.evaluate(() =>

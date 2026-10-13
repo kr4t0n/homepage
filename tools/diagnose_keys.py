@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Three-way render of the MIDI keyboard, to locate where it breaks.
+"""Three-way render of the DJ controller, to locate where it breaks.
 
   A  the original .blend, materials as authored
   B  our exported room.glb, materials as exported
@@ -9,7 +9,7 @@ A vs B separates a source problem from an export problem. B vs C separates a
 material problem from a winding/normals problem: if C shows keycaps that B does
 not, the faces exist but point the wrong way, which this asset has form for.
 
-Run: uv run --group blender python diagnose_keys.py
+Run: uv run --project tools --group blender python tools/diagnose_keys.py
 """
 
 import os
@@ -23,7 +23,7 @@ BLEND = os.path.join(HERE, "..", "room.blend")
 GLB = os.path.join(HERE, "..", "public", "room.glb")
 OUT = tempfile.mkdtemp(prefix="homepage-diagnose_keys-")
 
-# The MIDI keyboard region, in Blender coords (Z up).
+# The DJ controller, in Blender coords (Z up).
 FOCUS = Vector((1.89, -3.70, 0.62))
 EYE = Vector((3.30, -6.00, 2.35))
 
@@ -75,7 +75,6 @@ def tri_report(label):
         if o.type != "MESH":
             continue
         c = o.matrix_world.translation
-        # Only the keyboard neighbourhood.
         if (Vector((c.x, c.y, c.z)) - FOCUS).length > 2.2:
             continue
         t = sum(len(p.vertices) - 2 for p in o.data.polygons)

@@ -87,8 +87,7 @@ describe('validate', () => {
     expect(() => validate(p)).toThrow(/not an object/)
   })
 
-  // Both fields were removed upstream. Absent is the normal case now, and if
-  // Argus ever sends them again the payload must still pass.
+  // Argus sends neither field, but a payload carrying them must still pass.
   it('tolerates projects with no hue and no other flag', () => {
     const p = good()
     expect(p.projects.some((x) => 'hue' in x || 'other' in x)).toBe(false)

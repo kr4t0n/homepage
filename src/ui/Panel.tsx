@@ -23,13 +23,8 @@ function Pending({ what }: { what: string }) {
 
 /**
  * Links a project mention by name, degrading to plain text if that project is
- * ever removed from content.ts.
- *
- * These exist because the Work panel is gone. Its body was the only
- * keyboard-reachable route to the project links: the monitors carry them in the
- * room, but they are raycast targets with no tabIndex, so a keyboard user cannot
- * reach them. About already named both projects in prose, so turning those
- * mentions into links restores the route without inventing any copy.
+ * ever removed from content.ts. These are the keyboard route to the project
+ * links, which the monitors carry only as raycast targets.
  */
 function ProjectLink({ name }: { name: string }) {
   const p = PROJECTS.find((x) => x.name === name)
@@ -76,11 +71,9 @@ function Player() {
 
   const art = Boolean(track?.cover) && !noArt
 
-  // Built once and then played/paused, never recreated. A tween rebuilt per
-  // state change would tween from the current angle to 360, so resuming at 350
-  // degrees would crawl the last ten and resuming at 0 would look right by luck.
-  // Holding one paused tween means pausing keeps the angle and resuming carries
-  // on from it, which is the whole point of the gesture.
+  // Built once and then played/paused, never recreated: a rebuilt tween runs
+  // from the current angle to 360, so resuming at 350 degrees would crawl the
+  // last ten.
   useGSAP(
     () => {
       if (!art) return
@@ -103,10 +96,9 @@ function Player() {
     { dependencies: [art] },
   )
 
-  // Separate from the tween's construction so that play/pause does not rebuild
-  // it. useGSAP runs in a layout effect and this in a passive one, so the tween
-  // exists by the time this first runs. Under reduced motion `spin` stays null
-  // and this is a no-op, which is the intended silence rather than a bug.
+  // Separate so that play/pause never rebuilds the tween. useGSAP runs in a
+  // layout effect and this in a passive one, so the tween exists first. Under
+  // reduced motion `spin` stays null and this is deliberately a no-op.
   useEffect(() => {
     if (!spin.current) return
     if (playing) spin.current.play()
@@ -128,18 +120,13 @@ function Player() {
   if (!track) return null
 
   // No border, padding or background here: in compact mode the panel itself is
-  // the mini-player's container. Drawing one here too was a box inside a box,
-  // which only read as deliberate while there was a sibling paragraph to group
-  // against.
+  // the mini-player's container.
   return (
     <div className="flex min-w-0 flex-1 items-center gap-4">
-      {/* The artwork *is* the transport: the cover fills the circle and the
-          glyph sits on top of it, rather than sitting beside it as a second
-          element. Follows `playing`, not the stored intent, for the reason in
-          Hud.tsx: a transport that shows Pause while silent invites the one
-          click that turns the music off for good. Pressing this is itself a
-          gesture, so it starts playback even on a cold visit where autoplay was
-          refused. */}
+      {/* The artwork is the transport, glyph on the cover. Follows `playing`,
+          not `on`: a Pause shown over silence invites the click that turns the
+          music off for good. Pressing it is a gesture, so it plays even on a
+          cold visit. */}
       <button
         type="button"
         onClick={() => setOn(!playing)}
@@ -150,17 +137,9 @@ function Player() {
       >
         {art && (
           <>
-            {/* alt is empty on purpose: the title and artist sit beside this as
-                real text, so announcing the artwork too is duplication.
-
-                The 1px bleed is what keeps the spin clean. A square's
-                perpendicular distance to its own edge is invariant under
-                rotation, so a square exactly inscribing the circular mask is
-                tangent to it at four points for every angle — mathematically
-                covered, but one anti-aliased pixel away from flashing a hairline
-                of background four times per turn. Sized in box properties rather
-                than a scale transform, because GSAP owns this element's
-                transform and would overwrite a Tailwind scale class. */}
+            {/* alt is empty: the title and artist beside it are real text. The
+                1px bleed stops the spinning square grazing the circular mask; it
+                is box-sized because GSAP owns this element's transform. */}
             <img
               ref={artEl}
               src={track.cover}
@@ -170,13 +149,9 @@ function Player() {
               onError={() => setNoArt(true)}
               className="absolute -inset-px size-[calc(100%+2px)] object-cover"
             />
-            {/* Album art is arbitrary and this one peaks at 230/255 luminance
-                exactly where the glyph lands, so the glyph needs help rather
-                than trusting any given cover to be dark. Most of that help comes
-                from the drop shadow below, not the scrim: a scrim heavy enough
-                to guarantee contrast on its own turned the cover into a dark
-                disc, which defeats showing it at all. Without art the button
-                falls back to the solid accent fill. */}
+            {/* Covers can be bright under the glyph, so it gets a light scrim and
+                a drop shadow that does most of the work: a scrim heavy enough on
+                its own turns the cover into a dark disc. */}
             <span className="absolute inset-0 bg-void/25 transition-colors group-hover:bg-void/10" />
           </>
         )}
@@ -189,9 +164,8 @@ function Player() {
 
       <div className="min-w-0 flex-1">
         <p className="truncate tracking-tight text-bright">{track.title}</p>
-        {/* The artist line is the attribution. It is not decoration: the track
-            is somebody else's record, so this credit stays even though the
-            longer disclaimer that used to sit below the card is gone. */}
+        {/* The artist line is the attribution for somebody else's record, not
+            decoration. */}
         <p className="truncate font-mono text-[10.5px] tracking-[0.18em] text-body uppercase">
           {track.artist}
         </p>
@@ -219,8 +193,6 @@ function Keys() {
   const [armed, setArmed] = useState(false)
   const [lit, setLit] = useState<number | null>(null)
 
-  // Drop the backing track down while the keys are open, so the instrument is
-  // audible over it. Restored when the panel closes.
   useEffect(() => {
     duckTrack(true)
     return () => duckTrack(false)
@@ -325,12 +297,9 @@ const BODY: Record<string, () => React.ReactElement | null> = {
 const NoBody = () => null
 
 /**
- * Kinds that render as a compact bar rather than a full content panel.
- *
- * The decks are a transport, not a piece of writing: a 820px sheet with a
- * heading over one row of controls read as a big empty box with a small box
- * inside it. This lives here rather than in content.ts because it is a
- * presentation decision, and content.ts is the contract for what the page says.
+ * Kinds that render as a compact bar rather than a full content panel, because
+ * a heading over one row of controls leaves a big empty sheet. Kept out of
+ * content.ts, which is the contract for what the page says, not how.
  */
 const COMPACT = new Set<PanelKind>(['player'])
 
@@ -340,16 +309,9 @@ export function Panel() {
   const root = useRef<HTMLDivElement>(null)
   const spot = hotspotById(focus)
 
-  // The camera moves first, then the glass arrives. The panel's fade waits
-  // 0.45s into the 1.15s flight, so the view change and the panel read as one
-  // gesture in sequence rather than two things starting at once. The delay was
-  // originally there so a full-screen scrim could lead; the scrim went to zero
-  // opacity when the panels became clear glass and was then deleted. The delay
-  // was tried without it and put back: with the panel fully present while the
-  // room was still moving behind it, the owner compared both and preferred the
-  // sequence. Gated behind matchMedia: gsap.from() applies its start state
-  // immediately, so under reduced motion an ungated tween would leave the panel
-  // stuck at opacity 0.
+  // The camera moves first, then the glass arrives: the fade waits 0.45s into
+  // the 1.15s flight. Gated by matchMedia because gsap.from() applies its start
+  // state at once, and would leave the panel at opacity 0 under reduced motion.
   useGSAP(
     () => {
       if (!spot) return
@@ -369,22 +331,15 @@ export function Panel() {
   )
 
   if (!spot) return null
-  // A bare hotspot has no panel: the object in the room is the content, and
-  // Hud renders the only chrome, the way back out. Returning null here rather
-  // than filtering upstream keeps one rule in one place -- the panel decides
-  // whether there is a panel.
+  // A bare hotspot has no panel; Hud renders the way back out. Decided here
+  // rather than upstream, so the panel alone decides whether there is one.
   if (spot.bare) return null
   const Body = BODY[spot.kind] ?? NoBody
   const compact = COMPACT.has(spot.kind)
 
-  // A div with the dialog role rather than a <dialog>, in both layouts. Chromium
-  // gives an open <dialog> focus when anything inside it is clicked, so the next
-  // key press draws the focus ring around the whole panel, and the arrow keys
-  // and PageDown stop scrolling its content. A screen reader is told the same
-  // either way: a non-modal dialog with the panel's name.
-  //
-  // The visible heading is dropped in compact mode, so the dialog's accessible
-  // name comes from aria-label alone — which it already did.
+  // Not a <dialog>: Chromium focuses one on any click inside it, ringing the
+  // whole panel and taking the arrow keys from its scrolling content. Compact
+  // mode has no visible heading, so aria-label is the dialog's only name.
   if (compact) {
     return (
       <div
@@ -417,10 +372,9 @@ export function Panel() {
       aria-label={spot.label}
       className="glass pointer-events-auto fixed inset-x-0 bottom-0 z-30 mx-auto flex max-h-[68dvh] w-full max-w-[820px] flex-col rounded-t-[22px] sm:inset-x-6 sm:bottom-6 sm:rounded-[22px] lg:max-w-[880px]"
     >
-      {/* The scroll lives on this inner element, not the glass one. An
-          absolutely-positioned sheen inside a scroll container scrolls with the
-          content, so the specular edge would slide away from the panel's own
-          top edge the moment anyone scrolled. */}
+      {/* The scroll lives here, not on the glass: an absolute sheen inside a
+          scroll container scrolls with the content and would slide off the
+          panel's top edge. */}
       <div className="min-h-0 flex-1 overflow-y-auto p-6 sm:p-8">
         <div className="mb-6 flex items-start justify-between gap-6">
           <div>

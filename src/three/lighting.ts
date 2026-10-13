@@ -1,23 +1,13 @@
 import * as THREE from 'three'
 
 /**
- * Scene light rig.
+ * Scene light rig. three.js has no global illumination, so the room gets fill (a
+ * hemisphere for sky and floor, a weak opposite bounce), never a brighter key,
+ * which blows the flat base colours out to pale grey and loses the room's navy.
  *
- * three.js has no global illumination. Cycles renders this asset correctly
- * under an equivalent-looking rig because its world light wraps the scene and
- * the floor bounces; three.js gives you only what you place. With a single key
- * and a flat ambient, anything not facing that key crushes to black, which is
- * how the DJ controller ended up reading as a slab with glowing dots on it.
- *
- * The answer is fill, not a brighter key: a hemisphere term standing in for
- * sky-and-floor, plus a weak bounce light from the opposite side. Raising the
- * key instead blows out the flat base colours, which is the failure the very
- * first version of this scene had.
- *
- * Tune by editing these numbers with the dev server running: they are React
- * props and a runtime handle would not re-apply them, so HMR is the loop.
- * Check the home view and a focused hotspot together, since fill that reads
- * well up close can wash out the wide shot.
+ * Tune with the dev server running: these are React props, so HMR applies them
+ * and a runtime handle would not. Judge the home view and a focused hotspot
+ * together, since fill that suits a close-up can wash out the wide shot.
  */
 export const lighting = {
   /** Uniform floor under everything. Keep low; it flattens if pushed. */

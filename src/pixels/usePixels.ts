@@ -2,20 +2,15 @@ import { create } from 'zustand'
 import { validate, liveSlot, type PixelPayload } from '../shared/pixels'
 
 /**
- * Live activity data for the pixel board.
+ * Live activity data for the wall boards, from the proxy's `/api/pixels`.
  *
- * Fetches only `/api/pixels`, never Argus: the credential lives in the proxy and
- * the browser has no way to reach upstream. See src/server/api.ts.
- *
- * Every failure path lands on the same outcome — the board stays unlit and the
- * room is otherwise untouched. A wall panel that fails to light is a wall panel;
- * a thrown error inside the R3F tree takes the whole canvas down with it, which
- * is a far worse trade for a decorative surface.
+ * No failure here ever throws: a board that fails to light is still a wall
+ * panel, but an error inside the R3F tree takes the whole canvas down.
  */
 
 /**
- * The brief asks for ~10s. The proxy caches for 9s, so most polls are served
- * from memory and only one call per 10s reaches Argus regardless of visitors.
+ * Just over the proxy's 9s cache, so Argus sees about one call per interval
+ * however many visitors are polling.
  */
 const POLL_MS = 10_000
 
@@ -42,12 +37,9 @@ export const usePixels = create<PixelState>(() => ({
 }))
 
 /**
- * Record which cell the pointer is over.
- *
- * Only writes when the slot actually changes, never on every pointer move. The
- * position is captured on entry rather than tracked continuously: a cell is
- * about 20 screen pixels, so an anchored readout follows the pointer closely
- * enough while costing one render per cell instead of one per mouse event.
+ * Record which cell the pointer is over, keeping the position where it entered
+ * the cell. A cell is ~20 screen pixels, so the readout still reads as attached,
+ * at one render per cell rather than one per pointer move.
  */
 export function setPixelHover(next: PixelHover | null) {
   const cur = usePixels.getState().hover
@@ -60,16 +52,14 @@ async function poll(signal: AbortSignal) {
     const res = await fetch('/api/pixels', { signal })
     if (!res.ok) throw new Error(`proxy responded ${res.status}`)
     const json = await res.json()
-    // Validated again on this side. The proxy already checked, but the board
-    // indexes arrays by winner value and reads slot counts as loop bounds; a
-    // shape surprise here is an exception inside the render tree.
+    // Checked again despite the proxy: the boards index by winner and loop on
+    // slotCount, so a bad shape would throw inside the render tree.
     validate(json)
     usePixels.setState({ data: json, live: liveSlot(json) })
   } catch {
-    // Keep whatever we last had. A transient blip should not blank a board that
-    // is already showing six weeks of correct history, and a board that never
-    // lit is the designed outcome when the proxy is down or unconfigured. The
-    // proxy logs the cause server-side; nothing here needs to.
+    // Keep the last good payload through a transient failure; a board that never
+    // lit is the designed state when the proxy is down or unconfigured. The proxy
+    // logs the cause.
   }
 }
 
@@ -82,25 +72,20 @@ export function bindPixels() {
   void poll(ac.signal)
 
   const tick = () => {
-    // Recompute the live slot every tick even if the payload has not changed:
-    // the grid advances an hour at a time on its own, and a visitor who leaves
-    // the page open should watch the live cell move rather than stick.
+    // The live slot advances with the clock, not the payload.
     const { data } = usePixels.getState()
     if (data) usePixels.setState({ live: liveSlot(data) })
     void poll(ac.signal)
   }
 
   const id = window.setInterval(() => {
-    // Polling a hidden tab burns the visitor's battery and a proxy hit to update
-    // pixels nobody is looking at, so the tick is skipped outright. The
-    // visibility handler below catches up the moment the tab is shown again.
+    // A hidden tab would spend battery and a proxy hit on pixels nobody sees;
+    // onVisible catches up when it is shown.
     if (document.visibilityState !== 'visible') return
     tick()
   }, POLL_MS)
 
-  // Catch up immediately on return, live slot included: the tab may have been
-  // hidden for hours, and the first visible frame should not show the live cell
-  // where it was when the visitor left.
+  // Catch up on return, live slot included: the tab may have been hidden for hours.
   const onVisible = () => {
     if (document.visibilityState === 'visible') tick()
   }

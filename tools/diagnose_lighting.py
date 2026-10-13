@@ -2,13 +2,13 @@
 """Is the DJ controller dark because of its materials, or because of our lights?
 
 Loads the exported GLB, prints the base colours of the controller's materials,
-then renders it twice: once with a bright neutral light, and once with a rig
-matching the site's (dim ambient plus one directional, ACES-ish exposure).
+then renders it twice: once with a bright neutral light, and once with roughly
+the site's key and dim ambient at low exposure, but none of its fill.
 
 If the colours are light and only the second render goes black, the asset is
 fine and the scene lighting is the problem.
 
-Run: uv run --group blender python diagnose_lighting.py
+Run: uv run --project tools --group blender python tools/diagnose_lighting.py
 """
 
 import os
@@ -113,7 +113,7 @@ sc.render.filepath = os.path.join(OUT, "light_1_neutral")
 bpy.ops.render.render(write_still=True)
 print("\nwrote light_1_neutral.png (bright neutral)")
 
-# The site's rig: dim cool ambient, one directional, ACES at low exposure.
+# The site's key and dim cool ambient, no fill; AgX stands in for its ACES.
 clear_lights()
 world(0.18, (0.486, 0.573, 0.8))
 sun(0.75, (7, 10, 7), (0.804, 0.851, 1.0))

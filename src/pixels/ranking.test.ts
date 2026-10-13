@@ -69,7 +69,7 @@ describe('rankByTokens', () => {
   })
 
   // A row carrying a name above an entirely unlit bar reads as a broken board
-  // rather than a small project, and the spread here reaches 500:1.
+  // rather than a small project.
   it('always lights one segment for a project that made the board', () => {
     const tiny = rankByTokens(
       payload(

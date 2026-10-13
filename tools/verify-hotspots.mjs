@@ -1,18 +1,13 @@
 /**
  * Hotspot verification: which physical objects does each hotspot own?
  *
- * The exporter tags objects into groups by hand-authored world-space boxes, and
- * a box catches whatever is inside it, so a region's name is not evidence of its
- * contents. This tints every mesh one hotspot owns, from the home camera, and
- * writes one capture per hotspot to a fresh temp directory, so it is unambiguous
- * which physical object each hotspot actually is.
+ * A region's name is not evidence of its contents, so this tints every mesh one
+ * hotspot owns, from the home camera, and writes one capture per hotspot.
  *
- * The room has no hover highlight of its own, so the tint is applied here,
- * through the dev-only `__room` handle. Each owned mesh gets a temporary lit
- * copy of its material, and the originals go back before the next hotspot.
- * Copies rather than edits, because the asset shares materials between props:
- * lighting a material in place would also light objects the hotspot does not
- * own, which is exactly the mistake this tool exists to catch.
+ * The room has no highlight of its own, so the tint goes on here through the
+ * dev-only `__room` handle, as temporary material copies restored before the
+ * next hotspot. Copies, because the asset shares materials between props, and
+ * tinting one in place would also light objects the hotspot does not own.
  *
  * Run against the dev server: node tools/verify-hotspots.mjs [url]
  */
@@ -20,8 +15,6 @@ import { chromium } from 'playwright'
 import { BASE, requireOurServer } from './base.mjs'
 import { captureDir } from './captures.mjs'
 
-// Identify the target before launching a browser at it: aimed at a port
-// something else owns, this would otherwise time out hunting for a canvas.
 await requireOurServer()
 
 const OUT = captureDir()

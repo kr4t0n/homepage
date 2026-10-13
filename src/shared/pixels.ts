@@ -2,16 +2,9 @@
  * Shape of the Argus pixel payload, and the validation that decides whether we
  * are willing to serve it.
  *
- * Two fields the original integration brief describes are NOT here, because the
- * live endpoint no longer returns them, verified against production:
- *
- *   - `hue` on each project. Colour is entirely ours now; see PALETTE.
- *   - `other: true`, the collapsed tail of small projects. Argus returns every
- *     project individually (12 at time of writing), so collapsing the tail is
- *     also ours.
- *
- * Both are treated as optional rather than forbidden: if Argus reinstates them
- * the proxy keeps working and simply ignores them.
+ * Argus sends no per-project `hue` and no collapsed `other` tail; colour and the
+ * tail are decided in src/pixels/palette.ts. Either field is tolerated, not
+ * rejected, if it appears.
  */
 
 export interface PixelProject {
@@ -19,33 +12,18 @@ export interface PixelProject {
   key: string
   wonSeconds: number
   /**
-   * Display name, added by our proxy — Argus does not send one here.
-   *
-   * Resolved from /me/usage/by-project and reduced to a bare name server-side;
-   * see fetchNames. Optional because that lookup is allowed to fail without
-   * taking the board down, in which case the UI falls back to the hash.
+   * Bare display name, added by the proxy from /me/usage/by-project (see
+   * fetchNames). Optional because that lookup may fail without taking the board
+   * down; the UI then shows the hash.
    */
   name?: string
   /**
-   * Token usage, added by our proxy from the same lookup that resolves `name`.
-   *
-   * Same six-week window as the grid, requested explicitly rather than left to
-   * the upstream default — see fetchNames.
-   *
-   * It still does not count the same thing as `wonSeconds`, and that is not a
-   * bug to reconcile. An hour goes to whichever project was busiest in it, so a
-   * project can burn tokens all week and win almost no cells: `researchers` has
-   * two hours won and over a billion tokens. Hours are hours *won*; tokens are
-   * all of them. Any UI showing both owes the reader that sentence.
-   *
-   * Split rather than summed on purpose. Cache reads are ~85% of the raw total,
-   * so one combined figure would be dominated by them and overstate how much
-   * work happened. `in` includes them; `cached` says how much of `in` they are.
-   *
-   * Cost is available upstream and deliberately not carried here.
+   * Every token spent in the grid's window, from the same lookup as `name`, so
+   * it does not reconcile with hours won. `in` includes cache reads and `cached`
+   * is the part of `in` they make up. Cost is never carried.
    */
   tokens?: { in: number; out: number; cached: number }
-  /** Gone from the live payload; tolerated if it comes back. */
+  /** Not sent by Argus; tolerated by validate and dropped by publish. */
   other?: boolean
 }
 
@@ -54,7 +32,7 @@ export interface PixelPayload {
   start: string
   slotMinutes: number
   slotCount: number
-  /** Zone the slots were bucketed in. NOT the viewer's zone — see readGrid. */
+  /** Zone the slots were bucketed in. NOT the viewer's zone — see slotLabel. */
   tz: string
   /** Index into `projects`, or null when nothing ran. Length === slotCount. */
   winners: (number | null)[]
@@ -68,11 +46,9 @@ export interface PixelPayload {
 }
 
 /**
- * Reject a payload we cannot render truthfully.
- *
- * This is deliberately strict and runs on the server, not the client. A grid
- * painted from a malformed payload is worse than no grid: it looks authoritative
- * and is wrong. Better to fail the request and let the board stay unlit.
+ * Reject a payload we cannot render truthfully. Strict on purpose: a grid painted
+ * from a malformed payload looks authoritative and is wrong, so an unlit board
+ * is the better outcome.
  */
 export function validate(p: unknown): asserts p is PixelPayload {
   const bad = (why: string): never => {
@@ -120,14 +96,11 @@ export function validate(p: unknown): asserts p is PixelPayload {
 }
 
 /**
- * The slot that is happening right now, which is NOT slotCount - 1.
+ * The slot happening now, which is NOT slotCount - 1: the last column runs to
+ * end of day, so its later slots are still in the future. Callers treat anything
+ * past this index as not yet happened rather than as an idle hour.
  *
- * The last column runs to end-of-day, so its later slots are in the future and
- * permanently idle. Rendering them as ordinary empty cells ends today's column
- * in a block of false dark. Callers should dim or omit anything past this index.
- *
- * Returns -1 if the grid has not started, or slotCount - 1 if it is entirely in
- * the past, so the result is always a safe array index to compare against.
+ * Clamped to -1 before the grid starts and to slotCount - 1 after it ends.
  */
 export function liveSlot(p: PixelPayload, now = Date.now()): number {
   const elapsed = now - Date.parse(p.start)
@@ -148,18 +121,9 @@ export function gridPos(p: PixelPayload, i: number): { row: number; col: number 
 }
 
 /**
- * Human label for a slot, in the grid's own timezone.
- *
- * The timezone handling is the whole point of this function. `start` is a UTC
- * instant, but the grid was bucketed in `p.tz`, so slot 14 of a column is 14:00
- * *there* — not 14:00 wherever the visitor happens to be. Formatting a Date with
- * default locale settings would relabel every cell for anyone outside that zone
- * and quietly disagree with the row labels printed on the board itself, which
- * come from `i % 24` and cannot move.
- *
- * So the instant is computed by arithmetic on the slot index and then formatted
- * with an explicit `timeZone`. A visitor in London and one in Shanghai see the
- * same label on the same cell.
+ * Human label for a slot, in the grid's own `tz` rather than the visitor's. The
+ * board's printed row labels are fixed hours of that zone, so formatting in the
+ * visitor's zone would relabel every cell and contradict them.
  */
 export function slotLabel(p: PixelPayload, slot: number): string {
   const at = new Date(Date.parse(p.start) + slot * p.slotMinutes * 60_000)
@@ -187,11 +151,9 @@ export interface SlotShare {
 /**
  * Who worked a slot and for how long, busiest first.
  *
- * `breakdown` is only present for slots where the winner held under ~70% of the
- * time, which is roughly a third of lit slots. When it is absent the winner had
- * the hour to itself, so the single-entry fallback is accurate rather than a
- * guess — but it is capped at the slot length, since Argus clamps concurrent
- * work and an hour cannot contain more than an hour.
+ * Argus sends `breakdown` only where the winner held under ~70% of the slot.
+ * Elsewhere the winner is credited with the whole slot and no more, since Argus
+ * clamps concurrent work to the slot's length.
  */
 export function slotShares(p: PixelPayload, slot: number): SlotShare[] {
   const raw = p.breakdown?.[String(slot)]

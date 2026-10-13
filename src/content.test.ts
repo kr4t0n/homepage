@@ -2,10 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { HOTSPOTS, hotspotNodes } from './content'
 import manifest from './scene-manifest.json'
 
-// Signals is one hotspot over two meshes. Everything about that is data, so it
-// is checked here rather than by sweeping a pointer across a screenshot, which
-// is slow and which pointer parallax makes unreliable: moving the mouse moves
-// the camera, so two frames differ everywhere.
+// Signals is one hotspot over two meshes, all of it data, so it is checked here
+// rather than by sweeping a pointer over screenshots, which pointer parallax
+// makes unreliable.
 describe('the signals hotspot', () => {
   const signals = HOTSPOTS.find((h) => h.id === 'signals')
   const nodes = signals ? hotspotNodes(signals) : []
@@ -32,10 +31,9 @@ describe('the signals hotspot', () => {
     expect(Math.abs(unionCentreZ - (box('hot_pixelboard')?.centre[2] ?? NaN))).toBeGreaterThan(0.1)
   })
 
-  // The boards are the readout, so the pair has to fit the frame at whatever
-  // standoff is set and fill enough of it for the labels to carry. The standoff
-  // itself has moved several times; this ratio is the invariant. At the 34°
-  // lens, visible half-width is 0.49x the distance.
+  // The pair has to fit the frame and fill enough of it for the labels to carry;
+  // this ratio, not the standoff, is the invariant. At the 34° lens, visible
+  // half-width is 0.49x the distance.
   it('fits both boards in the frame and fills most of it', () => {
     const frameWidth = 2 * 0.49 * (signals?.offset?.[0] ?? 0)
     const fill = (unionZ[1] - unionZ[0]) / frameWidth

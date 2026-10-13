@@ -5,10 +5,8 @@
  *
  *  1. State. Reads the orbit offsets directly through the dev-only __orbit
  *     hook and requires them to come back exactly. This is the real contract.
- *  2. Pixels. Runs with reduced motion so the idle drift is off, then compares
- *     frames. Drift is a time-based sine, so without disabling it two frames
- *     seconds apart never match at high zoom, which says nothing about whether
- *     the view was restored.
+ *  2. Pixels. Compares frames, under reduced motion so the time-based idle
+ *     drift is off.
  *
  * Run: node tools/verify-view-restore.mjs [url]
  */
@@ -16,8 +14,6 @@ import { chromium } from 'playwright'
 import { BASE, requireOurServer } from './base.mjs'
 import { captureDir } from './captures.mjs'
 
-// Identify the target before launching a browser at it: aimed at a port
-// something else owns, this would otherwise time out hunting for a canvas.
 await requireOurServer()
 
 const OUT = captureDir()
@@ -83,9 +79,8 @@ const diff = (a, b) =>
 
 /**
  * Park the pointer over non-interactive geometry and drop keyboard focus, so a
- * frame captures camera pose only. Otherwise the diff is dominated by the nav,
- * which is shown only while one of its pills has focus, and by the neon sign
- * brightening if the drag finished over it.
+ * frame captures camera pose only, not the focus-revealed nav or the neon sign
+ * brightening under the pointer.
  */
 const shot = async (name) => {
   await page.mouse.move(640, 110)

@@ -3,37 +3,27 @@ import { validate } from '../shared/pixels'
 import type { PixelPayload } from '../shared/pixels'
 
 /**
- * The `/api/pixels` proxy.
- *
- * It exists for one reason: ARGUS_KEY must never reach the browser. Everything
- * else here — the cache, the validation — is in service of that single hop
- * being cheap and honest.
- *
- * Mounted twice, but written once: `@hono/vite-dev-server` serves it during
- * `pnpm run dev`, and `@hono/node-server` serves it in the container alongside
- * the built `dist/`. Same handler both sides, so dev cannot drift from prod.
+ * The `/api/pixels` proxy, which exists so ARGUS_KEY never reaches the browser.
+ * `@hono/vite-dev-server` and serve.ts both mount it, so routes belong here.
  */
 
 /**
- * Six weeks, which is the board's 42 columns. Shared by both upstream calls so
- * the hours and the token counts shown beside them describe the same window.
+ * Six weeks, the board's 42 columns. Passed explicitly to both upstream calls,
+ * even where it is upstream's default, so the hours and the token counts shown
+ * beside them describe the same window.
  */
 const WINDOW_DAYS = 42
 
 /** Slot 0 of the grid; must stay in step with the board's 24x42 geometry. */
 const QUERY = `tz=Asia/Shanghai&days=${WINDOW_DAYS}&slotMinutes=60&clampMinutes=60&breakdown=1`
 
-/**
- * Names change far more slowly than activity does, and this is a second
- * upstream call, so it gets its own much longer TTL rather than riding the 9s
- * pixel cache.
- */
+/** Names change far more slowly than activity, so they get a much longer TTL. */
 const NAMES_TTL_MS = 5 * 60_000
 
 /**
- * The client polls every ~10s to keep the live cell blinking. Without a cache
- * that is one upstream call per visitor per 10s; with it, one per 10s total.
- * Slightly under the poll interval so a caller rarely waits on a refresh.
+ * The client polls every ~10s; the cache makes that one upstream call per 10s in
+ * total rather than per visitor. Just under the poll interval so a caller rarely
+ * waits on a refresh.
  */
 const TTL_MS = 9_000
 
@@ -54,35 +44,10 @@ interface ProjectMeta {
 let names: { map: Record<string, ProjectMeta>; at: number } | null = null
 
 /**
- * Map each project hash to a display name, and discard everything else.
- *
- * `/me/usage/by-project` answers the naming question, but it is a far more
- * revealing payload than `/me/pixels` — which carries opaque hashes on purpose,
- * with no names or paths. This one adds `workingDir` (absolute paths exposing a
- * username and machine layout, e.g. /home/kyle/projects/argus), `machineId`,
- * `projectId`, per-project token counts and `costUsd` running into thousands of
- * dollars.
- *
- * None of that belongs on a public homepage, so the reduction happens here
- * rather than in the browser: the response is boiled down to hash -> name and
- * the rest never crosses the wire. Forwarding this endpoint as-is, or doing the
- * mapping client-side, would publish all of it.
- *
- * `name` is null for a third of entries, where the directory's own basename is
- * the honest fallback — that is a project name, not a path, and it is the same
- * word a human would use.
- *
- * Token counts come along too, since the owner asked to show them. `costUsd` is
- * deliberately NOT forwarded: it is in the same `usage` object, it runs to five
- * figures across these projects, and nobody asked for spend to be public. It
- * stays server-side unless that changes on purpose rather than by a careless
- * spread of `...p.usage`.
- *
- * `days` is passed explicitly even though 42 is currently this endpoint's own
- * default. Omitting it reads as equivalent and is not: the tokens are rendered
- * beside hours won from a 42-day pixel grid, so if that default ever moved, the
- * two numbers on one row would silently start describing different windows —
- * a wrong number that still looks right.
+ * Map each project hash to a name and token counts, and discard the rest. These
+ * rows also carry workingDir, machineId, projectId and costUsd, so the output is
+ * built field by field and `usage`, which holds costUsd, is never spread. A null
+ * `name` falls back to the directory's basename, never the path.
  */
 async function fetchNames(base: string, key: string): Promise<Record<string, ProjectMeta>> {
   const res = await fetch(`${base}/me/usage/by-project?days=${WINDOW_DAYS}`, {
@@ -104,9 +69,8 @@ async function fetchNames(base: string, key: string): Promise<Record<string, Pro
     const fromDir = p.workingDir?.replace(/\/+$/, '').split('/').pop()
     const name = p.name?.trim() || fromDir?.trim()
     const u = p.usage ?? {}
-    // Cache reads are 85% of the total across these projects, so a single
-    // summed figure would be dominated by them and read as far more work than
-    // actually happened. Kept apart so the UI can be honest about the split.
+    // `in` includes cache reads, which dominate it; `cached` is kept apart so the
+    // UI can show the split rather than one inflated total.
     map[p.key] = {
       ...(name ? { name } : {}),
       tokens: {
@@ -120,14 +84,9 @@ async function fetchNames(base: string, key: string): Promise<Record<string, Pro
 }
 
 /**
- * Rebuild the sparse per-slot breakdown from scalars.
- *
- * Shape is slot index -> project index -> seconds, and every key and value in it
- * is a number. Copying the object wholesale would be one line, but it would also
- * be the one place a nested upstream value could still ride through unexamined,
- * which is exactly what `publish` exists to stop. Non-numeric entries are
- * dropped rather than passed on: this feeds a tooltip, and a value we cannot
- * account for has no business being rendered or published.
+ * Rebuild the sparse breakdown (slot index -> project index -> seconds) from
+ * finite numbers only, rather than copying it, so no nested upstream value can
+ * ride through. Anything else is dropped.
  */
 function republishBreakdown(
   raw: Record<string, Record<string, number>>,
@@ -145,24 +104,8 @@ function republishBreakdown(
 }
 
 /**
- * Build the public payload out of named fields.
- *
- * The point is that nothing reaches a visitor because it happened to arrive.
- * `fetchNames` already worked this way -- it constructs its output, which is why
- * `costUsd` sitting in the same upstream object as the token counts has never
- * been able to leak. The pixel payload did not: it was `JSON.stringify` of
- * whatever Argus returned, so any field added upstream would have been published
- * silently, with no change on our side and nothing to notice it. A test proved
- * it: two invented fields planted in a stubbed upstream arrived intact in the
- * response.
- *
- * That asymmetry is now gone. Adding a field to this response takes an edit
- * here, which is the property worth having on the boundary between a private
- * upstream and a public page.
- *
- * The cost is that a genuinely new upstream field needs a line adding before it
- * can be used. That is the correct trade for a public endpoint, and it is the
- * one `fetchNames` has always made.
+ * Build the public payload from named fields, so nothing reaches a visitor just
+ * because upstream sent it. A new upstream field needs a line here to be published.
  */
 export function publish(p: PixelPayload, meta: Record<string, ProjectMeta>): PixelPayload {
   return {
@@ -170,8 +113,7 @@ export function publish(p: PixelPayload, meta: Record<string, ProjectMeta>): Pix
     slotMinutes: p.slotMinutes,
     slotCount: p.slotCount,
     tz: p.tz,
-    // Arrays of numbers, already checked element by element by `validate`, so
-    // naming them is the whole job -- there is no nested object to hide in.
+    // Arrays of numbers checked by `validate`: nothing nested to hide in.
     winners: p.winners,
     intensity: p.intensity,
     live: p.live,
@@ -203,9 +145,8 @@ const describe = (err: unknown): string => {
 }
 
 const env = (k: string): string | undefined =>
-  // Vite's dev server and Node both expose process.env here; this module only
-  // ever runs server-side, so reading the secret is safe. It is deliberately
-  // NOT prefixed VITE_, which is what keeps it out of the client bundle.
+  // Server-only. The secret has no VITE_ prefix, which keeps it out of the
+  // client bundle.
   typeof process !== 'undefined' ? process.env[k] : undefined
 
 async function fetchUpstream(): Promise<Cached> {
@@ -229,9 +170,8 @@ async function fetchUpstream(): Promise<Cached> {
   // enrichment so validation only ever sees Argus's own shape.
   validate(json)
 
-  // Names are a nicety, not a requirement. If the lookup fails the board still
-  // works and simply shows hashes, so a failure here must not take the whole
-  // request down with it.
+  // Names are optional: if the lookup fails, the board shows hashes rather than
+  // the request failing.
   if (!names || Date.now() - names.at > NAMES_TTL_MS) {
     try {
       names = { map: await fetchNames(base, key), at: Date.now() }
@@ -240,8 +180,6 @@ async function fetchUpstream(): Promise<Cached> {
       names ??= { map: {}, at: Date.now() }
     }
   }
-  // Built rather than mutated-and-forwarded. See `publish`: this is the line
-  // that decides what a visitor can see, and it should be readable as a list.
   return { body: JSON.stringify(publish(json, names.map)), at: Date.now() }
 }
 
@@ -251,19 +189,14 @@ api.get('/api/pixels', async (c) => {
   const fresh = cache && Date.now() - cache.at < TTL_MS
   if (!fresh) {
     try {
-      // Reuse an in-flight request rather than stampeding upstream when several
-      // callers miss at once.
       inflight ??= fetchUpstream().finally(() => {
         inflight = null
       })
       cache = await inflight
     } catch (err) {
-      // The cause goes to the server log and only there. Upstream status codes,
-      // validator complaints and whether the credential is even configured are
-      // operational detail, and the browser does the same thing with every
-      // failure regardless, so the public body says nothing specific. None of
-      // these messages carry the key. Single-flight plus the TTL cap this at
-      // about one line per refresh window during an outage.
+      // The cause goes to the server log only: the browser treats every failure
+      // alike, so the public body stays generic. No message carries the key, and
+      // single-flight plus the TTL keep an outage to about one line per refresh.
       const outcome = cache
         ? `serving a payload ${Math.round((Date.now() - cache.at) / 1000)}s old`
         : 'nothing cached, answering 502'
@@ -294,8 +227,5 @@ api.get('/api/pixels', async (c) => {
 /** Liveness for the cluster. Deliberately does not touch Argus. */
 api.get('/api/health', (c) => c.json({ ok: true }))
 
-/**
- * Default export for `@hono/vite-dev-server`, which expects an app rather than a
- * named binding. Same object as `api`, so there is still only one handler.
- */
+/** For `@hono/vite-dev-server`, which expects a default export; the same `api`. */
 export default api
