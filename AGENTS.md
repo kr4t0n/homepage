@@ -513,6 +513,14 @@ gets the palette's first colour. `publish` keeps the order and drops the figure,
 since nothing on the site reads it; showing hours won takes a line in `publish`
 first.
 
+**Hours still to come look like hours in which nothing ran, by the owner's
+choice.** The grid's last column is today in the grid's `tz`, so up to 23 of its
+cells have not happened yet. `cellAppearance` paints them dark whatever the
+payload holds, exactly as it paints an idle hour, and only `PixelTooltip` tells
+the two apart ("Hasn't happened yet."). A faint glow in the board's label ink
+was built and the owner preferred them dark, so a look of their own is a design
+change for the owner, not a fix.
+
 ## Server
 
 **A missing file is never answered with HTML.** The SPA fallback serves

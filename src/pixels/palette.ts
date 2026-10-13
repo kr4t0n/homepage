@@ -35,9 +35,6 @@ const OFF = new THREE.Color('#000000')
 /** How hard a fully busy pixel glows. Tuned against the room's night lighting. */
 const MAX_EMISSIVE = 2.4
 
-/** Slots after the live one have not happened yet; see cellAppearance. */
-const FUTURE_INTENSITY = 0
-
 export function colourFor(projectIndex: number | null): THREE.Color {
   if (projectIndex === null) return OFF
   return PALETTE[projectIndex] ?? TAIL
@@ -123,7 +120,7 @@ export function cellAppearance(
   // The last column runs to end of day, so slots after the live one are still to
   // come and stay dark whatever the payload holds.
   if (live >= 0 && slot > live) {
-    return { colour: OFF, intensity: FUTURE_INTENSITY }
+    return { colour: OFF, intensity: 0 }
   }
   const winner = p.winners[slot] ?? null
   if (winner === null) return { colour: OFF, intensity: 0 }
