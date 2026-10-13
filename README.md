@@ -488,9 +488,7 @@ the luminance text sits on and the gate charges for it, while a brighter border,
 rim and sweep cost nothing measured.
 
 Reduced transparency is honoured completely — no blur, no translucency, no sheen
-— via `prefers-reduced-transparency`. There is also a nearly-opaque fallback for
-browsers without `backdrop-filter`, because shipping a transparent panel with
-unreadable text over a moving scene is worse than shipping no glass.
+— via `prefers-reduced-transparency`.
 
 **Not verified:** the GPU cost of blurring a continuously rendering canvas. This
 box has no hardware GL, and software rasterisation gives ~6fps with no glass at

@@ -389,8 +389,11 @@ what made a panel read as frosted, however thin, and it also cost contrast by
 pulling in bright pixels from around the glyphs; do not add it back to soften a
 panel. A white fill adds luminance outright, and even a faint one put body text
 under AA, so there is none. The supplied references are unfiltered and survive
-by placing text over dark areas, which a moving camera cannot guarantee.
-Background on the material: README, "The glass panels".
+by placing text over dark areas, which a moving camera cannot guarantee. Nor is
+there a fallback for a browser without `backdrop-filter`: every browser Tailwind
+v4 targets (Safari 16.4, Chrome 111, Firefox 128) has it, and the pane's only
+filter is `saturate(140%)`, so a fill there would make opaque what everywhere
+else is clear. Background on the material: README, "The glass panels".
 
 **Translucent panels over this room fail WCAG AA by default**, and invisibly:
 the lit monitors and the hexagon light wall are off screen while a panel is
