@@ -12,16 +12,15 @@
  *
  * Run: node tools/verify-view-restore.mjs [url]
  */
-import { mkdirSync } from 'node:fs'
 import { chromium } from 'playwright'
 import { BASE, requireOurServer } from './base.mjs'
+import { captureDir } from './captures.mjs'
 
 // Identify the target before launching a browser at it: aimed at a port
 // something else owns, this would otherwise time out hunting for a canvas.
 await requireOurServer()
 
-const OUT = 'tools/shots/restore'
-mkdirSync(OUT, { recursive: true })
+const OUT = captureDir()
 
 const browser = await chromium.launch({
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],

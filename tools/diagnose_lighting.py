@@ -11,14 +11,14 @@ fine and the scene lighting is the problem.
 Run: ./.venv/bin/python diagnose_lighting.py
 """
 import os
+import tempfile
 
 import bpy
 from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 GLB = os.path.join(HERE, "..", "public", "room.glb")
-OUT = os.path.join(HERE, "preview")
-os.makedirs(OUT, exist_ok=True)
+OUT = tempfile.mkdtemp(prefix="homepage-diagnose_lighting-")
 
 FOCUS = Vector((1.89, -3.70, 0.62))
 EYE = Vector((3.30, -6.00, 2.35))
@@ -111,3 +111,5 @@ sc.view_settings.exposure = -0.47          # roughly toneMappingExposure 0.72
 sc.render.filepath = os.path.join(OUT, "light_2_site_rig")
 bpy.ops.render.render(write_still=True)
 print("wrote light_2_site_rig.png (matching the site)")
+
+print("\ndone ->", OUT)

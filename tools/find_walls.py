@@ -11,12 +11,12 @@ Run: ./.venv/bin/python find_walls.py ../room.blend
 import json
 import os
 import sys
+import tempfile
 
 import bpy
 from mathutils import Vector
 
 BLEND = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else "../room.blend")
-HERE = os.path.dirname(os.path.abspath(__file__))
 
 bpy.ops.wm.open_mainfile(filepath=BLEND)
 scene = bpy.context.scene
@@ -69,7 +69,7 @@ for f in faces[:12]:
         f"({c[0]:6.2f},{c[1]:6.2f},{c[2]:6.2f})   ({n[0]:5.2f},{n[1]:5.2f},{n[2]:5.2f})"
     )
 
-out = os.path.join(HERE, "walls.json")
+out = os.path.join(tempfile.mkdtemp(prefix="homepage-find_walls-"), "walls.json")
 with open(out, "w") as fh:
     json.dump(faces, fh, indent=1)
 print(f"\nwrote {out} ({len(faces)} faces)")

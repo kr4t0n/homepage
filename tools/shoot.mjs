@@ -9,13 +9,12 @@
  */
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
-import { mkdirSync } from 'node:fs'
 import { extname, join, normalize } from 'node:path'
 import { chromium } from 'playwright'
+import { captureDir } from './captures.mjs'
 
 const ROOT = 'dist'
-const OUT = 'tools/shots'
-mkdirSync(OUT, { recursive: true })
+const OUT = captureDir()
 
 const TYPES = {
   '.html': 'text/html',

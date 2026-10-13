@@ -149,6 +149,12 @@ onto `process.env`.
 What needs more than Node stays in `tools/`: `verify-api.mjs` reads the built
 `dist/` and a live server, and the `verify-*` scripts below drive Chromium.
 
+Nothing in `tools/` writes into the checkout. A script that keeps screenshots,
+renders or measurements makes a fresh `homepage-<script>-XXXXXX` directory under
+the system temp dir and prints its path when it finishes: `captures: <dir>` from
+the browser scripts, `done -> <dir>` or `wrote <file>` from the Blender ones.
+Delete it once you have looked.
+
 ## The asset pipeline
 
 The source file is `room-v3.blend`: the purchased isometric studio scene plus a
@@ -330,9 +336,9 @@ looking.
 
 ```bash
 pnpm run dev                      # in one shell
-node tools/verify-hotspots.mjs   # tints each hotspot's meshes, writes tools/shots/hover/
+node tools/verify-hotspots.mjs   # tints each hotspot's meshes, one capture per hotspot
 pnpm run build
-node tools/shoot.mjs             # full walkthrough, writes tools/shots/
+node tools/shoot.mjs             # full walkthrough, one capture per view
 ```
 
 The room has no hover highlight, so `verify-hotspots` lights each hotspot's
@@ -786,6 +792,7 @@ tools/
   diagnose_lighting.py  material colours, neutral vs site light rig
   wall_occupancy.py     lists wall decor and finds clear bands
   base.mjs              shared target URL, strict flag, and "is this us?" probe
+  captures.mjs          a fresh temp directory for a script's screenshots
   verify-api.mjs        secret containment in dist/, live proxy disclosure
   verify-boards.mjs     both wall boards pick and frame as one hotspot
   verify-draco.mjs      the Draco decoder is same-origin, and nothing leaves the site

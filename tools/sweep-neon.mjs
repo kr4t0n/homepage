@@ -7,16 +7,15 @@
  *
  * Run against the dev server: node tools/sweep-neon.mjs [url]
  */
-import { mkdirSync } from 'node:fs'
 import { chromium } from 'playwright'
 import { BASE, requireOurServer } from './base.mjs'
+import { captureDir } from './captures.mjs'
 
 // Identify the target before launching a browser at it: aimed at a port
 // something else owns, this would otherwise time out hunting for a canvas.
 await requireOurServer()
 
-const OUT = 'tools/shots/neon'
-mkdirSync(OUT, { recursive: true })
+const OUT = captureDir()
 
 const VARIANTS = [
   { opacity: 1.0, light: 0.85, note: 'previous' },
