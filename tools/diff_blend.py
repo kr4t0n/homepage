@@ -79,7 +79,8 @@ if moved:
     print(f"  moved-set new min corner span X[{gmn[0]:.3f}] Y[{gmn[1]:.3f}] Z[{gmn[2]:.3f}]")
 print()
 
-# Group added objects by rounded position so a board of many tiles reads as one.
+# Summarise added objects by type under one combined bbox, so a board of many
+# tiles reads as one.
 print("ADDED:")
 gmn = Vector((1e9,) * 3)
 gmx = Vector((-1e9,) * 3)

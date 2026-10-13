@@ -27,9 +27,7 @@ const TYPES = {
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.webp': 'image/webp',
-  // Chromium refuses to decode audio served as octet-stream, so the track has
-  // to carry a real type here or every audio assertion fails for the wrong
-  // reason.
+  // Chromium refuses to decode audio served as octet-stream.
   '.mp3': 'audio/mpeg',
   '.svg': 'image/svg+xml',
 }

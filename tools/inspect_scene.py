@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Open the purchased .blend, report a real scene inventory, and render previews.
 
-Run:  uv run --group blender python inspect_scene.py ../room.blend
+Run: uv run --project tools --group blender python tools/inspect_scene.py room-v3.blend
 """
 
 import os

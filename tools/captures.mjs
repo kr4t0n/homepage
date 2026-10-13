@@ -1,14 +1,10 @@
 /**
- * Where the browser scripts put what they capture.
+ * Where the browser scripts put what they capture: a capture is evidence for
+ * one run, so each run gets a fresh directory under the system temp dir rather
+ * than a folder in the checkout that would need an ignore entry.
  *
- * A screenshot is evidence for one run, so each run gets a fresh directory under
- * the system temp dir rather than a folder in the checkout. A folder there needs
- * an ignore entry, and then sits in every clone and worktree until someone
- * remembers to clear it.
- *
- * The path is printed as the process exits, whatever the outcome, because a
- * failed run is when the captures matter most. A run that stopped before its
- * first capture removes the empty directory instead of printing it.
+ * The path is printed on exit whatever the outcome, since a failed run is when
+ * captures matter most; a directory left empty is removed instead.
  */
 import { mkdtempSync, readdirSync, rmdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'

@@ -4,19 +4,14 @@ import type { PixelPayload } from '../shared/pixels'
 /**
  * Turning activity data into lit pixels.
  *
- * Colour is entirely ours. Argus used to send a `hue` per project and a
- * collapsed `other` bucket; it now sends neither, so both the palette and the
- * decision about how many projects deserve their own colour live here.
+ * Argus sends no per-project colour and no collapsed tail, so the palette and
+ * the cut-off for how many projects get their own colour both live here.
  */
 
 /**
- * Project colours, by position in `projects[]`.
- *
- * Chosen to sit beside the room's acid accent rather than fight it, and to stay
- * separable at the size one pixel occupies — roughly 20 screen pixels when the
- * board is framed. That size is the binding constraint: subtle neighbours are
- * indistinguishable, so these are spaced widely round the wheel instead of
- * being a pretty ramp.
+ * Project colours, by position in `projects[]`. A framed cell is only ~20
+ * screen pixels, where close hues blur together, so these are spaced widely
+ * round the wheel rather than ramped, and chosen to sit beside the acid accent.
  */
 const PALETTE = [
   '#9ef01a', // acid — the room's own accent, for the busiest project
@@ -28,13 +23,9 @@ const PALETTE = [
 ].map((hex) => new THREE.Color(hex))
 
 /**
- * Everything past the palette collapses to this.
- *
- * Argus returned 12 projects at time of writing and no longer collapses the
- * tail itself, so without this the board would need twelve distinguishable
- * colours, which does not exist at this pixel size. The tail is still *lit* —
- * it happened, and the brightness still carries how busy the hour was — it just
- * does not claim an identity it cannot legibly convey.
+ * Shared by every project past the palette: a cell this small cannot carry more
+ * distinct hues. A tail hour still happened, so it stays lit at its real
+ * brightness; it just claims no identity.
  */
 const TAIL = new THREE.Color('#64748b')
 
@@ -44,7 +35,7 @@ const OFF = new THREE.Color('#000000')
 /** How hard a fully busy pixel glows. Tuned against the room's night lighting. */
 const MAX_EMISSIVE = 2.4
 
-/** Slots after the live one have not happened yet; see paint(). */
+/** Slots after the live one have not happened yet; see cellAppearance. */
 const FUTURE_INTENSITY = 0
 
 export function colourFor(projectIndex: number | null): THREE.Color {
@@ -56,12 +47,9 @@ export function colourFor(projectIndex: number | null): THREE.Color {
 export const PALETTE_SIZE = PALETTE.length
 
 /**
- * Look up a pixel material by grid position.
- *
- * The board exports as one mesh with 1009 primitives, one material each, named
- * `Pixel Light R01 C01` through `R24 C42`. Joining the objects preserved the
- * materials, which is the only reason 1008 cells are individually addressable
- * without re-authoring the asset.
+ * Material name of the pixel at a grid position. The board exports as one mesh
+ * of 1009 primitives with a material each, `Pixel Light R01 C01` to `R24 C42`;
+ * those per-cell materials are the only handle on individual cells.
  */
 export function materialName(row: number, col: number): string {
   const pad = (n: number) => String(n + 1).padStart(2, '0')
@@ -69,11 +57,9 @@ export function materialName(row: number, col: number): string {
 }
 
 /**
- * Slot index from a pixel's material name, or null if it is not a pixel.
- *
- * Stateless on purpose. The name already encodes the grid position, so a
- * raycast hit can be resolved without consulting the cell index — which means
- * the hover path needs no shared map between Room and PixelBoard.
+ * Slot index from a pixel's material name, or null if it is not a pixel. Read
+ * from the name alone so the hover path needs no map shared between Room and
+ * PixelBoard.
  */
 export function slotFromMaterialName(name: string, slotsPerDay = 24): number | null {
   const m = /^Pixel Light R(\d+) C(\d+)$/.exec(name)
@@ -86,12 +72,8 @@ export function slotFromMaterialName(name: string, slotsPerDay = 24): number | n
 export interface PixelCell {
   material: THREE.MeshStandardMaterial
   /**
-   * The mesh carrying this pixel.
-   *
-   * glTF meshes with several primitives load as a Group of one Mesh per
-   * primitive, so the board's 1008 pixels arrive as 1008 separate meshes rather
-   * than one merged surface. That is what makes a per-cell raycast possible at
-   * all — see PixelTooltip.
+   * The mesh carrying this pixel. Each glTF primitive loads as its own Mesh, so
+   * every cell is a separate raycast target.
    */
   mesh: THREE.Mesh
   /** Slot index this cell shows, for the painter to look up. */
@@ -99,10 +81,8 @@ export interface PixelCell {
 }
 
 /**
- * Index every pixel material in the board, keyed by slot.
- *
- * Done once per scene clone. Walking 1009 primitives on each of ~360 repaints
- * an hour would be wasteful, and the mapping cannot change without a re-export.
+ * Index every pixel material in the board, keyed by slot. Meant to run once per
+ * scene clone, not per poll: the mapping only changes with a re-export.
  */
 export function indexCells(root: THREE.Object3D, slotsPerDay = 24): Map<number, PixelCell> {
   const byName = new Map<string, { material: THREE.MeshStandardMaterial; mesh: THREE.Mesh }>()
@@ -140,9 +120,8 @@ export function cellAppearance(
   slot: number,
   live: number,
 ): { colour: THREE.Color; intensity: number } {
-  // The last column runs to end-of-day, so its later slots are in the future and
-  // permanently idle. Left as ordinary empty cells they read as a block of false
-  // dark hanging off today's column, as if activity had stopped.
+  // The last column runs to end of day, so slots after the live one are still to
+  // come and stay dark whatever the payload holds.
   if (live >= 0 && slot > live) {
     return { colour: OFF, intensity: FUTURE_INTENSITY }
   }

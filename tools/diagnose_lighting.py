@@ -2,13 +2,14 @@
 """Is the DJ controller dark because of its materials, or because of our lights?
 
 Loads the exported GLB, prints the base colours of the controller's materials,
-then renders it twice: once with a bright neutral light, and once with a rig
-matching the site's (dim ambient plus one directional, ACES-ish exposure).
+then renders it twice: once with a bright neutral light, and once with a dim
+cool ambient and one sun at low exposure, with none of the site's fill. That sun
+is not the site's key: see the comment above it.
 
 If the colours are light and only the second render goes black, the asset is
 fine and the scene lighting is the problem.
 
-Run: uv run --group blender python diagnose_lighting.py
+Run: uv run --project tools --group blender python tools/diagnose_lighting.py
 """
 
 import os
@@ -113,12 +114,15 @@ sc.render.filepath = os.path.join(OUT, "light_1_neutral")
 bpy.ops.render.render(write_still=True)
 print("\nwrote light_1_neutral.png (bright neutral)")
 
-# The site's rig: dim cool ambient, one directional, ACES at low exposure.
+# Dim cool ambient and one sun, no fill; AgX stands in for the site's ACES. The
+# sun takes the site's key position (7, 10, 7), which is Y-up, as Z-up, so it
+# sits about 76 degrees from the site's key, behind the back wall; in Blender's
+# axes the site's key is (7, -7, 10).
 clear_lights()
 world(0.18, (0.486, 0.573, 0.8))
 sun(0.75, (7, 10, 7), (0.804, 0.851, 1.0))
 sc.view_settings.view_transform = "AgX"
-sc.view_settings.exposure = -0.47  # roughly toneMappingExposure 0.72
+sc.view_settings.exposure = -0.47  # 2**-0.47 is 0.72; lighting.ts now uses 0.78
 sc.render.filepath = os.path.join(OUT, "light_2_site_rig")
 bpy.ops.render.render(write_still=True)
 print("wrote light_2_site_rig.png (matching the site)")

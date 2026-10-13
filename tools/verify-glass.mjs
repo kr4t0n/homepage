@@ -1,28 +1,21 @@
 /**
  * Glass contrast gate.
  *
- * The clear panels are only legible where they are because two things were tuned
- * together against measurement: the text colours, and where each hotspot's
- * camera puts its panel. Nudging either can drop text under WCAG
- * AA with no visible warning, because the failure only appears in front of the
- * room's bright surfaces — the hexagon light wall behind the Work panel is the
- * worst case, and it is off screen when the panel is closed. Before this test
- * existed, body text measured 2.22:1 there and nobody could have noticed.
+ * Text colours and each hotspot's camera framing are tuned together. Nudging
+ * either can drop text under WCAG AA, and the failure shows only with the panel
+ * open in front of the room's bright surfaces.
  *
  * Method, per panel:
- *   1. Read the computed colour and type size of every piece of visible text.
- *      Testing the *actual* colours matters: an earlier version checked three
- *      fixed roles everywhere and reported failures for a role the panel did not
- *      even use, which looked like a real regression and was not.
+ *   1. Read the computed colour and type size of every piece of visible text,
+ *      so only colours the panel actually uses are judged.
  *   2. Hide the contents so only the composited glass surface remains, and find
  *      the brightest tile — the worst backdrop any glyph in that panel could
  *      land on.
  *   3. Check every colour against it, at 3:1 for large text and 4.5:1 otherwise,
  *      per WCAG 1.4.3.
  *
- * Pixel decoding happens inside the page: Node has no PNG decoder, so the shot
- * is handed back to the browser, drawn to a canvas and read with getImageData.
- * That keeps this dependency-free.
+ * Node has no PNG decoder, so the screenshot is decoded in the page through a
+ * canvas, which keeps this dependency-free.
  *
  * Run: pnpm run build && node tools/verify-glass.mjs
  */
@@ -45,19 +38,10 @@ const TYPES = {
 }
 
 /**
- * A stand-in for the pixel proxy.
- *
- * This gate serves the built `dist/` and nothing else, so `/api/pixels` used to
- * 404 — and the Signals panel would quietly render its "board is unlit"
- * fallback instead of its legend. The gate reported that panel green while
- * never having seen the text it actually ships: project names, hours won and
- * token counts, the densest run of small type in the room.
- *
- * A fixture rather than a live call, deliberately. This must measure the same
- * pixels on a laptop with no ARGUS_KEY as it does in CI, and a panel whose
- * contrast verdict depends on how busy someone was last week is not a gate.
- * Values are chosen to be the widest realistic case — long names, billions —
- * since text that overflows lands somewhere the sampler never looked.
+ * Stands in for the pixel proxy, so the wall boards render lit, as they ship,
+ * wherever they fall behind a panel. A fixture rather than a live call, so the
+ * verdict is the same with or without ARGUS_KEY and does not depend on recent
+ * activity. Values are the widest realistic case: long names, billions of tokens.
  */
 const PIXEL_FIXTURE = (() => {
   const slotCount = 1008
@@ -121,20 +105,14 @@ const browser = await chromium.launch({
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
 
 /**
- * Every routable panel, by hotspot *id* — not by panel kind.
+ * Every routable panel, by hotspot *id* — not by panel kind. `signals` is
+ * absent because that hotspot is `bare` and opens no panel; add it back if it
+ * ever gets one.
  *
- * `signals` is absent because it no longer has a panel: the hotspot is `bare`,
- * so focusing the wall boards opens nothing. It was the worst surface measured
- * here, at 1.02:1 against the lit board and 2.06:1 after being reframed, and
- * the way it was fixed is the one this file keeps recommending taken to its
- * conclusion — the panel was restating what the boards already showed, so it
- * went rather than the contrast being waived again. Re-add the id here the
- * moment anything gives that hotspot a panel back.
+ * Pass ids to measure only those while tuning a camera
+ * (`node tools/verify-glass.mjs writing`); the waiver check then covers only
+ * the panels measured, so a filtered run claims nothing about the others.
  */
-// A single panel can be measured on its own while tuning a camera:
-//   node tools/verify-glass.mjs writing
-// The waiver comparison only runs over the panels actually measured, so a
-// filtered run reports that panel honestly without claiming the others passed.
 const ALL_PANELS = ['music', 'player', 'writing', 'about', 'cv']
 const only = process.argv.slice(2).filter((a) => ALL_PANELS.includes(a))
 const PANELS = only.length ? only : ALL_PANELS
@@ -153,33 +131,20 @@ const contrast = (fg, bg) => {
 const threshold = (px, weight) => (px >= 24 || (px >= 18.66 && weight >= 700) ? 3 : 4.5)
 
 /**
- * Panels knowingly shipping under WCAG AA, with the ratio measured when the
- * decision was made.
- *
- * This is a waiver, not a pass. The owner chose crystal-clear glass over
- * contrast after viewing both in a real browser: content panels sit in front of
- * the lit monitors and the hexagon wall, and clear glass there puts 14px muted
- * text between 1.03:1 and 2.89:1 against a 4.5:1 requirement. That is a real
- * accessibility cost, taken deliberately and with the numbers in hand.
- *
- * The gate still earns its keep. A panel listed here fails if it gets
- * *worse* than its baseline, a panel not listed here must clear AA outright, and
- * a newly added panel cannot land under the bar unnoticed. Tolerance is 15%,
- * comfortably wider than the ~2% run-to-run variation from the room's idle
- * drift, so this does not flap.
- *
- * The route back to a clean pass is the camera, not the CSS: reframe these
- * hotspots over darker parts of the room, the way the decks bar already is, and
- * clear glass becomes affordable. Delete an entry the moment its panel passes.
+ * Waiver for panels knowingly under WCAG AA for the sake of clear glass: each
+ * number is the tightest contrast ratio measured when the panel was accepted.
+ * A waived panel fails if it gets worse, and so does one that now clears AA,
+ * since its entry is stale. The fix for a low ratio is to reframe that
+ * hotspot's camera over a darker part of the room, never to lower its number
+ * here. See AGENTS.md on the clear-glass waiver.
  */
-// `contact` sat here at 1.09 until the sofa stopped being a hotspot; its panel
-// went with it, so the waiver went too rather than going stale.
 const ACCEPTED = {
   about: 1.03,
   writing: 1.64,
   music: 1.78,
   cv: 2.89,
 }
+// 15% below baseline before a waived panel fails; idle drift moves a run ~2%.
 const TOLERANCE = 0.85
 
 const fails = []
@@ -194,11 +159,9 @@ for (const id of PANELS) {
   await page
     .waitForFunction(() => !document.querySelector('output'), { timeout: 120_000 })
     .catch(() => {})
-  // Long enough for the camera flight to land. Measuring early samples the
-  // *home* view through the glass, which is brighter than the hotspot framing,
-  // and produced failures that no amount of CSS would have fixed. Note the room
-  // also drifts continuously, so a run near the threshold is inherently noisy —
-  // the values are tuned to leave margin rather than to scrape past 4.5:1.
+  // Long enough for the camera flight to land: measured early, the glass is
+  // over the brighter home view. Idle drift makes every run slightly noisy, so
+  // leave margin rather than scraping past a threshold.
   await page.waitForTimeout(3800)
 
   const dialog = page.locator('[role="dialog"]')
@@ -222,15 +185,11 @@ for (const id of PANELS) {
       if (cs.visibility === 'hidden' || cs.display === 'none') continue
       const px = parseFloat(cs.fontSize)
       const weight = parseInt(cs.fontWeight, 10) || 400
-      // Walk up for the first background opaque enough to be what this text
-      // actually sits on — but STOP AT THE PANEL. Walking past it reaches
-      // <body>, which is opaque --color-void, and every glass panel then
-      // "passed" at 6.85:1 against a background that is nowhere near the text:
-      // the blurred canvas composites above the body fill. That was a false
-      // pass that bypassed the glass measurement entirely, and it looked
-      // convincing because the number was plausible. Inside the panel the glass
-      // fills are all under 0.9 alpha so they are skipped, leaving the measured
-      // surface; an opaque acid button is found and judged against itself.
+      // The first background opaque enough to be what this text sits on,
+      // stopping at the panel: <body> is opaque but the canvas composites above
+      // it, so reaching it would be a false pass. Glass fills are under 0.9
+      // alpha and fall through to the measured surface; an opaque button is
+      // judged against its own fill.
       let bg = null
       for (let n = el; n && n !== d.parentElement; n = n.parentElement) {
         const m = getComputedStyle(n).backgroundColor.match(/[\d.]+/g)
@@ -283,12 +242,9 @@ for (const id of PANELS) {
     }
     const L = ([r, g, b]) => 0.2126 * l(r) + 0.7152 * l(g) + 0.0722 * l(b)
 
-    // Inset past the decorative edge. The border, the inset rim light and the
-    // specular sheen are all bright and all within ~3px of the boundary, and no
-    // glyph ever lands there — every panel has at least 16px of padding.
-    // Sampling from the boundary measured the chrome instead of the backdrop,
-    // and only started failing when the fill dropped far enough that the rim
-    // became the brightest thing in frame. Measure where text can be.
+    // Inset past the panel's own chrome: border, rim light and sheen are bright
+    // and within ~3px of the edge, and every panel has at least 16px of
+    // padding, so no glyph lands there.
     const PAD = 16
     const T = 8
     let out = null

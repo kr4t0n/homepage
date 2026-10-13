@@ -84,9 +84,8 @@ export const useScene = create<SceneState>((set, get) => ({
 /**
  * One owner for the pointer cursor.
  *
- * Room hotspots, wall links and screens all write `hover`, so a single rule
- * covers them. Managing it inside each of those components instead meant
- * several effects racing to set and clear it on the same state change.
+ * Room hotspots, wall links and screens all write `hover`, so one subscription
+ * covers them without per-component effects racing to set and clear it.
  */
 export const bindCursor = () => {
   const unsub = useScene.subscribe((s) => {
@@ -111,9 +110,8 @@ export const bindHistory = () => {
   return () => window.removeEventListener('popstate', sync)
 }
 
-// Dev-only handle for the verification scripts. They used to locate objects by
-// scraping the hover readout out of the DOM; with that gone, they read the
-// state directly. Stripped from production builds.
+// Dev-only handle so the verification scripts read hover state rather than any
+// visible chrome. Stripped from production builds.
 if (import.meta.env.DEV) {
   ;(window as unknown as Record<string, unknown>).__hover = () => useScene.getState().hover
 }

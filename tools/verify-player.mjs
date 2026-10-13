@@ -1,21 +1,14 @@
 /**
- * Player verification.
+ * Player verification, under a real browser's autoplay policy: silent before
+ * any gesture, playing after one, and stoppable at any time.
  *
- * The point of this harness is the autoplay policy, so Chromium is launched with
- * `--autoplay-policy=document-user-activation-required` rather than the headless
- * default, which is permissive enough to hide the exact bug we care about. Under
- * the strict policy the run proves the design: silent before any gesture,
- * playing after one, and stoppable at any time.
+ * Playback is read from the mini-player's elapsed readout: the element comes
+ * from `new Audio()` and never enters the DOM, so the readout is the only
+ * handle in a production build.
  *
- * Playback is asserted through the mini-player's own elapsed readout rather than
- * by reaching into the audio element. The element is created with `new Audio()`
- * and never enters the DOM, so the readout advancing is both the only handle
- * available in a production build and the thing a visitor actually sees.
- *
- * It plays whatever `public/media/track.json` names, copied into dist/ by the
- * build, and takes the expected title and artist from that manifest rather than
- * hardcoding a song. With no track there it fails rather than skipping: every
- * playback assertion below would otherwise pass vacuously or not run at all.
+ * It plays whatever `public/media/track.json` names, as built into dist/, and
+ * expects that manifest's title and artist. With no track it fails rather than
+ * skips, since every playback assertion would otherwise pass vacuously.
  *
  * Run: pnpm run build && node tools/verify-player.mjs
  */
@@ -113,7 +106,7 @@ const browser = await chromium.launch({
     '--use-gl=angle',
     '--use-angle=swiftshader',
     '--enable-unsafe-swiftshader',
-    // The whole point: behave like a real browser meeting a real visitor.
+    // The headless default plays without a gesture, which hides broken arming.
     '--autoplay-policy=document-user-activation-required',
     '--mute-audio',
   ],
@@ -156,11 +149,8 @@ check(
   `${before}s -> ${stillBefore}s`,
 )
 
-// The trap this guards against: the speaker used to render the stored intent,
-// so it lit up as "sound is on" during the window before the browser allows
-// any. Clicking the thing that is lying to you then wrote `off` to
-// localStorage, permanently, and no amount of clicking the room brought it
-// back. The control must report real sound, never intent.
+// The speaker must render real sound, not stored intent: lit over silence, it
+// invites the press that stores `off` for good.
 const coldLabel = await page.getAttribute('button[aria-label^="Turn the music"]', 'aria-label')
 check(
   'the speaker does not claim sound before there is any',
@@ -218,8 +208,8 @@ const decksWith = async () => {
 }
 
 // --- 2b. No manifest is the fresh-clone state, reported honestly ------------
-// Nothing about the song is in git or the image any more, so this is what
-// anyone who clones the repo, or deploys without a media volume, sees.
+// The song is in neither git nor the image, so this is what a fresh clone, or a
+// deploy without a media volume, sees.
 manifestOverride = null
 {
   const { ctx, p, settled, text } = await decksWith()
@@ -373,10 +363,8 @@ check('turning it back on resumes playback', un > 0, `elapsed=${un}s`)
 await page.evaluate(() => window.localStorage.removeItem('kr4t0n:music'))
 
 // --- 7. One press of the speaker is enough, from cold -----------------------
-// A fresh context, not a reload: navigating the same tab keeps its user
-// activation, so the track simply carries on playing and the assertions below
-// would pass against a document that was never cold. This is the only way to
-// get a document the browser genuinely does not trust yet.
+// A fresh context, not a reload: a reloaded tab keeps its user activation, so
+// these checks would pass against a document that was never cold.
 const coldCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
 const cold = await coldCtx.newPage()
 await cold.goto(`${BASE}/#/player`, { waitUntil: 'networkidle', timeout: 120_000 })
@@ -400,10 +388,8 @@ check('one press of the speaker starts it from cold', c1 > 0, `elapsed=${c1}s`)
 await coldCtx.close()
 
 // --- 8. A click on the room itself arms it ----------------------------------
-// The headline behaviour is "interact with the room and music starts", but the
-// gesture above is a keypress, which exercises a different listener. A visitor
-// clicking the scene and getting silence is the exact confusion this guards
-// against, so assert the pointer path separately, in its own fresh context.
+// Section 3's gesture is a keypress; a click on the scene goes through a
+// different listener, so the pointer path gets its own fresh context.
 const roomCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
 const room = await roomCtx.newPage()
 await room.goto(`${BASE}/#/player`, { waitUntil: 'networkidle', timeout: 120_000 })

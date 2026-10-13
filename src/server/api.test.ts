@@ -7,10 +7,8 @@ import type { PixelPayload } from '../shared/pixels'
 import { publish } from './api'
 
 /**
- * Everything that must never reach a visitor, plus two fields that exist only
- * here. `sneakyTopLevel` and `sneakyProjectField` stand in for whatever Argus
- * adds next: before the payload was built from named fields, both rode straight
- * through to the browser.
+ * Everything that must never reach a visitor. `sneakyTopLevel` and
+ * `sneakyProjectField` exist only here and stand in for whatever Argus adds next.
  */
 const FORBIDDEN = [
   'workingDir',
@@ -345,9 +343,8 @@ describe('/api/pixels against a stubbed upstream', () => {
   })
 
   // The cache is keyed on Date.now(), so faking Date alone crosses the 9s TTL
-  // without waiting it out, while sockets and fetch keep real timers. A version
-  // that waited too little passed without testing anything: the request after
-  // the upstream went away was answered from the fresh cache.
+  // while sockets and fetch keep real timers. The stale request must land past
+  // the TTL, or the fresh cache answers it and the test proves nothing.
   it('caches for 9s, then serves a stale payload once the upstream is gone', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     const t0 = Date.now()

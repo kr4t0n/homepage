@@ -3,25 +3,12 @@ import { colourFor, PALETTE_SIZE } from '../pixels/palette'
 import { gridPos, slotLabel, slotShares } from '../shared/pixels'
 
 /**
- * Per-cell readout for the activity board.
+ * Per-cell readout for the focused activity board, anchored where the pointer
+ * entered the cell (see setPixelHover).
  *
- * Anchored to where the pointer entered the cell rather than tracking it
- * continuously. A cell is roughly 20 screen pixels when the board is framed, so
- * an anchored card sits close enough to read as attached while costing one
- * render per cell instead of one per mouse event.
- *
- * Deliberately not the room-wide hover hint that used to live here and was
- * removed: this appears only for the focused board, only over a cell, and it
- * carries real numbers rather than restating a label already on screen.
- *
- * It is the one surface in the room that does NOT use clear glass, and that is
- * forced rather than chosen. Every other panel floats over the room; this floats
- * over the activity board, which is the brightest thing in the scene and made
- * entirely of saturated colour. Measured on clear glass, body text over a lit
- * acid cell came out at 1.03:1 — the worst contrast anywhere in the project.
- * Solving for the fill that brings muted text to 4.5:1 over rgb(154,213,18)
- * gives ~0.80, so 0.92 leaves margin for whatever colour a cell happens to be.
- * The hairline edge and radius stay, so it still reads as part of the family.
+ * The one glass surface with a fill (`bg-void/92`): it sits over saturated lit
+ * cells, where muted text needs a ~0.80 fill to reach 4.5:1 over acid, so 0.92
+ * leaves margin for any cell colour.
  */
 
 /** Keep the card fully on screen when a cell is near an edge. */
@@ -52,19 +39,16 @@ export function PixelTooltip() {
   const busy = data.intensity[slot] ?? 0
   const isLive = slot === live && data.live.length > 0
 
-  // Flip to the left of the pointer near the right edge, and sit above it near
-  // the bottom, so the card never runs off screen or covers the cell it
-  // describes.
+  // Flip to the left of the pointer near the right edge, and clamp near the
+  // bottom, so the card stays on screen.
   const flipX = x + W + MARGIN * 2 > window.innerWidth
   const left = flipX ? x - W - MARGIN : x + MARGIN
 
   return (
     <div
-      // Purely informational and driven by a 3D hover a screen reader cannot
-      // perform, so it is hidden from the accessibility tree rather than
-      // announced as orphaned numbers. Nothing in the DOM carries this data any
-      // more; that is the known gap in README, and a Fallback2D section is the
-      // place to close it if it ever needs to be reachable without WebGL.
+      // Driven by a 3D hover a screen reader cannot perform, so hidden rather
+      // than announced as orphaned numbers. Nothing else in the DOM carries this
+      // data; see Known gaps in README.
       aria-hidden
       className="glass pointer-events-none fixed z-40 rounded-[14px] bg-void/92 px-3.5 py-3"
       style={{ left, top: Math.min(y + MARGIN, window.innerHeight - 150), width: W }}
@@ -87,9 +71,7 @@ export function PixelTooltip() {
                   style={{ background: colourFor(s.projectIndex).getStyle() }}
                 />
                 <span className="truncate text-[11px] text-body">
-                  {/* Named where the proxy could resolve one, hash otherwise —
-                      a third of projects have no name upstream and fall back to
-                      their directory basename, and a few may have neither. */}
+                  {/* The proxy's name where it resolved one, else the hash. */}
                   {data.projects[s.projectIndex]?.name ??
                     data.projects[s.projectIndex]?.key ??
                     'unknown'}

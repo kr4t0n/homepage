@@ -21,11 +21,9 @@ class Blend:
     def _parse_header(self):
         h = self.buf[:17]
         # Blender 3.0+ writes zstd-compressed .blend by default, and 4.x/5.x use
-        # a 17-byte header instead of the legacy 12. This parser understands
-        # neither, and used to fail either with a confusing magic-mismatch or,
-        # worse, by "succeeding" on a misread header and then dying on a missing
-        # DNA1 block. Say so plainly instead: the current room.blend is 5.0.2 and
-        # hits both cases.
+        # a 17-byte header instead of the legacy 12. This parser reads neither,
+        # and a misread header fails much later on a missing DNA1 block, so
+        # refuse both up front.
         if self.buf[:4] == b"\x28\xb5\x2f\xfd":
             raise SystemExit(
                 "this .blend is zstd-compressed (Blender 3.0+ default).\n"
@@ -268,9 +266,9 @@ def main(path):
         if "name" in imfo:
             # Image.name is the filepath field in 2.8x (after ID)
             pass
-        # ID struct size varies; scan for a plausible path right after ID
+        # ID's size varies by version, so search the block for a "//" relative
+        # path rather than computing the field's offset.
         raw = b.buf[blk["data"] : blk["data"] + blk["size"]]
-        # find "//" relative path marker
         idx = raw.find(b"//")
         if idx >= 0:
             end = raw.find(b"\0", idx)

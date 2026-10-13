@@ -6,18 +6,12 @@ import { useScene } from '../store'
 import { orbit } from './orbit'
 
 /**
- * Neon wordmark on the wall behind the monitors.
+ * Neon wordmark on the wall behind the monitors, drawn to a canvas rather than
+ * modelled: an extruded tube would out-detail the low-poly room, and the canvas
+ * uses the site's own typeface.
  *
- * Drawn to a canvas rather than built from geometry: the room is flat-shaded
- * low-poly, so an extruded tube would be the highest-fidelity object in the
- * scene by a wide margin and would look pasted in. A glowing canvas texture
- * sits at the same level of abstraction as everything else here, and it lets
- * the sign reuse the site's own typeface.
- *
- * Wall plane measured by tools/find_walls.py. The wall is a slab with faces at
- * z -2.10 and z -1.99; as elsewhere in this asset the reported normals are
- * inverted, and the surface actually facing the room is the one at z -1.99. Its
- * span is x -2.09 to 4.49 and y -0.21 to 2.61. Placement is in glTF space.
+ * glTF space. The wall's room-facing face is z -1.99 (tools/find_walls.py), and
+ * spans x -2.09 to 4.49, y -0.21 to 2.61.
  */
 const TEXT = 'kr4t0n'
 
@@ -25,13 +19,9 @@ const TEXT = 'kr4t0n'
 const NEON = '#9ef01a'
 
 /**
- * Brightness controls.
- *
- * `opacity` scales the whole additive contribution, which is the honest knob
- * for "dimmer": the canvas bakes a fixed glow and this attenuates all of it at
- * once. `light` is the spill onto the surrounding wall. Tune with
- * tools/sweep-neon.mjs rather than by guessing; additive blending on a dark
- * wall saturates much faster than it looks like it should.
+ * Brightness. `opacity` dims the whole additive glow, which the canvas bakes at
+ * a fixed strength; `light` is the spill onto the wall. Tune with
+ * tools/sweep-neon.mjs: additive blending on a dark wall saturates fast.
  */
 const neon = { opacity: 0.48, light: 0.4 }
 
@@ -39,12 +29,8 @@ const neon = { opacity: 0.48, light: 0.4 }
 const HOVER_GAIN = 1.7
 
 /**
- * Padded, invisible click target.
- *
- * The visible plane is 0.88 x 0.223, which is a small thing to hit on a wall
- * across the room. This gives the pointer somewhere to land without making the
- * glow any bigger. Sized to stay inside the wall (x ends 4.49, y ends 2.61) so
- * it never catches clicks aimed past the room.
+ * Padded, invisible click target around the 0.88 x 0.223 glow. Kept inside the
+ * wall (x ends 4.49, y ends 2.61) so it never catches clicks aimed past the room.
  */
 const HIT = { width: 0.94, height: 0.36 }
 
@@ -55,28 +41,18 @@ if (import.meta.env.DEV) {
 }
 
 const PLACEMENT = {
-  // Upper right of the back wall, in the gap above the framed picture.
-  //
-  // Three things bound this. Circle.022, the pale-disc panel, runs from x -0.66
-  // to 3.41 and past the ceiling line, so the sign sits right of it.
-  // Plane.006, the framed picture, occupies x 3.48 to 4.73 up to y 1.98, so the
-  // sign sits above it. The wall itself ends at x 4.49 and y 2.61.
-  //
-  // With half-extents of 0.44 and 0.112 that leaves very little slack: the
-  // right edge lands 0.03 short of the wall edge and the top edge 0.07 short of
-  // the ceiling line. Pushed into that corner deliberately, so the wordmark
-  // reads as high and to the right without overhanging anything.
+  // Upper right of the back wall: right of the pale-disc panel Circle.022 (x to
+  // 3.41), above the framed picture Plane.006 (y to 1.98), inside the wall (x to
+  // 4.49, y to 2.61). Half-extents 0.44 x 0.112 leave 0.03 right and 0.07 above.
   centre: [4.02, 2.42, -1.976] as [number, number, number],
   width: 0.88,
   height: 0.223,
 }
 
 /**
- * Renders the wordmark to a canvas with a layered glow.
- *
- * Several increasingly tight shadow passes build the halo, then a near-white
- * core goes on top: a real tube reads as white-hot in the middle with the gas
- * colour bleeding outward, and painting it flat accent looks like a sticker.
+ * Renders the wordmark with a layered glow: tightening shadow passes build the
+ * halo, then a near-white core goes on top, because a real tube is white-hot in
+ * the middle and a flat accent fill reads as a sticker.
  */
 function useNeonTexture(text: string, color: string) {
   const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null)

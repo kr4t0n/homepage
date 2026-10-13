@@ -10,23 +10,9 @@ import { resetOrbit } from '../three/orbit'
 gsap.registerPlugin(useGSAP)
 
 /**
- * The page chrome over the room, which is deliberately almost none.
- *
- * There is no hero copy, no visible hotspot index and no "drag to look around"
- * hint. The room is meant to be explored: every object that opens something is
- * an easter egg for the visitor to find by pointing at it, and a row of labelled
- * pills in the corner answered that question before anyone could ask it.
- *
- * The index still exists, for the keyboard only. A 3D object has no tabIndex,
- * so without it nothing in the room is reachable without a pointer, and the
- * GitHub, Argus and nodex links inside the panels go with it. It is visually
- * hidden until something inside it takes focus, then appears where the hero
- * used to be. A pointer never lands on it, so the room stays unlabelled for
- * anyone who can explore it directly.
- *
- * There is no hover readout and no hover highlight. The pointer cursor is the
- * only sign that an object does something, which keeps the room free of
- * floating labels and leaves the finding to the visitor.
+ * The page chrome over the room, which is deliberately almost none: the room is
+ * for exploring, and the pointer cursor is the only sign an object does
+ * something. The hotspot index is the keyboard route in, hidden until focused.
  */
 export function Hud() {
   const focus = useScene((s) => s.focus)
@@ -63,23 +49,10 @@ export function Hud() {
 
   return (
     <div ref={root} className="pointer-events-none fixed inset-0 z-20">
-      {/* No chrome across the top. The wordmark moved to the neon sign on the
-          back wall, which is itself the GitHub link, and the keyboard index
-          below carries the same link as real tab-reachable markup. A header
-          holding one duplicate link was costing the room its whole upper edge.
-
-          Nor across the bottom-left, where the hero and a visible hotspot
-          index used to be. What remains is the keyboard route into the room:
-          `sr-only` until a pill takes focus, shown in place while one has it.
-          Focusing a pill sets the same hover state that pointing at its object
-          does, which is what lights the pill itself.
-
-          It stays mounted and fades when a panel opens rather than unmounting.
-          The pill that was just pressed keeps focus underneath the panel, so the
-          next Tab moves forward into the panel's own links instead of starting
-          over from the top of the page. The wrapper has no size of its own and
-          inherits `pointer-events-none`, so hidden or not, it never takes a
-          pointer event away from the room. */}
+      {/* The keyboard index: `sr-only` until a pill takes focus. It fades
+          rather than unmounting, so the pressed pill keeps focus under the panel
+          and the next Tab moves into it. This wrapper has no size and inherits
+          `pointer-events-none`, so it never takes a pointer from the room. */}
       <div className="absolute bottom-8 left-6 max-w-[38rem] sm:bottom-10 sm:left-10">
         <nav
           data-fade
@@ -100,11 +73,9 @@ export function Hud() {
               {h.label}
             </button>
           ))}
-          {/* The room's links, after its places. Each is the keyboard twin of
-              a 3D click target. Focusing one sets that object's hover state, and
-              the neon sign brightens under it on its own, so the visitor is
-              shown where the link lives. Real anchors, so they open like any
-              other link. */}
+          {/* Keyboard twins of the room's 3D link targets. Focus sets that
+              object's hover state, so the visitor is shown where the link
+              lives. */}
           {ROOM_LINKS.map((l) => (
             <a
               key={l.id}
@@ -124,23 +95,11 @@ export function Hud() {
         </nav>
       </div>
 
-      {/* A framed screen and a bare hotspot both have no panel. The only chrome
-          is the way out; the object itself is the content. Discoverability of
-          the second click on a screen rests on the pointer cursor over it. */}
       {noPanel && (
         <>
-          {/* The screen fills the frame at this distance, so the button would
-              otherwise sit on whatever the monitor is standing on.
-
-              Anchored to this root, which is the viewport, and deliberately not
-              nested inside the button's container below. The gradient reaches
-              full opacity at its own bottom edge, so wherever that edge lands is
-              a hard line -- and inside a `bottom-10` container, `bottom-0` means
-              the button's bottom, leaving the last 40px of the room undimmed
-              under an opaque band. That seam ran the full width of the screen in
-              both focused modes and read as a grey border with the room showing
-              brighter beneath it. Measured before the fix: rgb(7,10,18) at
-              y=859 against rgb(11,14,25) at y=860. */}
+          {/* A dark ground for the button over whatever the monitor stands on.
+              Anchored to this root, the viewport, not the button's container:
+              the gradient's opaque bottom edge is a hard line wherever it lands. */}
           <div
             aria-hidden
             className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-48 bg-gradient-to-t from-void via-void/75 to-transparent"
@@ -173,24 +132,10 @@ export function Hud() {
         </button>
       </div>
 
-      {/* Sound, top-right.
-          The room starts playing on its own, so stopping it must not depend on
-          first finding the decks. That makes this the one required control on
-          the page rather than decoration, which is why it sits apart from the
-          rest of the chrome that was stripped from this edge: it is not a
-          duplicate link, and hiding it costs accessibility.
-          Top rather than bottom because it stays reachable while a panel owns
-          the lower half — muting while reading About is exactly when you want
-          it. Hidden only for a framed screen, which fills the whole frame.
-
-          It reports `playing`, the real state, and never `on`, the intent. An
-          earlier version showed intent, which meant it lit up as "sound is on"
-          during the window before the browser has allowed any: the honest
-          reading of that is "this is lying", the natural response is to click
-          it, and clicking it wrote `off` to localStorage permanently. So the
-          click follows the icon rather than the intent — press a silent speaker
-          and you get sound, which is also a user gesture, so it works on the
-          very first press. */}
+      {/* The room plays on its own, so this is a required control, top-right
+          to stay reachable while a panel owns the lower half. It shows
+          `playing`, never `on`, and the click follows the icon: a silent
+          speaker always yields sound. See AGENTS.md on sound controls. */}
       <button
         type="button"
         onClick={() => setOn(!playing)}

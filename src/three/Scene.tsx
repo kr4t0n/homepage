@@ -10,15 +10,7 @@ import { HOME_CAMERA } from '../content'
 import { useScene } from '../store'
 import { ACCENT_COLOUR, FILL_COLOUR, GROUND, KEY_COLOUR, SKY, lighting } from './lighting'
 
-/**
- * The asset ships with no baked lighting and no textures, so the scene is lit
- * cheaply and deliberately. Values live in ./lighting, with the reasoning.
- *
- * Still dim overall: the flat base colours blow out to pale grey under a
- * brighter key, which loses the navy the room is built around. The extra light
- * here is fill rather than key, which is what three.js is missing relative to
- * the offline renders.
- */
+/** The asset has no baked lighting. Values and reasoning live in ./lighting. */
 function Lighting() {
   return (
     <>

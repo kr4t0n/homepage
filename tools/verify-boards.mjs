@@ -1,24 +1,22 @@
 /**
- * Signals is one hotspot over two wall boards.
+ * Signals is one hotspot over two wall boards. Both must pick, the far one must
+ * open Signals too, and focusing it opens no panel.
  *
- * The first assertion is cheap because focusing a nav pill drives the same room
- * hover state that pointing at the object does (`Hud.tsx` calls `setHover` on
- * focus), so it needs no hunting for the boards on screen. Focus rather than
- * hover, because the index is hidden from a pointer and only appears while a
- * pill has keyboard focus. Hover state is read from the dev-only `__hover` hook
- * rather than from pixels: pointer parallax moves the camera, so two frames
- * taken with the pointer in different places differ almost everywhere.
+ * Hover is read from `__hover`, not from pixels, since pointer parallax moves
+ * the camera. The pill is focused rather than hovered: `Hud.tsx` sets hover on
+ * focus, and the index takes no pointer events.
  *
  * Run against a dev server: pnpm run dev, then node tools/verify-boards.mjs [url]
  */
 import { chromium } from 'playwright'
 import { BASE, requireOurServer } from './base.mjs'
 
-// Identify the target before launching a browser at it: aimed at a port
-// something else owns, this would otherwise time out hunting for a canvas.
 await requireOurServer()
 
-/** Between the one-board and two-board measurements. See the sweep below. */
+/**
+ * Pickable width in px at 1440x900 on the home view: ~130 for the pixel board
+ * alone, ~170 for both, so losing either node fails.
+ */
 const SPAN_FLOOR = 150
 
 const fails = []
@@ -51,11 +49,6 @@ check('the Signals pill hovers the signals hotspot', sigHover === 'signals', Str
 
 // Both boards must pick. Sweep the band they hang in and collect the horizontal
 // extent of the region that resolves to signals.
-//
-// Measured at 1440x900 on the home view: 130px (x 370..500) with only
-// `hot_pixelboard` wired, 170px (x 370..540) with the ranking board too. The
-// floor sits between those, so dropping either node fails rather than passing
-// on the half that remains.
 await page.mouse.move(1350, 860)
 await page.waitForTimeout(300)
 const hits = []
@@ -74,8 +67,7 @@ check(
   `${span}px, x ${Math.min(...xs)}..${Math.max(...xs)}`,
 )
 
-// The far end of that region is the ranking board. It must open Signals too,
-// which is the whole point of it sharing the hotspot.
+// The far end of that region is the ranking board, which must open Signals too.
 const far = hits.filter((h) => h.x >= Math.max(...xs) - 12).pop()
 await page.mouse.move(far.x, far.y)
 await page.waitForTimeout(300)
@@ -87,19 +79,12 @@ check(
   `url=${page.url()} from (${far.x},${far.y})`,
 )
 
-// Focused, the boards are the whole readout: no glass panel, and the only
-// chrome is the way back out. A panel here would cover the bottom of both
-// boards to restate what they already show.
-// The panel is the thing with the dialog role. Counting `.glass` instead would
-// be wrong as well as fragile: PixelTooltip carries that class too, so the
-// assertion would pass or fail on whether the pointer happened to be resting
-// over a cell. Asked by role, not by tag or attribute, so the count cannot fall
-// to zero just because the markup changed.
+// Focused, the boards are the whole readout, so no panel opens. Counted by role,
+// not by `.glass`, which PixelTooltip also carries.
 const dialogs = await page.getByRole('dialog').count()
 check('focusing the boards opens no panel', dialogs === 0, `${dialogs} dialog(s)`)
 
-// Per-cell detail moved entirely to hover once the panel went, so the tooltip
-// is now the only place an individual hour can be read.
+// The tooltip is the only place an individual hour can be read.
 await page.mouse.move(500, 450)
 await page.waitForTimeout(500)
 const tip = await page.evaluate(() => {
@@ -111,8 +96,8 @@ check('hovering a cell still gives a readout', tip !== null, tip ?? 'nothing sho
 const exit = page.getByRole('button', { name: /back to the room/i })
 check('a way back out is still on screen', await exit.isVisible())
 
-// Escape has to work too: with no panel there is no close button inside a
-// dialog for the keyboard to reach, so this is the keyboard route.
+// With no panel there is no close button to tab to, so Escape is the keyboard
+// route out.
 await page.keyboard.press('Escape')
 await page.waitForTimeout(1400)
 check('Escape leaves the focused boards', !page.url().includes('#/signals'), `url=${page.url()}`)

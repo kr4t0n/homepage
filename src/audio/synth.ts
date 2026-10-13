@@ -1,10 +1,7 @@
 /**
- * A tiny subtractive synth on the Web Audio API.
+ * A tiny subtractive synth on the Web Audio API, for the playable keys.
  *
- * Deliberately not a backing track: shipping a recording of a well-known song
- * on a public page is a licensing problem, and a sampled loop would need
- * hosting anyway. Synthesising in the browser is zero bytes, zero rights
- * clearance, and it makes the keys genuinely playable rather than decorative.
+ * Synthesised rather than sampled: no bytes to host and no rights to clear.
  * Swap `playNote` for a sampler when there is an original track to serve.
  */
 
@@ -21,7 +18,7 @@ const ensure = (): AudioContext | null => {
     ctx = new Ctor()
     master = ctx.createGain()
     master.gain.value = 0.22
-    // Gentle low-pass so the square wave is not harsh on laptop speakers.
+    // Gentle low-pass so the voices are not harsh on laptop speakers.
     const tone = ctx.createBiquadFilter()
     tone.type = 'lowpass'
     tone.frequency.value = 2400

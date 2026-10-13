@@ -8,8 +8,6 @@ import { chromium } from 'playwright'
 import { BASE, requireOurServer } from './base.mjs'
 import { captureDir } from './captures.mjs'
 
-// Identify the target before launching a browser at it: aimed at a port
-// something else owns, this would otherwise time out hunting for a canvas.
 await requireOurServer()
 
 const OUT = captureDir()
@@ -89,20 +87,14 @@ const check = (ok, pass, fail) => {
 check(after === before, 'drag did not open a panel', `drag opened ${after}`)
 
 // A plain click on an object must still open it, straight after a drag that
-// set `suppressClick`. This used to click a nav pill, which never exercised the
-// canvas at all, and the pills are keyboard-only now anyway.
-//
-// The target is found rather than hardcoded, because framing moves whenever the
-// asset does: sweep the frame, take whichever hotspot owns the most points, and
-// click the middle of its run. The expected route is that hotspot's own id.
-// Hardcoding it is how this once asserted `#/work` for months after Work was
-// removed, printing FAIL and exiting 0. `neon` is skipped because it opens a
-// tab rather than changing the route. The grid is coarse on purpose: every
-// probe is a pointer move under software GL, and the largest hotspot on the
-// home view is far wider than 80px.
+// set `suppressClick`. The target is found rather than hardcoded, because
+// framing moves whenever the asset does.
 await page.click('text=Reset view').catch(() => {})
 await page.waitForTimeout(1500)
 const found = new Map()
+// Coarse on purpose: each probe is a pointer move under software GL, and the
+// largest hotspot on the home view is far wider than 80px. `neon` opens a tab
+// rather than a route, so it is skipped.
 for (let y = 120; y <= 680; y += 80) {
   for (let x = 80; x <= 1200; x += 80) {
     await page.mouse.move(x, y)

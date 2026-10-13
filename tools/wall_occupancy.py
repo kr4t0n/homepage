@@ -2,9 +2,9 @@
 """List what is mounted on the back wall, so a sign can be placed in a gap.
 
 Reports every object sitting near the wall plane with its glTF-space extents,
-then scans for horizontal bands of clear wall.
+then scans for x ranges where the wall is clear above y=1.55.
 
-Run: uv run --group blender python wall_occupancy.py ../room.blend
+Run: uv run --project tools --group blender python tools/wall_occupancy.py room-v3.blend
 """
 
 import os

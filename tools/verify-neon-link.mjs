@@ -1,10 +1,10 @@
 /**
  * Verifies the neon wordmark behaves as a link.
  *
- * Checks that hovering it announces the destination, that clicking opens
- * GitHub in a new tab, and that ending an orbit drag on it does not navigate.
- * That last one matters most: accidentally leaving the page is a worse failure
- * than accidentally opening a panel.
+ * Checks that hovering it resolves to the sign with a pointer cursor, that
+ * clicking opens GitHub in a new tab, and that ending an orbit drag on it does
+ * not navigate. That last one matters most: accidentally leaving the page is a
+ * worse failure than accidentally opening a panel.
  *
  * Run against the dev server: node tools/verify-neon-link.mjs [url]
  */
@@ -12,8 +12,6 @@ import { chromium } from 'playwright'
 import { BASE, requireOurServer } from './base.mjs'
 import { captureDir } from './captures.mjs'
 
-// Identify the target before launching a browser at it: aimed at a port
-// something else owns, this would otherwise time out hunting for a canvas.
 await requireOurServer()
 
 const OUT = captureDir()
@@ -37,13 +35,7 @@ const check = (ok, msg) => {
   if (!ok) failures++
 }
 
-/**
- * Hovered id, straight from the store.
- *
- * This used to scrape a hover readout out of the DOM. That readout has been
- * removed from the design, so the check now reads state through the dev-only
- * __hover handle instead of depending on visible chrome.
- */
+/** Hovered id, from the store rather than from anything visible. */
 const hovered = () => page.evaluate(() => window.__hover?.() ?? null)
 
 const away = async () => {
@@ -51,7 +43,7 @@ const away = async () => {
   await page.waitForTimeout(300)
 }
 
-// Locate the sign by sweeping the upper right of the wall for the readout.
+// Locate the sign by sweeping the upper right of the wall until it is hovered.
 let target = null
 for (let x = 1060; x <= 1200 && !target; x += 12) {
   for (let y = 250; y <= 340; y += 10) {

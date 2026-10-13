@@ -7,18 +7,11 @@ import { useScene } from '../store'
 import { orbit } from './orbit'
 
 /**
- * The three monitor panels, as independently interactive surfaces.
+ * The three monitor panels, as planes placed over them from geometry measured by
+ * tools/find_screens.py: the GLB merges them into `hot_screens` with no usable UVs.
  *
- * They are merged into `hot_screens` in the GLB, so no individual panel can be
- * addressed as a node, and the source UVs did not survive the join. Each screen
- * is instead an independent plane placed over its panel from world geometry
- * measured by tools/find_screens.py.
- *
- * Interaction is two-stage. The first click frames the screen dead-on; a second
- * click on an already-framed screen opens its link. A single click that
- * navigated off-site would be far too easy to hit by accident while looking
- * around a room, and the framed state gives the second click an unambiguous
- * target.
+ * The first click frames a screen; a second click on the framed screen opens its
+ * link, so looking around the room cannot navigate away by accident.
  */
 
 /** Sit just proud of the panel so the two planes do not z-fight. */
@@ -43,12 +36,9 @@ function ScreenImage({ screen }: { screen: ScreenDef }) {
     texture.colorSpace = THREE.SRGBColorSpace
     texture.anisotropy = 8
 
-    // Cover-fit rather than stretch. The panels are 2.4:1 and a page screenshot
-    // rarely is, so filling by scaling would distort noticeably: the Argus shot
-    // is 1.68:1, a 43% horizontal stretch. Crop instead, via the UV window.
-    //
-    // Dimensions come from the decoded image, not a hardcoded aspect, so this
-    // stays correct if an image is ever replaced with a differently shaped one.
+    // Cover-fit by cropping through the UV window, since the panels are 2.4:1 and
+    // a screenshot rarely is. The aspect comes from the decoded image, so a
+    // differently shaped replacement needs no other change.
     const img = texture.image as { width: number; height: number } | undefined
     if (img?.width && img.height) {
       const imageAspect = img.width / img.height

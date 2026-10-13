@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Convert the purchased .blend into a web-ready GLB.
 
-  1. strip materials that point at missing image files (kills magenta)
-  2. decimate over-dense meshes to a triangle budget
-  3. tag every object into a hotspot group by world-space AABB region
+  1. strip image-texture nodes whose files are missing (kills magenta)
+  2. tag every object into a group by world-space AABB region
+  3. convert curves and text to mesh, bake modifiers, decimate to a triangle budget
   4. join each group into one mesh named `hot_<group>` / `static_<group>`
-  5. export GLB (+Y up), then Draco-compress via gltf-transform if available
+  5. export a Draco-compressed GLB (+Y up)
 
-Run: uv run --group blender python export_glb.py ../room.blend ../public/room.glb
+Also writes src/scene-manifest.json and src/ranking-anchors.json.
+
+Run: pnpm run room
 """
 
 import json
@@ -25,8 +27,8 @@ DEST = os.path.abspath(
 os.makedirs(os.path.dirname(DEST), exist_ok=True)
 
 # ---------------------------------------------------------------- regions --
-# Interactive hotspots become their own glTF node so the frontend can raycast
-# them individually. Everything else is merged into one static mesh.
+# An object joins the first region whose box contains its centre, so order
+# matters. A True flag makes the group a `hot_` node the frontend raycasts.
 # Boxes are (xmin, xmax, ymin, ymax, zmin, zmax) in Blender space, aligned in
 # columns so neighbouring boxes can be compared; the formatter would undo that.
 # fmt: off
@@ -35,37 +37,19 @@ REGIONS = [
     ("desk",      (-1.05, 3.10,  0.35, 2.10, -0.05, 0.95), True),
     ("chair",     (-0.20, 1.30, -0.30, 1.00, -0.05, 1.35), False),
     ("hexpanels", ( 2.60, 4.90,  1.60, 2.20,  0.80, 3.00), True),
-    # The pixel board, added to the source scene later than everything else: a
-    # 24x42 grid of individual pixel meshes on the -x wall. It MUST come before
-    # `wallart` and `shelves`, because objects land in the first region whose box
-    # contains their centre and those two would otherwise split the board three
-    # ways -- rows above y=-1.00 into wallart, rows below it into shelves, and
-    # the bottom strip below z=1.70 into static. A hotspot cannot be three
-    # meshes. The box also catches Plane.068, a zero-vertex degenerate plane that
-    # happens to sit on the same wall; it contributes no geometry either way.
+    # Must precede `wallart` and `shelves`, whose boxes overlap this one and
+    # would split the board between them (see AGENTS.md on region order). Also
+    # catches Plane.068, a zero-vertex plane on the same wall that adds nothing.
     ("pixelboard", (-2.05,-1.85, -2.83,-0.93,  1.40, 2.45), True),
-    # The ranking board, added in room-v2 immediately beside the pixel board on
-    # the same -x wall. Same ordering trap as the pixel board and worse: the
-    # `wallart` box below contains this one entirely, so listed after it the
-    # whole board would vanish into a static mesh. The two y ranges stop short
-    # of each other, so the boxes never touch and neither can steal a stray
-    # object from the other.
-    #
-    # Both y ranges shifted -0.382 for room-v3, which slid both boards along
-    # the wall. These are hand-authored world-space AABBs, so a nudge in
-    # Blender relocates objects into a neighbouring region rather than failing:
-    # left at the v2 numbers, most of the ranking board would have fallen
-    # inside the `pixelboard` box and the two boards would have merged into a
-    # single hotspot. The assertion after the tagging pass makes that loud.
+    # Must precede `wallart`, whose box contains this one entirely. Its y range
+    # stops short of `pixelboard`'s, so neither box can take the other's strays.
     ("ranking",    (-2.01,-1.87, -0.90,-0.32,  1.44, 2.40), True),
     ("wallart",   (-2.30,-1.60, -1.00, 1.00,  1.40, 3.10), True),
     ("shelves",   (-2.30,-1.55, -4.20,-0.20,  1.70, 3.10), True),
     ("sofa",      (-2.10,-0.55, -3.00,-0.10, -0.05, 1.20), True),
     ("table",     (-0.55, 0.75, -2.10,-0.75, -0.05, 0.80), False),
-    # Names below describe what these boxes ACTUALLY enclose, verified by
-    # hover capture and by listing their contents. The first two were
-    # originally guessed from position and were both wrong, which is why the
-    # Music hotspot spent a while attached to the DJ controller.
+    # Named for what each box encloses, not where it sits; recheck with
+    # tools/verify-hotspots.mjs after moving one.
     ("micstand",     (-0.90, 1.10, -4.80,-3.10, -0.05, 1.30), False),
     ("djcontroller", ( 1.20, 3.30, -4.80,-2.90, -0.05, 1.20), True),
     ("synth",        ( 3.30, 4.90, -3.40,-1.40, -0.05, 1.80), True),
@@ -123,19 +107,9 @@ for img in list(bpy.data.images):
             bpy.data.images.remove(img)
 
 # ------------------------------------------------- 1a. unlock everything --
-# The outliner's selection lock is authoring state, not scene content, and it
-# is invisible to every check that matters here. `select_set(True)` on a
-# hide_select object is a SILENT no-op: it does not raise, does not warn, and
-# `select_get()` simply keeps returning False. The join in step 4 then has
-# nothing selected but the active object, returns {'CANCELLED'} rather than
-# raising, and the group ends up as whichever single object happened to be
-# first.
-#
-# That is exactly what room-v2 did on arrival: 193 of the ranking board's 205
-# objects were locked, so `hot_ranking` exported as a 92-triangle enclosure
-# with the other 15,828 triangles scattered across 187 stray top-level nodes.
-# It exported cleanly and rendered the board in roughly the right place, which
-# is what makes this worth clearing on principle rather than diagnosing twice.
+# `select_set(True)` on a hide_select object is a silent no-op, so the join in
+# step 4 would leave locked objects out of their group without any error. See
+# AGENTS.md on the outliner's selection lock.
 locked = 0
 for o in scene.objects:
     if o.hide_select:
@@ -145,23 +119,9 @@ for o in scene.objects:
 print(f"cleared the selection lock on {locked} objects")
 
 # ------------------------------------------ 1b. one material per LED slot --
-# The ranking board's 160 bar segments all point at a single material in the
-# source scene, `Ranking - LED P01 S01`. That is fine for a still render and
-# useless for a live one: writing emissive on a shared material lights all 160
-# at once, so the bars could only ever be full or empty.
-#
-# The .blend already contains the complete 5x32 set of `Ranking - LED Pnn Snn`
-# materials, with the per-row colour ramp the board was designed around -- row
-# one gold, row five green. They were authored and then never assigned, so this
-# hooks up what is already there rather than inventing 160 copies. The naming
-# convention is the author's; the frontend looks materials up by these names,
-# the same way it finds the 1008 `Pixel Light R# C#` cells.
-#
-# The mesh copy on the first line of the loop is load-bearing and easy to miss:
-# all 160 LEDs are linked duplicates of ONE datablock, `Ranking - Shared
-# beveled LED`, with 160 users. Assigning through `o.data.materials` without
-# breaking that link writes through every LED at once, and the loop finishes
-# with all 160 wearing whichever material the last iteration reached.
+# The 160 bar segments share `Ranking - LED P01 S01` in the source, so live
+# emissive would light them all at once. The .blend holds an unassigned
+# `Ranking - LED Pnn Snn` per segment, the names RankingBoard.tsx looks up.
 wired, missing_mats = 0, []
 for o in scene.objects:
     if o.type != "MESH" or not o.name.startswith("RankingLED_"):
@@ -171,6 +131,8 @@ for o in scene.objects:
     if mat is None:
         missing_mats.append(want)
         continue
+    # All 160 are linked duplicates of one mesh; without the copy, assigning
+    # writes through every LED.
     o.data = o.data.copy()
     o.data.materials.clear()
     o.data.materials.append(mat)
@@ -202,14 +164,9 @@ for o in props:
     else:
         group_of[o.name] = "static"
 
-# The regions above are hand-authored world-space boxes, and objects land in
-# the first one containing their centre. Nothing about that fails when a board
-# is nudged in Blender -- the strays simply join a neighbouring group, which
-# then exports as a perfectly valid hotspot containing the wrong things. Both
-# boards moved -0.382 in room-v3 and would have done exactly that.
-#
-# Both are named systematically, so assert the mapping rather than eyeball the
-# triangle counts afterwards.
+# A board nudged out of its box in Blender would join a neighbouring group and
+# export as a valid hotspot holding the wrong things. Both boards are named
+# systematically, so assert where every object landed.
 for prefix, want in (("Pixel", "pixelboard"), ("Ranking", "ranking")):
     strays = sorted(
         n
@@ -227,26 +184,11 @@ for prefix, want in (("Pixel", "pixelboard"), ("Ranking", "ranking")):
 print("every board object landed in its own region")
 
 # --------------------------------- 2b. drop text the frontend will replace --
-# The ranking board ships with placeholder copy baked into FONT objects:
-# `PROJECT 01`..`PROJECT 05`, five geometry-nodes score readouts frozen at
-# 92/78/64/46/28, and a `SAMPLE PROJECTS` footer. Once the board is driven by
-# live data every one of those is a false statement rendered in geometry, and
-# `SAMPLE PROJECTS` is the worst of them: it tells the reader the numbers above
-# it are made up, on a board where they no longer are.
-#
-# They are deleted here rather than in the .blend so the source file stays a
-# self-contained mockup that still renders correctly on its own. RankingBoard
-# draws live text at the same anchors.
-#
-# Everything else on the board stays baked, because it stays true regardless of
-# the data: the rank digits 01-05, `CURRENT RANKING`, `SCORE / 100`, `ACTIVE`,
-# and the 05 entry count are all fixed properties of a five-row board.
+# Baked ranking-board text that live data contradicts: placeholder names and
+# scores, `SAMPLE PROJECTS`, and captions for a normalised score over a column
+# of token totals. Text true of any five-row board stays baked.
 placeholders = [f"Ranking Project {i:02d} - Name" for i in range(1, 6)]
 placeholders += [f"Ranking Project {i:02d} - Score" for i in range(1, 6)]
-# `SAMPLE PROJECTS` tells the reader the numbers above it are invented, on a
-# board where they no longer are. `SCORE / 100` and `HIGH SCORE FIRST` describe
-# a normalised score, and the right-hand column now prints the token totals the
-# rows are actually ranked by -- keeping them would caption the wrong quantity.
 placeholders += ["Ranking - Sample label", "Ranking - Metric caption", "Ranking - Footer note"]
 doomed = {n for n in placeholders if bpy.data.objects.get(n) is not None}
 if doomed != set(placeholders):
@@ -257,12 +199,9 @@ if doomed != set(placeholders):
     )
 
 
-# Measure before deleting, and hand the frontend the anchors rather than a set
-# of magic numbers copied out of Blender by hand. Those would be correct once
-# and then rot silently the first time a row moved: the board would still
-# render, with the names a few millimetres off the rows they describe.
-#
-# Recorded in glTF space (Y up, z = -y) so the frontend can use them directly.
+# World box in glTF space (Y up, z = -y). The placeholders' boxes are the
+# anchors RankingBoard.tsx draws live text at, measured here so they follow
+# the board when it moves.
 def gltf_box(o):
     mn, mx = wbb(o)
     lo = [round(mn.x, 5), round(mn.z, 5), round(-mx.y, 5)]
@@ -328,11 +267,9 @@ if curves:
 bpy.ops.object.select_all(action="DESELECT")
 print(f"converted {len(curves)} curves to mesh at low resolution")
 
-# Pass 3: text -> mesh. glTF has no text primitive, so a FONT object is dropped
-# on export without warning. The pixel board's hour and weekday labels are FONT,
-# so without this the board exports as an unlabelled grid. Converted after the
-# region pass above, which is why FONT is in `props`: the group is keyed by
-# object name and conversion preserves it.
+# Pass 3: text -> mesh. glTF has no text primitive and the exporter drops FONT
+# objects silently, taking the pixel board's labels with them. FONT is in
+# `props` so these were tagged above; conversion keeps the name the group is keyed by.
 fonts = [o for o in scene.objects if o.type == "FONT"]
 for o in fonts:
     o.select_set(True)
@@ -346,17 +283,9 @@ bpy.ops.object.select_all(action="DESELECT")
 print(f"converted {len(fonts)} text objects to mesh")
 
 # ------------------------------------- 3b. bake modifiers before joining --
-# bpy.ops.object.join() keeps only the ACTIVE object's modifier stack and
-# silently discards everyone else's. Several props here are defined by their
-# modifiers rather than by their base mesh, so joining without baking first
-# deletes real geometry with no warning: the synth's white keybed is one key
-# with an ARRAY of 22, and joining left exactly one key behind.
-#
-# Subsurf is dropped rather than applied. It only smooths, every one of these
-# objects is decimated afterwards anyway, and applying it first is expensive
-# for nothing: three props in this scene go from 858 to 167,552 triangles.
-# Everything else is baked, because ARRAY, MIRROR and SOLIDIFY change which
-# geometry exists at all.
+# join() silently discards every non-active object's modifiers, and several
+# props are defined by theirs (ARRAY, MIRROR, SOLIDIFY), so bake first. Subsurf
+# only smooths and decimation follows, so it is dropped rather than baked.
 dropped = 0
 baked = 0
 for o in [x for x in scene.objects if x.type == "MESH" and x.modifiers]:
@@ -422,12 +351,8 @@ for g, obs in sorted(buckets.items()):
         except Exception as e:
             print(f"  join failed for {g}: {e}")
     merged = view.objects.active
-    # A join that swallowed only some of its group is the failure mode worth
-    # guarding: bpy.ops.object.join() returns {'CANCELLED'} rather than raising
-    # when nothing but the active object is selected, so the try/except above
-    # sees nothing wrong. The group still exports, still lands in the manifest,
-    # and still renders in roughly the right place -- with most of its geometry
-    # left behind as loose top-level nodes the frontend has no name for.
+    # join() returns {'CANCELLED'} rather than raising when only the active
+    # object is selected, and what it left behind still exports as loose nodes.
     # Compare triangles instead of trusting the operator.
     got = tris(merged)
     if got != want:

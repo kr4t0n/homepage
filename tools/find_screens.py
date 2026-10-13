@@ -2,13 +2,12 @@
 """Locate the monitor screen faces and emit their world-space placement.
 
 The screens are merged into one node at export, so the frontend cannot address
-an individual panel. Instead of splitting the mesh, this reports each screen's
-centre, normal and in-plane axes, which is enough to lay an independent textured
-plane exactly over it in the scene.
+an individual panel. This reports each screen's centre, normal and in-plane
+axes, which is enough to lay an independent textured plane exactly over it.
 
 Emits glTF-space (Y up) values, matching src/scene-manifest.json.
 
-Run: uv run --group blender python find_screens.py ../room.blend
+Run: uv run --project tools --group blender python tools/find_screens.py room-v3.blend
 """
 
 import json
