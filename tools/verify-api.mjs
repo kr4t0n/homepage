@@ -130,7 +130,9 @@ if (proxy.state !== 'live') {
     check('the live proxy checks ran', false, proxy.why)
   } else {
     console.log(`skip  live proxy checks - ${proxy.why}`)
-    console.log('      (VERIFY_STRICT=1 makes this a failure; CI sets it)')
+    console.log(
+      '      (VERIFY_STRICT=1 makes this a failure; set it wherever the result is a gate)',
+    )
   }
 } else {
   // No try/catch on purpose: a throw here is a real defect and should crash, not
