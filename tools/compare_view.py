@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Source vs export, from an arbitrary camera.
 
-Renders the same framing from the repo's room.blend and public/room.glb, so a
-suspect object can be compared directly. Defaults to the front-right of the
-room, where the DJ controller sits.
+Renders the same framing from room.blend at the repo root (gitignored, never
+committed) and public/room.glb, so a suspect object can be compared directly.
+Defaults to the front-right of the room, where the DJ controller sits.
 
 Run: uv run --project tools --group blender python tools/compare_view.py
        [eyeX eyeY eyeZ atX atY atZ] [name]

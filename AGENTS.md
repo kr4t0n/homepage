@@ -40,10 +40,12 @@ Argus /me/pixels           --+
         1008 cells, hours won       5x32 LEDs, tokens            per-cell hover readout
 ```
 
-The proxy exists because `ARGUS_KEY` must never reach the browser. Only `api.ts`
-reads it, and only the missing `VITE_` prefix keeps Vite from inlining it, so
-renaming the variable or importing `api.ts` from client code would ship it
-(`verify-api.mjs` scans `dist/` for it). The proxy's 9s cache, single-flight,
+The proxy exists because `ARGUS_KEY` must never reach the browser. Only server
+code reads it, from `process.env` (`api.ts` for the upstream call, `serve.ts`
+for a startup warning; in dev `vite.config.ts` loads it there from `.env`), and
+the missing `VITE_` prefix is what keeps Vite from inlining its value: renamed
+`VITE_ARGUS_KEY`, it ships to every visitor. `verify-api.mjs` checks `dist/` for
+the value, the name and the server module. The proxy's 9s cache, single-flight,
 strict validation, field reduction and server-side failure log keep that hop
 cheap and honest. One Hono handler is mounted twice: `@hono/vite-dev-server` in
 `pnpm run dev`, `@hono/node-server` in `src/server/serve.ts` in the container,
@@ -69,7 +71,7 @@ grey; add fill instead (see Rendering).
 
 **Regions are hand-authored world-space AABBs, and an object joins the first
 region containing its centre.** So order is load-bearing (`pixelboard` precedes
-`wallart` and `shelves`, whose boxes also contain it; otherwise the board splits
+`wallart` and `shelves`, whose boxes overlap it; otherwise the board splits
 three ways and a hotspot cannot be three meshes), a nudge in Blender silently
 moves objects into a neighbouring, still-valid group, and a region's name is not
 evidence of its contents. The export asserts that every `Pixel*` and `Ranking*`
@@ -88,17 +90,18 @@ is in `props` so labels get a region before conversion. A missing label means
 check this first.
 
 **The outliner's selection lock silently breaks a join.** `select_set(True)` on
-a `hide_select` object is a no-op that raises nothing, so
-`bpy.ops.object.join()` finds only its active object, returns `{'CANCELLED'}`
-rather than raising, and the group exports as one mesh while the rest ship as
-loose nodes that still render. Step 1a clears the lock, and the join compares
-triangle counts and refuses to export on a mismatch. Never trust a join
-operator's return value.
+a `hide_select` object is a no-op that raises nothing (`select_get()` just keeps
+returning False), so `bpy.ops.object.join()` finds only its active object,
+returns `{'CANCELLED'}` rather than raising, and the group exports as one mesh
+while the rest ship as loose nodes that still render. Step 1a clears the lock,
+and the join compares triangle counts and refuses to export on a mismatch. Never
+trust a join operator's return value.
 
 **`join()` discards every non-active object's modifiers**, and several props are
 defined by theirs (the synth keybed is one key with an ARRAY of 22; MIRROR and
 SOLIDIFY elsewhere). Modifiers are baked before joining; subsurf is dropped
-instead, since decimation follows.
+instead, since decimation follows and, applied, it took three props from 858 to
+167,552 triangles.
 
 **`export_apply=True` applies modifiers after any counting you do.** Bake and
 count in the same pass, and check the shipped total from the GLB's accessors,
@@ -154,8 +157,10 @@ floor; with one key and a flat ambient, everything not facing the key crushes to
 black. `lighting.ts` adds a hemisphere term for sky and floor plus a weak
 opposite-side bounce. Before changing the model, compare against an offline
 render of the same GLB: `tools/diagnose_keys.py` (source, export, flat-material
-export) and `tools/diagnose_lighting.py` (a neutral light, then roughly the
-site's key and ambient without its fill).
+export) and `tools/diagnose_lighting.py` (a bright neutral light, then a dim
+ambient and one sun with no fill; that sun is not the site's key, since it takes
+the site's Y-up `(7, 10, 7)` as Blender's Z-up and lands about 76° away, behind
+the back wall).
 
 **Never overwrite an authored `emissiveIntensity`.** Every glowing material
 carries `KHR_materials_emissive_strength` between 1 and 10; forcing one value
@@ -172,9 +177,11 @@ the other side of the room and the cache, which is why `verify-hotspots.mjs`
 tints through copies.
 
 **The scene-clone `useMemo` in `Room.tsx` must be pure**, because `<StrictMode>`
-runs it twice in development and keeps the first result. Every material in the
-clone is a copy, so neither run writes into the cache. Two properties of the
-copy keep production pixel-identical:
+runs it twice in development and keeps the first result. An impure one shows as
+a dev room darker than production, darker again on each hot reload of
+`Room.tsx`, which matters because `lighting.ts` is tuned in dev. Every material
+in the clone is a copy, so neither run writes into the cache. Two properties of
+the copy keep production pixel-identical:
 - **Sharing survives.** The roughness lift runs once per mesh, so a material
   shared by k meshes is lifted k times. Hotspot meshes get a copy per mesh (the
   wall boards write live emissive into theirs); every other material gets one
@@ -231,11 +238,12 @@ change of standoff. Rescale `look` whenever `offset` changes.
 the standoff. Keep the x offset near zero for wide props: moving sideways while
 aiming at the centre swings the far end out of frame.
 
-**Aiming at a node's bounding-box centre does not centre it on screen**, because
-joined groups include stands and legs. The DJ controller needs `look.x = -0.55`;
-aimed at its centre it sits near enough the left edge to clip at other aspect
-ratios. Pointer parallax is not the cause: it eases to zero while a hotspot is
-focused. Framing offsets are empirical: change one, screenshot, look.
+**Aiming at a node's bounding-box centre does not centre it on screen**,
+probably because joined groups include stands and legs. The DJ controller needs
+`look.x = -0.55`; aimed at its centre it sits near enough the left edge to clip
+at other aspect ratios. Pointer parallax is not the cause: it eases to zero
+while a hotspot is focused. Framing offsets are empirical: change one,
+screenshot, look.
 
 **Screen framing distance is computed.** The panels are 2.4:1, so height limits
 a wide window and width a narrow one; `poseForScreen` derives the distance from
@@ -249,13 +257,15 @@ and the pointer cursor (`bindCursor`) is the only cue. The neon sign brightens
 under the pointer as part of the sign. There is no header either: the neon sign
 is the wordmark and the GitHub link, so a header would spend the room's whole
 upper edge on a duplicate. The per-cell `PixelTooltip` is not a hover hint: it
-appears only on the focused board and carries numbers shown nowhere else. The
-one piece of chrome kept on purpose is the HUD speaker: the room plays on its
-own, so stopping it must not depend on finding the decks. It sits top-right so
-it stays reachable while a panel owns the lower half, and hides only while a
-framed screen fills the frame. If a highlight ever returns, blend the accent
-into the material's own emissive, or props flatten into silhouettes and glowing
-ones lose their glow.
+appears only on the focused board and carries numbers shown nowhere else. Two
+controls stay on purpose. Reset view appears only once the visitor has moved the
+home view. The HUD speaker shows whenever a track is available: the room plays
+on its own, so stopping it must not depend on finding the decks. It sits
+top-right so it stays reachable while a panel owns the lower half, and hides
+while a framed screen fills the frame or when no track is served, which is the
+normal state for a clone. If a highlight ever returns, blend the accent into the
+material's own emissive, or props flatten into silhouettes and glowing ones lose
+their glow.
 
 **The hotspot index in `Hud.tsx` is for the keyboard, and it is the only
 keyboard route into the room.** Every hotspot, and the Argus, nodex and GitHub
@@ -286,12 +296,12 @@ picking and framing both read `hotspotNodes(h)`, and framing takes the union of
 the boxes. Reading `h.node` gives a hotspot that picks or frames only half of
 itself, which looks like design rather than a bug. Signals is both wall boards.
 
-**A hotspot can be `bare`**: focusing opens no panel, and the only chrome is
-"Back to the room", as for a framed monitor. Signals is bare because the boards
-are the whole readout and a panel covered their bottom edge restating it. A bare
-hotspot is framed to fill the frame, not the top half, has no glass to gate, and
-has no DOM representation at all: see README "Known gaps" before adding another
-one that carries content.
+**A hotspot can be `bare`**: focusing opens no panel, and the only chrome it
+adds is "Back to the room", as for a framed monitor. Signals is bare because the
+boards are the whole readout and a panel covered their bottom edge restating it.
+A bare hotspot is framed to fill the frame, not the top half, has no glass to
+gate, and has no DOM representation at all: see README "Known gaps" before
+adding another one that carries content.
 
 **The monitors are overlays, not the GLB mesh.** All three faces are merged into
 `hot_screens` with their UVs lost, so `Screens.tsx` places a transparent hit
@@ -323,16 +333,17 @@ focuses an open `<dialog>` when anything inside is clicked, so the next key
 draws the focus ring around the whole panel and arrow keys and PageDown stop
 scrolling its inner scroller. A screen reader hears the same either way.
 `Panel.tsx` turns off jsx-a11y's `prefer-tag-over-role` on both lines with that
-reason. The preloader is an `<output>`, so the scripts wait for `output` to go,
-and the "no panel opened" checks ask `getByRole('dialog')`, which counts a
-dialog however it is marked up.
+reason. The preloader is an `<output>`, so the scripts wait for `output` to go.
+The two checks that no panel opened, in `verify-boards` and `verify-screens`,
+ask `getByRole('dialog')`, which counts a dialog however it is marked up.
 
 ## UI and CSS
 
 **Never hand-write a `-webkit-` prefix.** Lightning CSS (inside Tailwind v4)
 autoprefixes and treats `-webkit-backdrop-filter` as an alias of the standard
 property, so writing both keeps whichever came last, and Chromium ignores the
-prefixed one. Write the standard property alone.
+prefixed one: the computed `backdrop-filter` reads `none` with no warning. Write
+the standard property alone.
 
 **Component base styles go in `@layer components`.** `.glass` sets `position:
 relative`; in `@layer utilities` it beat Tailwind's own `fixed` by source order
@@ -406,8 +417,8 @@ check of content that arrives over the network.
 floats over the activity board, the brightest and most saturated thing in the
 room, where clear glass leaves body text near 1:1 over a lit cell; muted text
 needs a fill of about 0.80 to reach 4.5:1 over the acid colour, so 0.92 leaves
-margin for any cell. It keeps `.glass`'s edge and radius so it reads as one of
-the panels.
+margin for any cell. It keeps `.glass`'s edge, with a radius of its own, so it
+reads as one of the panels.
 
 **When measuring contrast on a surface, never sample its own chrome.** The gate
 insets past the panel padding: the border, rim and specular sheen are bright,
@@ -471,9 +482,9 @@ paths with a username in them, `machineId`, `projectId`, `costUsd`), so names
 are resolved on the server: forwarding that endpoint, or looking names up in the
 browser, would publish all of it. Scalars and arrays of scalars are safe once
 named; objects are not, so `breakdown` is rebuilt rather than copied. A new
-upstream field therefore needs a line here before it can be published, which is
-the right trade for a public endpoint. README, "Environment", has the field
-table.
+upstream field therefore needs a line in `publish` before it can be published,
+which is the right trade for a public endpoint. README, "Environment", has the
+field table.
 
 **Token counts are published; cost is not.** The proxy reduces upstream `usage`
 to `in`/`out`/`cached` instead of spreading it, because `costUsd` sits in the
@@ -537,10 +548,10 @@ where `*` stops at a path separator, so `*.mp3` matches only the context root.
 Patterns meant for any depth need `**/`.
 
 **The chart has nodex's shape and is published from this repo**: one Deployment,
-a Service, optional Ingress and Secret, the same helpers, `existingSecret`
-pattern, `validate` template and `helm-publish.yml` as `kr4t0n/nodex`, so the
-homelab helmfile treats it like every first-party chart. `gh-pages` carries only
-`helm/`; the site is never served from Pages.
+a Service, and an optional Ingress, Secret and media PVC, the same helpers,
+`existingSecret` pattern, `validate` template and `helm-publish.yml` as
+`kr4t0n/nodex`, so the homelab helmfile treats it like every first-party chart.
+`gh-pages` carries only `helm/`; the site is never served from Pages.
 
 **The chart refuses configurations the server would accept.** A URL without a
 key, a key without a URL, or a URL without a scheme start cleanly and then 502
@@ -555,9 +566,10 @@ node` if the base image changes.
 
 **A chart version and its image are released by two different events.**
 `appVersion` equals `version` and names a semver image tag. Merging to `main`
-publishes the chart; only pushing `v<version>` builds the image. Forget the tag
-and the chart points at an image that does not exist, and nothing fails at
-publish time. Steps: README, "The Helm chart".
+publishes the chart and builds the `latest`, `main` and `sha-` images, but the
+version-tagged image `appVersion` names is built only when `v<version>` is
+pushed. Forget the tag and the chart points at an image that does not exist, and
+nothing fails at publish time. Steps: README, "The Helm chart".
 
 **`image.pullPolicy` is empty on purpose**, so Kubernetes picks `Always` for
 `latest` and `IfNotPresent` for a version or sha, rather than a hardcoded
@@ -611,8 +623,9 @@ not Safari anyway; autoplay, volume and codec changes need a manual pass in real
 Safari. Headless Chromium's default autoplay policy is laxer than a browser's,
 so `verify-player.mjs` passes
 `--autoplay-policy=document-user-activation-required`. Chromium fetches media
-with range requests and refuses `application/octet-stream`, so the test servers
-answer `Range` and send real MIME types.
+with range requests and refuses `application/octet-stream`, so
+`verify-player.mjs`'s server answers `Range`, and the harnesses' MIME maps send
+`audio/mpeg`.
 
 **Popups are rate-limited per page.** `verify-screens.mjs` opens one real popup,
 then asserts on recorded `window.open` calls; a third real popup is silently
@@ -702,7 +715,8 @@ sets it, and must keep it when bumping `rev` until upstream does.
 
 ## Technical debt
 
-- The sofa is still 42k of the 160k triangles after decimation.
+- The sofa is still 42,836 of the room's 389,978 triangles after decimation,
+  second only to the pixel board (README, "The asset pipeline").
 - No `<Environment>` map. The hemisphere fill approximates one, but image-based
   lighting would seat the metals and the guitar better and close the gap to the
   offline renders.

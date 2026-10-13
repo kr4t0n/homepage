@@ -18,9 +18,10 @@ export interface PixelProject {
    */
   name?: string
   /**
-   * Every token spent in the grid's window, from the same lookup as `name`, so
-   * it does not reconcile with hours won. `in` includes cache reads and `cached`
-   * is the part of `in` they make up. Cost is never carried.
+   * Every token spent in the grid's window, from the same lookup as `name`. It
+   * counts all of a project's tokens, hours won or not, so it does not reconcile
+   * with hours won. `in` includes cache reads and `cached` is the part of `in`
+   * they make up. Cost is never carried.
    */
   tokens?: { in: number; out: number; cached: number }
   /** Not sent by Argus; tolerated by validate and dropped by publish. */

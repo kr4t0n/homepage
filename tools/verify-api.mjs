@@ -2,9 +2,9 @@
  * API checks that need a build or a running server: secret containment in the
  * built client, and what the live proxy discloses.
  *
- * Only the missing VITE_ prefix keeps ARGUS_KEY out of the bundle. Renaming it
- * to VITE_ARGUS_KEY, or importing src/server/api.ts from client code, ships the
- * key to every visitor with no warning from any tool but the secrets section.
+ * Only the missing VITE_ prefix keeps ARGUS_KEY's value out of the bundle:
+ * renamed VITE_ARGUS_KEY, it ships to every visitor with no warning from any
+ * tool but the secrets section, which also fails if the server module is bundled.
  *
  * The payload validator, the grid and ranking maths, and the proxy against a
  * stubbed upstream are unit tests beside the code: `pnpm run test`.

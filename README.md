@@ -98,8 +98,8 @@ server is reported as such instead of being tested as though it were the proxy.
 
 **Run it with `VERIFY_STRICT=1` anywhere the result is a gate.** Without it, a
 section that could not run is a note and the script still exits 0 — convenient
-locally, useless as a gate. See the entry in AGENTS.md for what that cost before
-it was fixed.
+locally, useless as a gate. See "A check that skips is a check that passes" in
+AGENTS.md.
 
 Note that project *names* are public by design here: the board says `fluvio`,
 `harbor`, `homepage` rather than hashes. If a name should not be, the place to

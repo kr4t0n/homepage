@@ -9,8 +9,9 @@ import { validate, liveSlot, type PixelPayload } from '../shared/pixels'
  */
 
 /**
- * Just over the proxy's 9s cache, so Argus sees about one call per interval
- * however many visitors are polling.
+ * Often enough that the live cell's blink tracks what is running now, and just
+ * over the proxy's 9s cache, so Argus sees about one call per interval however
+ * many visitors are polling.
  */
 const POLL_MS = 10_000
 
@@ -52,8 +53,9 @@ async function poll(signal: AbortSignal) {
     const res = await fetch('/api/pixels', { signal })
     if (!res.ok) throw new Error(`proxy responded ${res.status}`)
     const json = await res.json()
-    // Checked again despite the proxy: the boards index by winner and loop on
-    // slotCount, so a bad shape would throw inside the render tree.
+    // Checked again despite the proxy: the boards read `winners`, `intensity`,
+    // `projects` and `live` straight off it, so a bad shape would throw inside
+    // the R3F tree.
     validate(json)
     usePixels.setState({ data: json, live: liveSlot(json) })
   } catch {

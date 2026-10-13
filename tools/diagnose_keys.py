@@ -6,8 +6,8 @@
   C  our exported room.glb, one uniform DOUBLE-SIDED material
 
 A vs B separates a source problem from an export problem. B vs C separates a
-material problem from a winding/normals problem: if C shows keycaps that B does
-not, the faces exist but point the wrong way, which this asset has form for.
+material problem from a winding/normals problem: if C shows faces that B does
+not, they exist but point the wrong way, which this asset has form for.
 
 Run: uv run --project tools --group blender python tools/diagnose_keys.py
 """
