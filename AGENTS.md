@@ -675,7 +675,9 @@ sets it, and must keep it when bumping `rev` until upstream does.
   root with `uv run --project tools`. Never `pip install` or `uv pip install`
   into it; use `uv add` and `uv sync`.
 - bpy is in the `blender` dependency group, never a default one, so `uv sync`
-  and CI install Ruff alone and skip a 357 MB wheel. `requires-python` is
+  and CI install the dev group (Ruff, pip-audit) and skip a 357 MB wheel.
+  pip-audit audits the environment, not the lock, so CI's run never sees bpy's
+  group: after a change to it, run `pip-audit` with `--group blender` too. `requires-python` is
   `==3.11.*` because each bpy release targets one CPython minor (5.0.x is the
   last for 3.11). Moving bpy changes `requires-python`, `.python-version` and
   the lock together, and the owner re-runs the export, since only the owner has

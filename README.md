@@ -15,8 +15,8 @@ plain, fully readable 2D page when WebGL is unavailable or the viewport is small
   support.
 - pnpm, at the version pinned in `packageManager` in `package.json`. Node 22
   and 24 ship corepack, so `corepack enable pnpm` once is enough.
-- [uv](https://docs.astral.sh/uv/), for the Python in `tools/`: Ruff, and the
-  asset pipeline when you re-run it. That needs Python 3.11 exactly, because
+- [uv](https://docs.astral.sh/uv/), for the Python in `tools/`: Ruff,
+  pip-audit, and the asset pipeline when you re-run it. That needs Python 3.11 exactly, because
   each `bpy` release is built for one CPython minor. uv reads the version from
   `tools/.python-version` and downloads it if the machine doesn't have it.
 - [pre-commit](https://pre-commit.com/) and [gitleaks](https://github.com/gitleaks/gitleaks),
@@ -27,7 +27,7 @@ plain, fully readable 2D page when WebGL is unavailable or the viewport is small
 
 ```bash
 pnpm install
-uv sync --project tools # Ruff for the Python in tools/; leaves bpy out
+uv sync --project tools # Ruff and pip-audit for tools/; leaves bpy out
 pre-commit install      # once per clone: secret scan and Ruff on staged changes
 git config blame.ignoreRevsFile .git-blame-ignore-revs   # once per clone
 pnpm run dev            # http://localhost:5173
@@ -166,13 +166,17 @@ Delete it once you have looked.
 `.python-version` sit beside the scripts, and the environment goes in
 `tools/.venv`. bpy is in a dependency group named `blender`, which a plain
 `uv sync` leaves out and CI never installs. Ruff lints and formats the scripts;
-its settings are under `[tool.ruff]` in `tools/pyproject.toml`.
+its settings are under `[tool.ruff]` in `tools/pyproject.toml`. pip-audit
+checks the packages installed in `tools/.venv` for known vulnerabilities, so
+bpy and its dependencies are audited only by a run with `--group blender`.
 
 ```bash
 uv run --project tools ruff check tools            # lint, as CI does
 uv run --project tools ruff check --fix tools      # apply the fixes Ruff can make
 uv run --project tools ruff format tools           # format in place
 uv run --project tools ruff format --check tools   # as CI does
+uv run --project tools pip-audit --strict          # audit, as CI does
+uv run --project tools --group blender pip-audit --strict   # bpy's group too
 ```
 
 There is no type checker. bpy ships no type stubs, so nearly everything these
@@ -810,7 +814,7 @@ src/
     player.ts           backing-track playback, autoplay policy, ducking
     track.ts            the runtime track manifest: URL and validation
 tools/
-  pyproject.toml        the Python side: Python 3.11, Ruff, bpy in the blender group
+  pyproject.toml        the Python side: Python 3.11, Ruff, pip-audit, bpy in the blender group
   uv.lock               exact versions for all of it
   .python-version       3.11, for uv
   export_glb.py         the asset pipeline
@@ -848,7 +852,7 @@ vitest.config.ts        unit tests, kept apart from vite.config.ts and its .env
 .git-blame-ignore-revs  the reformat commits, which git blame skips
 .github/dependabot.yml  monthly grouped updates for npm and the actions
 .github/workflows/
-  ci.yml                secret scan, lint, format, Ruff, typecheck, unit tests, both builds, chart lint
+  ci.yml                secret scan, lint, format, Ruff, pip-audit, typecheck, unit tests, both builds, chart lint
   image.yml             build, run and check the image, push to Docker Hub
   helm-publish.yml      package the chart to gh-pages
 ```
