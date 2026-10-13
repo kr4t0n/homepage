@@ -421,7 +421,7 @@ const advance = (r1 - h1 + 360) % 360
 check(
   'it resumes from the held angle, not from zero',
   paused && advance > 5 && advance < 150,
-  `${h1}deg -> ${r1}deg (advanced ${advance}deg)`,
+  paused ? `${h1}deg -> ${r1}deg (advanced ${advance}deg)` : 'not resumed: it never paused',
 )
 
 // --- 4c. Reduced motion means no spin at all --------------------------------
@@ -496,7 +496,11 @@ if (coldBtn === 'Turn the music on') {
   await cold.click('button[aria-label="Turn the music on"]')
   c1 = await elapsedPast(cold, 0)
 }
-check('one press of the speaker starts it from cold', c1 > 0, `elapsed=${c1}s`)
+check(
+  'one press of the speaker starts it from cold',
+  c1 > 0,
+  c1 === null ? 'not pressed: the speaker did not offer to start' : `elapsed=${c1}s`,
+)
 await coldCtx.close()
 
 // --- 8. A click on the room itself arms it ----------------------------------
