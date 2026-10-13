@@ -106,7 +106,8 @@ const browser = await chromium.launch({
     '--use-gl=angle',
     '--use-angle=swiftshader',
     '--enable-unsafe-swiftshader',
-    // The headless default plays without a gesture, which hides broken arming.
+    // Named, not left to the build's default, since it decides what a missing
+    // gesture does.
     '--autoplay-policy=document-user-activation-required',
     '--mute-audio',
   ],
@@ -118,11 +119,96 @@ const check = (name, ok, detail = '') => {
   if (!ok) fails.push(name)
 }
 
-const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
-await page.goto(BASE, { waitUntil: 'networkidle', timeout: 120_000 })
-await page
-  .waitForFunction(() => !document.querySelector('output'), { timeout: 120_000 })
-  .catch(() => {})
+const VIEWPORT = { width: 1440, height: 900 }
+/** Software GL under load takes minutes over what Playwright's 30 s default allows. */
+const PATIENCE = 240_000
+const PLAY_MARK = 'verify-player:play'
+
+/**
+ * A fresh context on `url`, returned once its player has attached and made its
+ * first `play()` call. `firstPlay` is 'cold' if that call carried no user
+ * activation, 'activated' if it did, and 'never' if it did not come.
+ *
+ * Nothing may query the page before that call. Playwright's Chromium driver
+ * sends every query (`evaluate`, `waitForFunction`, `textContent`, `$`) with
+ * CDP's `userGesture: true`, so one that lands first activates the page, lets
+ * the call play, and makes a cold visit look like autoplay. The call is
+ * reported on the console, which carries no gesture.
+ */
+const openFresh = async (url, options = {}) => {
+  const ctx = await browser.newContext({ viewport: VIEWPORT, ...options })
+  ctx.setDefaultTimeout(PATIENCE)
+  await ctx.addInitScript((mark) => {
+    const play = HTMLMediaElement.prototype.play
+    HTMLMediaElement.prototype.play = function () {
+      console.debug(`${mark} ${navigator.userActivation.hasBeenActive}`)
+      return play.call(this)
+    }
+  }, PLAY_MARK)
+  const p = await ctx.newPage()
+  const first = p
+    .waitForEvent('console', {
+      predicate: (m) => m.text().startsWith(PLAY_MARK),
+      timeout: PATIENCE,
+    })
+    .then(
+      (m) => (m.text().endsWith('false') ? 'cold' : 'activated'),
+      () => 'never',
+    )
+  await p.goto(url, { waitUntil: 'networkidle', timeout: 120_000 })
+  const firstPlay = await first
+  await p
+    .waitForFunction(() => !document.querySelector('output'), null, { timeout: PATIENCE })
+    .catch(() => {})
+  return { ctx, p, firstPlay }
+}
+
+/**
+ * Waits for `seconds` of GSAP time in `p`. GSAP's clock moves per animation
+ * frame and counts a frame over 500 ms as 33 ms, so on a starved software
+ * renderer the 1.6 s fade takes minutes and a wall-clock wait samples it
+ * mid-flight. Every wait that follows a tween is measured here.
+ */
+const tweenTime = (p, seconds) =>
+  p.evaluate(
+    (ms) =>
+      new Promise((resolve) => {
+        let total = 0
+        let last = performance.now()
+        const tick = (now) => {
+          const dt = Math.max(0, now - last)
+          last = now
+          total += dt > 500 ? 33 : dt
+          if (total >= ms) resolve()
+          else requestAnimationFrame(tick)
+        }
+        requestAnimationFrame(tick)
+      }),
+    seconds * 1000,
+  )
+
+/**
+ * Waits `seconds` and at least three animation frames, so that a window in
+ * which nothing may happen holds frames in which the page could have reacted:
+ * a starved renderer can go ten seconds between two.
+ */
+const settle = (p, seconds) =>
+  p.evaluate(
+    (ms) =>
+      new Promise((resolve) => {
+        const end = performance.now() + ms
+        let frames = 0
+        const tick = () => {
+          frames += 1
+          if (frames >= 3 && performance.now() >= end) resolve()
+          else requestAnimationFrame(tick)
+        }
+        requestAnimationFrame(tick)
+      }),
+    seconds * 1000,
+  )
+
+const { p: page, firstPlay } = await openFresh(BASE)
 await page.waitForTimeout(1500)
 
 /** Elapsed seconds as the mini-player reports them, or null if not mounted. */
@@ -134,19 +220,40 @@ const elapsedOn = async (p) => {
 }
 const elapsed = () => elapsedOn(page)
 
+/**
+ * Elapsed seconds once the readout passes `min`, or the reading after PATIENCE.
+ * Playback starts when the decoder is ready, not on the script's schedule:
+ * under load `play()` has taken two minutes to resolve.
+ */
+const elapsedPast = async (p, min) => {
+  await p
+    .waitForFunction(
+      (min) => {
+        const t = document.querySelector('[data-elapsed]')?.textContent
+        if (!t) return false
+        const [mm, ss] = t.split('/')[0].trim().split(':').map(Number)
+        return mm * 60 + ss > min
+      },
+      min,
+      { timeout: PATIENCE },
+    )
+    .catch(() => {})
+  return elapsedOn(p)
+}
+
 // --- 1. Silent before any gesture -------------------------------------------
 // Open the panel by URL, which is not a user activation, so the policy still
 // applies and nothing should be advancing.
 await page.goto(`${BASE}/#/player`, { waitUntil: 'domcontentloaded' })
-await page.waitForTimeout(1200)
+await settle(page, 1.2)
 const before = await elapsed()
 check('mini-player mounts from the URL', before !== null, `elapsed=${before}`)
-await page.waitForTimeout(1800)
+await settle(page, 1.8)
 const stillBefore = await elapsed()
 check(
   'silent until the visitor interacts',
-  before === 0 && stillBefore === 0,
-  `${before}s -> ${stillBefore}s`,
+  firstPlay === 'cold' && before === 0 && stillBefore === 0,
+  `first play() ${firstPlay}, ${before}s -> ${stillBefore}s`,
 )
 
 // The speaker must render real sound, not stored intent: lit over silence, it
@@ -252,8 +359,7 @@ manifestOverride = undefined
 // --- 3. A gesture starts it -------------------------------------------------
 // Press a key rather than click, to prove the arming is not tied to one event.
 await page.keyboard.press('Space')
-await page.waitForTimeout(2600)
-const afterGesture = await elapsed()
+const afterGesture = await elapsedPast(page, 0)
 check(
   'a gesture starts playback',
   afterGesture !== null && afterGesture > 0,
@@ -263,8 +369,7 @@ check('the mp3 was actually fetched', served > 0, `${served} request(s)`)
 
 // --- 4. Progress is real ----------------------------------------------------
 const t1 = await elapsed()
-await page.waitForTimeout(2200)
-const t2 = await elapsed()
+const t2 = await elapsedPast(page, t1)
 check('playback progresses', t2 > t1, `${t1}s -> ${t2}s`)
 
 // --- 4b. The artwork spins, holds its angle when paused, and resumes from it -
@@ -282,43 +387,43 @@ const angle = () =>
   })
 
 const s1 = await angle()
-await page.waitForTimeout(1600)
+await tweenTime(page, 1.6)
 const s2 = await angle()
 check('the artwork spins while playing', s1 !== s2, `${s1}deg -> ${s2}deg`)
 
 await page.click('button[aria-label^="Pause"]')
 // Past the 1.6s fade-out, so `playing` has actually flipped false.
-await page.waitForTimeout(2400)
+await tweenTime(page, 2.4)
+const paused = (await page.$('button[aria-label^="Play"]')) !== null
 const h1 = await angle()
-await page.waitForTimeout(1300)
+await tweenTime(page, 1.3)
 const h2 = await angle()
-check('the artwork holds its angle when paused', h1 === h2, `held at ${h1}deg`)
+check(
+  'the artwork holds its angle when paused',
+  paused && h1 === h2,
+  paused ? `held at ${h1}deg` : 'still playing after the fade',
+)
 check('it paused mid-turn rather than snapping back', h1 > 0, `${h1}deg`)
 
-await page.click('button[aria-label^="Play"]')
-await page.waitForTimeout(1300)
-const r1 = await angle()
+let r1 = null
+if (paused) {
+  await page.click('button[aria-label^="Play"]')
+  await tweenTime(page, 1.3)
+  r1 = await angle()
+}
 // Continuing advances a little from where it stopped. Restarting would jump to
 // roughly 52deg (1.3s of a 9s turn) regardless of where it had been.
 const advance = (r1 - h1 + 360) % 360
 check(
   'it resumes from the held angle, not from zero',
-  advance > 5 && advance < 150,
+  paused && advance > 5 && advance < 150,
   `${h1}deg -> ${r1}deg (advanced ${advance}deg)`,
 )
 
 // --- 4c. Reduced motion means no spin at all --------------------------------
-const rmCtx = await browser.newContext({
-  viewport: { width: 1440, height: 900 },
-  reducedMotion: 'reduce',
-})
-const rm = await rmCtx.newPage()
-await rm.goto(`${BASE}/#/player`, { waitUntil: 'networkidle', timeout: 120_000 })
-await rm
-  .waitForFunction(() => !document.querySelector('output'), { timeout: 120_000 })
-  .catch(() => {})
+const { ctx: rmCtx, p: rm } = await openFresh(`${BASE}/#/player`, { reducedMotion: 'reduce' })
 await rm.keyboard.press('Space')
-await rm.waitForTimeout(2200)
+const rmPlayed = await elapsedPast(rm, 0)
 const rmAngle = async () =>
   rm.evaluate(() => {
     const img = document.querySelector('[role="dialog"] img')
@@ -328,18 +433,18 @@ const rmAngle = async () =>
     return Math.round(((Math.atan2(m.b, m.a) * 180) / Math.PI + 360) % 360)
   })
 const rm1 = await rmAngle()
-await rm.waitForTimeout(1600)
+await tweenTime(rm, 1.6)
 const rm2 = await rmAngle()
 check('reduced motion: the artwork does not spin', rm1 === 0 && rm2 === 0, `${rm1}deg/${rm2}deg`)
-check('reduced motion: the track still plays', (await elapsedOn(rm)) > 0)
+check('reduced motion: the track still plays', rmPlayed > 0)
 await rmCtx.close()
 
 // --- 5. Turning it off stops it, and the choice survives a reload -----------
 await page.click('button[aria-label="Turn the music off"]')
 // Longer than the 1.6s fade, so the pause has definitely landed.
-await page.waitForTimeout(2400)
+await tweenTime(page, 2.4)
 const m1 = await elapsed()
-await page.waitForTimeout(1800)
+await settle(page, 1.8)
 const m2 = await elapsed()
 check('turning it off halts playback', m1 === m2, `held at ${m1}s`)
 
@@ -347,61 +452,63 @@ const pressed = await page.getAttribute('button[aria-label="Turn the music on"]'
 check('the sound button reports its state', pressed === 'false', `aria-pressed=${pressed}`)
 
 await page.reload({ waitUntil: 'networkidle' })
-await page.waitForTimeout(1500)
+// The transport renders once the player has attached, so the gesture below
+// reaches armed listeners rather than a page still loading.
+await page.waitForSelector('[data-elapsed]')
+await settle(page, 1.5)
 await page.keyboard.press('Space')
-await page.waitForTimeout(2200)
+await settle(page, 2.2)
 const afterReload = await elapsed()
 check('the choice survives a reload', afterReload === 0, `elapsed=${afterReload}s after a gesture`)
 
 // --- 6. Turning it back on resumes -----------------------------------------
 await page.click('button[aria-label="Turn the music on"]')
-await page.waitForTimeout(2600)
-const un = await elapsed()
+const un = await elapsedPast(page, 0)
 check('turning it back on resumes playback', un > 0, `elapsed=${un}s`)
 
 // Leave the preference clean, or the next run starts muted.
 await page.evaluate(() => window.localStorage.removeItem('kr4t0n:music'))
 
 // --- 7. One press of the speaker is enough, from cold -----------------------
-// A fresh context, not a reload: a reloaded tab keeps its user activation, so
-// these checks would pass against a document that was never cold.
-const coldCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
-const cold = await coldCtx.newPage()
-await cold.goto(`${BASE}/#/player`, { waitUntil: 'networkidle', timeout: 120_000 })
-await cold
-  .waitForFunction(() => !document.querySelector('output'), { timeout: 120_000 })
-  .catch(() => {})
-await cold.waitForTimeout(1800)
+// A fresh context, not a reload, so no stored choice or earlier activation can
+// carry over into a document that should be cold.
+const { ctx: coldCtx, p: cold, firstPlay: coldPlay } = await openFresh(`${BASE}/#/player`)
+await settle(cold, 1.8)
 
 const c0 = await elapsedOn(cold)
-check('a genuinely cold visit starts silent', c0 === 0, `elapsed=${c0}s`)
+check(
+  'a genuinely cold visit starts silent',
+  coldPlay === 'cold' && c0 === 0,
+  `first play() ${coldPlay}, elapsed=${c0}s`,
+)
 const coldBtn = await cold.getAttribute('button[aria-label^="Turn the music"]', 'aria-label')
 check(
   'cold speaker offers to start, not to stop',
   coldBtn === 'Turn the music on',
   `label="${coldBtn}"`,
 )
-await cold.click('button[aria-label="Turn the music on"]')
-await cold.waitForTimeout(2600)
-const c1 = await elapsedOn(cold)
+let c1 = null
+if (coldBtn === 'Turn the music on') {
+  await cold.click('button[aria-label="Turn the music on"]')
+  c1 = await elapsedPast(cold, 0)
+}
 check('one press of the speaker starts it from cold', c1 > 0, `elapsed=${c1}s`)
 await coldCtx.close()
 
 // --- 8. A click on the room itself arms it ----------------------------------
 // Section 3's gesture is a keypress; a click on the scene goes through a
 // different listener, so the pointer path gets its own fresh context.
-const roomCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
-const room = await roomCtx.newPage()
-await room.goto(`${BASE}/#/player`, { waitUntil: 'networkidle', timeout: 120_000 })
-await room
-  .waitForFunction(() => !document.querySelector('output'), { timeout: 120_000 })
-  .catch(() => {})
-await room.waitForTimeout(1800)
-check('room click: silent to begin with', (await elapsedOn(room)) === 0)
+const { ctx: roomCtx, p: room, firstPlay: roomPlay } = await openFresh(`${BASE}/#/player`)
+await settle(room, 1.8)
+const r0 = await elapsedOn(room)
+check(
+  'room click: silent to begin with',
+  roomPlay === 'cold' && r0 === 0,
+  `first play() ${roomPlay}, elapsed=${r0}s`,
+)
 // Well clear of the panel and of the speaker button, i.e. bare scene.
 await room.mouse.click(720, 250)
-await room.waitForTimeout(2800)
-const clicked = await elapsedOn(room)
+const clicked = await elapsedPast(room, 0)
 check('clicking the room starts the music', clicked > 0, `elapsed=${clicked}s`)
 await roomCtx.close()
 
@@ -409,14 +516,18 @@ await roomCtx.close()
 // A manifest can name a cover that is not on the volume. A 404'd <img> that
 // stayed in the DOM would render a broken-image glyph in the middle of the bar.
 blockCover = true
-const bareCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
-const bare = await bareCtx.newPage()
-await bare.goto(`${BASE}/#/player`, { waitUntil: 'networkidle', timeout: 120_000 })
-await bare
-  .waitForFunction(() => !document.querySelector('output'), { timeout: 120_000 })
-  .catch(() => {})
-await bare.waitForTimeout(1800)
-check('a missing cover removes the image entirely', (await bare.$('[role="dialog"] img')) === null)
+const { ctx: bareCtx, p: bare } = await openFresh(`${BASE}/#/player`)
+// The cover renders with the transport, and goes once its request has failed.
+await bare.waitForSelector('[data-elapsed]').catch(() => {})
+const noImage = await bare
+  .waitForFunction(() => !document.querySelector('[role="dialog"] img'), null, {
+    timeout: PATIENCE,
+  })
+  .then(
+    () => true,
+    () => false,
+  )
+check('a missing cover removes the image entirely', noImage)
 const bareBody = (await bare.textContent('[role="dialog"]')) ?? ''
 check(
   'the bar still works without artwork',
@@ -431,7 +542,7 @@ blockCover = false
 await page.goto(BASE, { waitUntil: 'networkidle' })
 await page.waitForTimeout(2000)
 await page.press('nav[aria-label="Places in the room"] button:has-text("Now playing")', 'Enter')
-await page.waitForTimeout(2800)
+await page.waitForFunction(() => location.hash === '#/player').catch(() => {})
 check(
   'the keyboard index opens the decks',
   page.url().includes('#/player'),

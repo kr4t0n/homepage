@@ -452,8 +452,9 @@ element's own events, and its click sends `setOn(!playing)`. Before the first
 gesture `on` is true and nothing plays; a control rendering `on` shows a lit
 speaker over silence, a visitor presses it, and `off` is stored for good.
 Pressing a silent speaker always produces sound, and the press is itself the
-user activation. `verify-player.mjs` guards this in a fresh browser context; a
-reload keeps the tab's activation and cannot reproduce it.
+user activation. `verify-player.mjs` guards this in a fresh browser context,
+which it does not query until the player has tried to play (see "A Playwright
+query is a user gesture").
 
 **Autoplay with sound is impossible on a cold visit, and the page does not fight
 it.** `Preloader.tsx` dismisses itself without a click, so there is no gesture
@@ -620,12 +621,28 @@ element, or the neon sign and a focus ring dominate the diff.
 
 **The suite is Chromium-only.** Playwright's WebKit does not install here and is
 not Safari anyway; autoplay, volume and codec changes need a manual pass in real
-Safari. Headless Chromium's default autoplay policy is laxer than a browser's,
-so `verify-player.mjs` passes
-`--autoplay-policy=document-user-activation-required`. Chromium fetches media
-with range requests and refuses `application/octet-stream`, so
-`verify-player.mjs`'s server answers `Range`, and the harnesses' MIME maps send
-`audio/mpeg`.
+Safari. `verify-player.mjs` passes
+`--autoplay-policy=document-user-activation-required` rather than rely on the
+build's default. Chromium fetches media with range requests and refuses
+`application/octet-stream`, so `verify-player.mjs`'s server answers `Range`,
+and the harnesses' MIME maps send `audio/mpeg`.
+
+**A Playwright query is a user gesture.** Its Chromium driver sends `evaluate`,
+`waitForFunction`, `textContent`, `$` and every other query with CDP's
+`userGesture: true`, which gives the page sticky activation. A query that lands
+before the player attaches lets the player's first `play()` through, and a cold
+visit then plays with no gesture at all, as it does whenever the page is slow.
+`verify-player.mjs` leaves a fresh page alone until an init script reports that
+first call on the console, which carries no gesture, and fails the cold checks
+if the call was already activated.
+
+**GSAP's clock counts frames, not seconds.** GSAP counts any frame over 500 ms
+as 33 ms (lag smoothing), and SwiftShader rendering the room on a loaded runner
+has measured 0.1 to 0.5 fps. The 1.6s fade-out has taken 68s to pause the
+track, and the cover has spun about half a degree a second. A wait that follows
+a tween is measured in GSAP time (`tweenTime` in `verify-player.mjs`), and a
+window in which nothing may happen must also hold a few frames (`settle`), not
+a fixed sleep alone.
 
 **Popups are rate-limited per page.** `verify-screens.mjs` opens one real popup,
 then asserts on recorded `window.open` calls; a third real popup is silently
