@@ -6,3 +6,6 @@
 
 # style: format the codebase with Prettier
 e797e4fbf181d080f20d960892fc0e4086ef8e01
+
+# style(tools): format the Python scripts with Ruff
+48300219c81c82bea010c72e2adac5e83b4cec6b

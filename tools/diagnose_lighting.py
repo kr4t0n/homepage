@@ -8,8 +8,9 @@ matching the site's (dim ambient plus one directional, ACES-ish exposure).
 If the colours are light and only the second render goes black, the asset is
 fine and the scene lighting is the problem.
 
-Run: ./.venv/bin/python diagnose_lighting.py
+Run: uv run --group blender python diagnose_lighting.py
 """
+
 import os
 import tempfile
 
@@ -39,17 +40,27 @@ if deck:
         if not b:
             continue
         c = b.inputs["Base Color"].default_value
-        e = b.inputs["Emission Color"].default_value if "Emission Color" in b.inputs else (0, 0, 0, 1)
+        e = (
+            b.inputs["Emission Color"].default_value
+            if "Emission Color" in b.inputs
+            else (0, 0, 0, 1)
+        )
         es = b.inputs["Emission Strength"].default_value if "Emission Strength" in b.inputs else 0
         lum = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
-        seen.append((lum, m.name, tuple(round(v, 3) for v in c[:3]),
-                     tuple(round(v, 2) for v in e[:3]), round(es, 2)))
+        seen.append(
+            (
+                lum,
+                m.name,
+                tuple(round(v, 3) for v in c[:3]),
+                tuple(round(v, 2) for v in e[:3]),
+                round(es, 2),
+            )
+        )
     seen.sort(reverse=True)
     print(f"{'material':<18}{'luma':<8}{'base colour':<26}{'emission':<20}strength")
     for lum, name, c, e, es in seen:
         print(f"{name:<18}{lum:<8.3f}{str(c):<26}{str(e):<20}{es}")
-    print(f"\n{len(seen)} materials, mean luma "
-          f"{sum(s[0] for s in seen) / max(len(seen), 1):.3f}")
+    print(f"\n{len(seen)} materials, mean luma {sum(s[0] for s in seen) / max(len(seen), 1):.3f}")
 
 
 def camera():
@@ -107,7 +118,7 @@ clear_lights()
 world(0.18, (0.486, 0.573, 0.8))
 sun(0.75, (7, 10, 7), (0.804, 0.851, 1.0))
 sc.view_settings.view_transform = "AgX"
-sc.view_settings.exposure = -0.47          # roughly toneMappingExposure 0.72
+sc.view_settings.exposure = -0.47  # roughly toneMappingExposure 0.72
 sc.render.filepath = os.path.join(OUT, "light_2_site_rig")
 bpy.ops.render.render(write_still=True)
 print("wrote light_2_site_rig.png (matching the site)")

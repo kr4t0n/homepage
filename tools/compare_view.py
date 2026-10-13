@@ -5,8 +5,9 @@ Renders the same framing from the original .blend and from our exported GLB, so
 a suspect object can be compared directly. Defaults to the front-right of the
 room, where the MIDI keyboard sits.
 
-Run: ./.venv/bin/python compare_view.py [eyeX eyeY eyeZ atX atY atZ] [name]
+Run: uv run --group blender python compare_view.py [eyeX eyeY eyeZ atX atY atZ] [name]
 """
+
 import os
 import sys
 import tempfile
@@ -65,7 +66,7 @@ def build(label):
     print(f"  wrote cmp_{NAME}_{label}.png")
 
 
-print(f"eye={tuple(round(v,2) for v in EYE)} at={tuple(round(v,2) for v in AT)}")
+print(f"eye={tuple(round(v, 2) for v in EYE)} at={tuple(round(v, 2) for v in AT)}")
 
 bpy.ops.wm.open_mainfile(filepath=BLEND)
 build("A_source")

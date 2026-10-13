@@ -4,8 +4,9 @@
 Reports every object sitting near the wall plane with its glTF-space extents,
 then scans for horizontal bands of clear wall.
 
-Run: ./.venv/bin/python wall_occupancy.py ../room.blend
+Run: uv run --group blender python wall_occupancy.py ../room.blend
 """
+
 import os
 import sys
 
@@ -27,8 +28,8 @@ def gltf_bounds(ob):
     mw = ob.matrix_world
     pts = [mw @ Vector(c) for c in ob.bound_box]
     xs = [p.x for p in pts]
-    ys = [p.z for p in pts]          # Blender Z -> glTF Y
-    zs = [-p.y for p in pts]         # Blender Y -> glTF -Z
+    ys = [p.z for p in pts]  # Blender Z -> glTF Y
+    zs = [-p.y for p in pts]  # Blender Y -> glTF -Z
     return (min(xs), max(xs)), (min(ys), max(ys)), (min(zs), max(zs))
 
 
@@ -37,7 +38,7 @@ for ob in scene.objects:
     if ob.type != "MESH":
         continue
     (x0, x1), (y0, y1), (z0, z1) = gltf_bounds(ob)
-    if x1 - x0 > 5.5 or y1 - y0 > 5.5:      # the shell itself
+    if x1 - x0 > 5.5 or y1 - y0 > 5.5:  # the shell itself
         continue
     # Near the wall plane, in front of it.
     if not (WALL_Z - 0.2 <= z1 <= WALL_Z + DEPTH):
@@ -58,9 +59,7 @@ band = None
 bands = []
 x = WALL_X[0]
 while x <= WALL_X[1]:
-    blocked = any(
-        x0 - 0.12 <= x <= x1 + 0.12 and y1 > 1.55 for x0, x1, y0, y1, _ in mounted
-    )
+    blocked = any(x0 - 0.12 <= x <= x1 + 0.12 and y1 > 1.55 for x0, x1, y0, y1, _ in mounted)
     if not blocked and band is None:
         band = x
     elif blocked and band is not None:

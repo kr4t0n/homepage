@@ -7,8 +7,9 @@
   4. join each group into one mesh named `hot_<group>` / `static_<group>`
   5. export GLB (+Y up), then Draco-compress via gltf-transform if available
 
-Run: ./.venv/bin/python export_glb.py ../room.blend ../public/room.glb
+Run: uv run --group blender python export_glb.py ../room.blend ../public/room.glb
 """
+
 import json
 import os
 import sys
@@ -18,13 +19,17 @@ from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BLEND = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else "../room.blend")
-DEST = os.path.abspath(sys.argv[2] if len(sys.argv) > 2
-                       else os.path.join(HERE, "..", "public", "room.glb"))
+DEST = os.path.abspath(
+    sys.argv[2] if len(sys.argv) > 2 else os.path.join(HERE, "..", "public", "room.glb")
+)
 os.makedirs(os.path.dirname(DEST), exist_ok=True)
 
 # ---------------------------------------------------------------- regions --
 # Interactive hotspots become their own glTF node so the frontend can raycast
 # them individually. Everything else is merged into one static mesh.
+# Boxes are (xmin, xmax, ymin, ymax, zmin, zmax) in Blender space, aligned in
+# columns so neighbouring boxes can be compared; the formatter would undo that.
+# fmt: off
 REGIONS = [
     ("screens",   (-0.70, 2.90,  0.95, 2.10,  0.95, 1.90), True),
     ("desk",      (-1.05, 3.10,  0.35, 2.10, -0.05, 0.95), True),
@@ -66,6 +71,7 @@ REGIONS = [
     ("synth",        ( 3.30, 4.90, -3.40,-1.40, -0.05, 1.80), True),
     ("plants",    ( 3.30, 4.90, -1.20, 2.10, -0.05, 1.90), False),
 ]
+# fmt: on
 
 # per-mesh triangle ceiling; anything above gets a Decimate modifier
 TRI_BUDGET = {"sofa": 6000, "plants": 8000, "chair": 6000, "_default": 4000}
@@ -77,8 +83,10 @@ view = bpy.context.view_layer
 
 def wbb(ob):
     cs = [ob.matrix_world @ Vector(c) for c in ob.bound_box]
-    return (Vector((min(c.x for c in cs), min(c.y for c in cs), min(c.z for c in cs))),
-            Vector((max(c.x for c in cs), max(c.y for c in cs), max(c.z for c in cs))))
+    return (
+        Vector((min(c.x for c in cs), min(c.y for c in cs), min(c.z for c in cs))),
+        Vector((max(c.x for c in cs), max(c.y for c in cs), max(c.z for c in cs))),
+    )
 
 
 def tris(ob):
@@ -94,8 +102,7 @@ for mat in bpy.data.materials:
         if node.type != "TEX_IMAGE":
             continue
         img = node.image
-        ok = img and (img.packed_file or
-                      os.path.exists(bpy.path.abspath(img.filepath)))
+        ok = img and (img.packed_file or os.path.exists(bpy.path.abspath(img.filepath)))
         if ok:
             continue
         missing += 1
@@ -104,8 +111,7 @@ for mat in bpy.data.materials:
             if link.from_node is node:
                 mat.node_tree.links.remove(link)
         mat.node_tree.nodes.remove(node)
-        bsdf = next((n for n in mat.node_tree.nodes
-                     if n.type == "BSDF_PRINCIPLED"), None)
+        bsdf = next((n for n in mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
         if bsdf and not bsdf.inputs["Base Color"].is_linked:
             c = mat.diffuse_color
             bsdf.inputs["Base Color"].default_value = (c[0], c[1], c[2], 1.0)
@@ -160,7 +166,7 @@ wired, missing_mats = 0, []
 for o in scene.objects:
     if o.type != "MESH" or not o.name.startswith("RankingLED_"):
         continue
-    want = "Ranking - LED " + o.name[len("RankingLED_"):].replace("_", " ")
+    want = "Ranking - LED " + o.name[len("RankingLED_") :].replace("_", " ")
     mat = bpy.data.materials.get(want)
     if mat is None:
         missing_mats.append(want)
@@ -170,8 +176,10 @@ for o in scene.objects:
     o.data.materials.append(mat)
     wired += 1
 if missing_mats:
-    raise SystemExit(f"ranking LED materials missing from the .blend: "
-                     f"{missing_mats[:6]} ({len(missing_mats)} total)")
+    raise SystemExit(
+        f"ranking LED materials missing from the .blend: "
+        f"{missing_mats[:6]} ({len(missing_mats)} total)"
+    )
 print(f"wired {wired} ranking LEDs to their own materials")
 
 # --------------------------------------------------------- 2. tag groups --
@@ -203,15 +211,19 @@ for o in props:
 # Both are named systematically, so assert the mapping rather than eyeball the
 # triangle counts afterwards.
 for prefix, want in (("Pixel", "pixelboard"), ("Ranking", "ranking")):
-    strays = sorted(n for n, g in group_of.items()
-                    if (n.startswith(prefix) or n.startswith(f"{prefix} ")) and g != want)
+    strays = sorted(
+        n
+        for n, g in group_of.items()
+        if (n.startswith(prefix) or n.startswith(f"{prefix} ")) and g != want
+    )
     if strays:
         landed = {group_of[n] for n in strays}
         raise SystemExit(
             f"{len(strays)} '{prefix}*' objects fell outside the '{want}' region "
             f"and landed in {sorted(landed)}, e.g. {strays[:4]}.\n"
             f"The board moved in the .blend; update the '{want}' box in REGIONS "
-            f"to match. Exporting would merge it into another hotspot.")
+            f"to match. Exporting would merge it into another hotspot."
+        )
 print("every board object landed in its own region")
 
 # --------------------------------- 2b. drop text the frontend will replace --
@@ -235,14 +247,15 @@ placeholders += [f"Ranking Project {i:02d} - Score" for i in range(1, 6)]
 # board where they no longer are. `SCORE / 100` and `HIGH SCORE FIRST` describe
 # a normalised score, and the right-hand column now prints the token totals the
 # rows are actually ranked by -- keeping them would caption the wrong quantity.
-placeholders += ["Ranking - Sample label", "Ranking - Metric caption",
-                 "Ranking - Footer note"]
+placeholders += ["Ranking - Sample label", "Ranking - Metric caption", "Ranking - Footer note"]
 doomed = {n for n in placeholders if bpy.data.objects.get(n) is not None}
 if doomed != set(placeholders):
     raise SystemExit(
         f"expected to drop {len(placeholders)} ranking placeholders, found "
         f"{len(doomed)}. The .blend renamed or removed one; the frontend draws "
-        f"live text at these anchors and would now overlap baked copy.")
+        f"live text at these anchors and would now overlap baked copy."
+    )
+
 
 # Measure before deleting, and hand the frontend the anchors rather than a set
 # of magic numbers copied out of Blender by hand. Those would be correct once
@@ -254,13 +267,17 @@ def gltf_box(o):
     mn, mx = wbb(o)
     lo = [round(mn.x, 5), round(mn.z, 5), round(-mx.y, 5)]
     hi = [round(mx.x, 5), round(mx.z, 5), round(-mn.y, 5)]
-    return {"min": [min(a, b) for a, b in zip(lo, hi)],
-            "max": [max(a, b) for a, b in zip(lo, hi)]}
+    return {"min": [min(a, b) for a, b in zip(lo, hi)], "max": [max(a, b) for a, b in zip(lo, hi)]}
+
 
 anchors = {
-    "rows": [{"name": gltf_box(bpy.data.objects[f"Ranking Project {i:02d} - Name"]),
-              "score": gltf_box(bpy.data.objects[f"Ranking Project {i:02d} - Score"])}
-             for i in range(1, 6)],
+    "rows": [
+        {
+            "name": gltf_box(bpy.data.objects[f"Ranking Project {i:02d} - Name"]),
+            "score": gltf_box(bpy.data.objects[f"Ranking Project {i:02d} - Score"]),
+        }
+        for i in range(1, 6)
+    ],
     "caption": gltf_box(bpy.data.objects["Ranking - Sample label"]),
     "metric": gltf_box(bpy.data.objects["Ranking - Metric caption"]),
     "footer": gltf_box(bpy.data.objects["Ranking - Footer note"]),
@@ -359,10 +376,8 @@ for o in [x for x in scene.objects if x.type == "MESH" and x.modifiers]:
 print(f"baked {baked} modifiers, dropped {dropped} subsurf")
 
 before = sum(tris(o) for o in scene.objects if o.type == "MESH")
-heavy = sorted(((tris(o), o.name) for o in scene.objects if o.type == "MESH"),
-               reverse=True)[:8]
-print("heaviest meshes pre-decimate: " +
-      ", ".join(f"{n}={t:,}" for t, n in heavy))
+heavy = sorted(((tris(o), o.name) for o in scene.objects if o.type == "MESH"), reverse=True)[:8]
+print("heaviest meshes pre-decimate: " + ", ".join(f"{n}={t:,}" for t, n in heavy))
 decimated = 0
 for o in [x for x in scene.objects if x.type == "MESH"]:
     g = group_of.get(o.name, "static")
@@ -379,8 +394,10 @@ for o in [x for x in scene.objects if x.type == "MESH"]:
     except Exception as e:
         print(f"  decimate failed on {o.name}: {e}")
 after = sum(tris(o) for o in scene.objects if o.type == "MESH")
-print(f"decimated {decimated} meshes: {before:,} -> {after:,} tris "
-      f"({100*(1-after/max(before,1)):.0f}% reduction)")
+print(
+    f"decimated {decimated} meshes: {before:,} -> {after:,} tris "
+    f"({100 * (1 - after / max(before, 1)):.0f}% reduction)"
+)
 
 # ------------------------------------------------------ 4. join by group --
 hot_names = {n for n, _b, hot in REGIONS if hot}
@@ -428,15 +445,17 @@ for g, obs in sorted(buckets.items()):
         "min": [round(v, 4) for v in mn],
         "max": [round(v, 4) for v in mx],
     }
-    print(f"  {merged.name:<20} {tris(merged):>7,} tris  "
-          f"c=({c.x:6.2f},{c.y:6.2f},{c.z:6.2f})")
+    print(f"  {merged.name:<20} {tris(merged):>7,} tris  c=({c.x:6.2f},{c.y:6.2f},{c.z:6.2f})")
 
 if lost:
-    raise SystemExit("\nJOIN LEFT GEOMETRY BEHIND:\n  " + "\n  ".join(lost) +
-                     "\n\nThe usual cause is the outliner's selection lock on the "
-                     "source objects; step 1a clears it, so if this fires the "
-                     "objects are unselectable for some other reason. Exporting "
-                     "anyway would ship a hotspot missing most of its geometry.")
+    raise SystemExit(
+        "\nJOIN LEFT GEOMETRY BEHIND:\n  "
+        + "\n  ".join(lost)
+        + "\n\nThe usual cause is the outliner's selection lock on the "
+        "source objects; step 1a clears it, so if this fires the "
+        "objects are unselectable for some other reason. Exporting "
+        "anyway would ship a hotspot missing most of its geometry."
+    )
 
 # glTF is Y-up; Blender is Z-up. Record centres in glTF space for the frontend.
 for g, d in manifest.items():
@@ -479,5 +498,4 @@ bpy.ops.export_scene.gltf(
     export_draco_texcoord_quantization=10,
 )
 size = os.path.getsize(DEST)
-print(f"\nexported {DEST}  {size/1e6:.2f} MB  "
-      f"{sum(m['tris'] for m in manifest.values()):,} tris")
+print(f"\nexported {DEST}  {size / 1e6:.2f} MB  {sum(m['tris'] for m in manifest.values()):,} tris")

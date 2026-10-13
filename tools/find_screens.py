@@ -8,8 +8,9 @@ plane exactly over it in the scene.
 
 Emits glTF-space (Y up) values, matching src/scene-manifest.json.
 
-Run: ./.venv/bin/python find_screens.py ../room.blend
+Run: uv run --group blender python find_screens.py ../room.blend
 """
+
 import json
 import math
 import os

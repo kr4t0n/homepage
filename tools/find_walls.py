@@ -6,15 +6,15 @@ ask where a wall is. This measures the large vertical faces and prints each as a
 plane plus in-plane extents, in glTF space (Y up), which is enough to place a
 sign flat against one.
 
-Run: ./.venv/bin/python find_walls.py ../room.blend
+Run: uv run --group blender python find_walls.py ../room.blend
 """
+
 import json
 import os
 import sys
 import tempfile
 
 import bpy
-from mathutils import Vector
 
 BLEND = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else "../room.blend")
 
@@ -35,10 +35,10 @@ for ob in scene.objects:
     scale = mw.to_scale()
     for poly in ob.data.polygons:
         area = poly.area * scale.x * scale.y
-        if area < 3.0:                       # walls only, not props
+        if area < 3.0:  # walls only, not props
             continue
         n = (mw.to_3x3() @ poly.normal).normalized()
-        if abs(n.z) > 0.4:                   # skip floors and ceilings
+        if abs(n.z) > 0.4:  # skip floors and ceilings
             continue
         wc = mw @ poly.center
         verts = [mw @ ob.data.vertices[i].co for i in poly.vertices]

@@ -1,0 +1,31 @@
+[project]
+name = "homepage-tools"
+version = "0.1.0"
+description = "The offline Blender pipeline that exports public/room.glb, and its helpers"
+# Each bpy release is built for one CPython minor only. 5.0.x is the last series
+# for 3.11; 5.1 onwards needs 3.13, so moving bpy forward means moving this pin
+# and .python-version together.
+requires-python = "==3.11.*"
+dependencies = []
+
+[dependency-groups]
+# Blender as a Python module, about 357 MB. Not a default group, so a plain
+# `uv sync` and CI leave it out; `pnpm run room` asks for it.
+blender = [
+    "bpy>=5.0.1",
+]
+dev = [
+    # Pinned exactly because the Ruff hook's `rev` in .pre-commit-config.yaml
+    # has to name the same version. Bump both together.
+    "ruff==0.17.0",
+]
+
+[tool.ruff]
+# Prettier's printWidth for the rest of the repo.
+line-length = 100
+
+[tool.ruff.lint]
+# Named rather than left to Ruff's default, which covers about 400 rules and
+# changes between releases. Pyflakes, the pycodestyle errors, import order and
+# pyupgrade, whose fixes don't change what a script does.
+select = ["E4", "E7", "E9", "F", "I", "UP"]

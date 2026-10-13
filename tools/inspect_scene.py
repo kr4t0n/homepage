@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Open the purchased .blend, report a real scene inventory, and render previews.
 
-Run:  ./.venv/bin/python inspect_scene.py ../room.blend
+Run:  uv run --group blender python inspect_scene.py ../room.blend
 """
-import math
+
 import os
 import sys
 import tempfile
@@ -24,18 +24,16 @@ deps = bpy.context.evaluated_depsgraph_get()
 def world_bbox(ob):
     """(min Vector, max Vector) of an object's world-space bounding box."""
     corners = [ob.matrix_world @ Vector(c) for c in ob.bound_box]
-    mn = Vector((min(c.x for c in corners),
-                 min(c.y for c in corners),
-                 min(c.z for c in corners)))
-    mx = Vector((max(c.x for c in corners),
-                 max(c.y for c in corners),
-                 max(c.z for c in corners)))
+    mn = Vector((min(c.x for c in corners), min(c.y for c in corners), min(c.z for c in corners)))
+    mx = Vector((max(c.x for c in corners), max(c.y for c in corners), max(c.z for c in corners)))
     return mn, mx
 
 
 meshes = [o for o in scene.objects if o.type == "MESH"]
-print(f"\nobjects={len(scene.objects)} meshes={len(meshes)} "
-      f"materials={len(bpy.data.materials)} images={len(bpy.data.images)}")
+print(
+    f"\nobjects={len(scene.objects)} meshes={len(meshes)} "
+    f"materials={len(bpy.data.materials)} images={len(bpy.data.images)}"
+)
 
 # ---- scene bounds ---------------------------------------------------------
 gmn = Vector((1e9,) * 3)
@@ -44,18 +42,27 @@ info = []
 for o in meshes:
     mn, mx = world_bbox(o)
     d = mx - mn
-    info.append({"ob": o, "min": mn, "max": mx, "dim": d,
-                 "vol": d.x * d.y * d.z,
-                 "ctr": (mn + mx) / 2,
-                 "tris": sum(len(p.vertices) - 2 for p in o.data.polygons)})
+    info.append(
+        {
+            "ob": o,
+            "min": mn,
+            "max": mx,
+            "dim": d,
+            "vol": d.x * d.y * d.z,
+            "ctr": (mn + mx) / 2,
+            "tris": sum(len(p.vertices) - 2 for p in o.data.polygons),
+        }
+    )
     # ignore the giant floor plane when computing the "room" bounds
     if d.x < 20 and d.y < 20:
         gmn = Vector((min(gmn.x, mn.x), min(gmn.y, mn.y), min(gmn.z, mn.z)))
         gmx = Vector((max(gmx.x, mx.x), max(gmx.y, mx.y), max(gmx.z, mx.z)))
 
-print(f"room bounds  X[{gmn.x:.2f},{gmx.x:.2f}]  "
-      f"Y[{gmn.y:.2f},{gmx.y:.2f}]  Z[{gmn.z:.2f},{gmx.z:.2f}]")
-print(f"room size    {gmx.x-gmn.x:.2f} x {gmx.y-gmn.y:.2f} x {gmx.z-gmn.z:.2f} m")
+print(
+    f"room bounds  X[{gmn.x:.2f},{gmx.x:.2f}]  "
+    f"Y[{gmn.y:.2f},{gmx.y:.2f}]  Z[{gmn.z:.2f},{gmx.z:.2f}]"
+)
+print(f"room size    {gmx.x - gmn.x:.2f} x {gmx.y - gmn.y:.2f} x {gmx.z - gmn.z:.2f} m")
 print(f"total tris   {sum(i['tris'] for i in info):,}")
 
 # ---- biggest objects ------------------------------------------------------
@@ -64,8 +71,10 @@ print(f"  {'name':<20} {'dims (m)':<26} {'centre':<26} {'tris':>7}  materials")
 for i in sorted(info, key=lambda x: -x["vol"])[:30]:
     o, d, c = i["ob"], i["dim"], i["ctr"]
     mats = ",".join(m.name for m in o.data.materials if m)[:34]
-    print(f"  {o.name:<20} {d.x:6.2f}x{d.y:6.2f}x{d.z:6.2f}      "
-          f"{c.x:7.2f},{c.y:7.2f},{c.z:7.2f}   {i['tris']:>7,}  {mats}")
+    print(
+        f"  {o.name:<20} {d.x:6.2f}x{d.y:6.2f}x{d.z:6.2f}      "
+        f"{c.x:7.2f},{c.y:7.2f},{c.z:7.2f}   {i['tris']:>7,}  {mats}"
+    )
 
 # ---- screen candidates: large, flat, near-vertical -----------------------
 print("\n## SCREEN CANDIDATES (flat slabs, area>0.05m^2, thin axis<0.06m)")
@@ -79,9 +88,11 @@ for i in info:
             cands.append((area, i))
 for area, i in sorted(cands, key=lambda x: -x[0])[:20]:
     o, d, c = i["ob"], i["dim"], i["ctr"]
-    print(f"  {o.name:<20} {d.x:6.3f}x{d.y:6.3f}x{d.z:6.3f}  "
-          f"area={area:5.3f}m2  centre=({c.x:6.2f},{c.y:6.2f},{c.z:6.2f})  "
-          f"tris={i['tris']:>5,}")
+    print(
+        f"  {o.name:<20} {d.x:6.3f}x{d.y:6.3f}x{d.z:6.3f}  "
+        f"area={area:5.3f}m2  centre=({c.x:6.2f},{c.y:6.2f},{c.z:6.2f})  "
+        f"tris={i['tris']:>5,}"
+    )
 
 # ---- emissive / bright materials -----------------------------------------
 print("\n## MATERIALS WITH EMISSION OR IMAGE TEXTURES")
@@ -98,14 +109,12 @@ for m in bpy.data.materials:
                 if key in node.inputs:
                     st = node.inputs.get("Emission Strength")
                     if st is not None and st.default_value > 0:
-                        emis = tuple(round(v, 2)
-                                     for v in node.inputs[key].default_value)
+                        emis = tuple(round(v, 2) for v in node.inputs[key].default_value)
         if node.type == "TEX_IMAGE" and node.image:
             imgs.append(node.image.name)
     if emis or imgs:
         n += 1
-        users = [o.name for o in meshes if m.name in
-                 [mm.name for mm in o.data.materials if mm]][:4]
+        users = [o.name for o in meshes if m.name in [mm.name for mm in o.data.materials if mm]][:4]
         print(f"  {m.name:<18} emis={emis} img={imgs} used_by={users}")
 if n == 0:
     print("  (none)")
@@ -116,17 +125,18 @@ for im in bpy.data.images:
     if im.name == "Render Result":
         continue
     p = bpy.path.abspath(im.filepath)
-    print(f"  {'OK    ' if os.path.exists(p) else 'MISSING'}  "
-          f"{im.name:<38} {im.filepath}")
+    print(f"  {'OK    ' if os.path.exists(p) else 'MISSING'}  {im.name:<38} {im.filepath}")
 
 # ---- lights ---------------------------------------------------------------
 print("\n## LIGHTS")
 for o in scene.objects:
     if o.type == "LIGHT":
-        l = o.data
-        print(f"  {o.name:<12} {l.type:<6} energy={l.energy:<10.1f} "
-              f"color={tuple(round(v,2) for v in l.color)} "
-              f"pos=({o.location.x:.2f},{o.location.y:.2f},{o.location.z:.2f})")
+        light = o.data
+        print(
+            f"  {o.name:<12} {light.type:<6} energy={light.energy:<10.1f} "
+            f"color={tuple(round(v, 2) for v in light.color)} "
+            f"pos=({o.location.x:.2f},{o.location.y:.2f},{o.location.z:.2f})"
+        )
 
 # ---- renders --------------------------------------------------------------
 r = scene.render

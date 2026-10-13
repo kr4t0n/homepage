@@ -15,9 +15,10 @@ plain, fully readable 2D page when WebGL is unavailable or the viewport is small
   support.
 - pnpm, at the version pinned in `packageManager` in `package.json`. Node 22
   and 24 ship corepack, so `corepack enable pnpm` once is enough.
-- Python 3.11 exactly, only if you need to re-run the asset pipeline. The `bpy`
-  wheel is built against a specific CPython minor version.
-- [uv](https://docs.astral.sh/uv/) for the Python side
+- [uv](https://docs.astral.sh/uv/), for the Python in `tools/`: Ruff, and the
+  asset pipeline when you re-run it. That needs Python 3.11 exactly, because
+  each `bpy` release is built for one CPython minor. uv reads the version from
+  `tools/.python-version` and downloads it if the machine doesn't have it.
 - [pre-commit](https://pre-commit.com/) and [gitleaks](https://github.com/gitleaks/gitleaks),
   for the secret scan that runs before every commit. The hook calls the
   `gitleaks` on your PATH.
@@ -26,17 +27,21 @@ plain, fully readable 2D page when WebGL is unavailable or the viewport is small
 
 ```bash
 pnpm install
-pre-commit install      # once per clone: scan staged changes for secrets
+uv sync --project tools # Ruff for the Python in tools/; leaves bpy out
+pre-commit install      # once per clone: secret scan and Ruff on staged changes
 git config blame.ignoreRevsFile .git-blame-ignore-revs   # once per clone
 pnpm run dev            # http://localhost:5173
 ```
 
-The hook scans only what is staged, so `pre-commit run --all-files` passes
-without having read the tree. To scan every commit, as CI does, run
-`gitleaks git --redact`.
+The secret scan reads only what is staged, so `pre-commit run --all-files`
+passes without having read the tree. To scan every commit, as CI does, run
+`gitleaks git --redact`. The Ruff hooks fix what they can in staged Python
+files and format them. When they change a file the commit stops, so you can
+look at the change and stage it.
 
-The blame setting skips the commit that formatted the codebase with Prettier,
-so `git blame` shows who last changed a line rather than who reformatted it.
+The blame setting skips the commits that reformatted the code, with Prettier
+and with Ruff, so `git blame` shows who last changed a line rather than who
+reformatted it.
 GitHub's blame view reads `.git-blame-ignore-revs` on its own.
 
 `public/room.glb` is committed, so the site runs without touching Blender.
@@ -155,6 +160,24 @@ the system temp dir and prints its path when it finishes: `captures: <dir>` from
 the browser scripts, `done -> <dir>` or `wrote <file>` from the Blender ones.
 Delete it once you have looked.
 
+## The Python in tools/
+
+`tools/` is a uv project of its own: `pyproject.toml`, `uv.lock` and
+`.python-version` sit beside the scripts, and the environment goes in
+`tools/.venv`. bpy is in a dependency group named `blender`, which a plain
+`uv sync` leaves out and CI never installs. Ruff lints and formats the scripts;
+its settings are under `[tool.ruff]` in `tools/pyproject.toml`.
+
+```bash
+uv run --project tools ruff check tools            # lint, as CI does
+uv run --project tools ruff check --fix tools      # apply the fixes Ruff can make
+uv run --project tools ruff format tools           # format in place
+uv run --project tools ruff format --check tools   # as CI does
+```
+
+There is no type checker. bpy ships no type stubs, so nearly everything these
+scripts touch would type as unknown.
+
 ## The asset pipeline
 
 The source file is `room-v3.blend`: the purchased isometric studio scene plus a
@@ -248,13 +271,19 @@ that is the owner's call.
 ### Re-running it
 
 ```bash
-cd tools
-uv venv --python 3.11 .venv
-uv pip install --python .venv/bin/python bpy
-cd .. && pnpm run room
+uv sync --project tools --group blender   # once: Python 3.11 and bpy into tools/.venv
+pnpm run room
 ```
 
-No Blender install needed; `bpy` is Blender as a Python module.
+No Blender install needed; `bpy` is Blender as a Python module. `pnpm run room`
+asks uv for the `blender` group itself, so the first line only does the large
+download up front. A later `uv sync --project tools` without `--group blender`
+takes bpy out of the environment again, and the next `pnpm run room` puts it
+back from uv's cache.
+
+The lock holds bpy 5.0.1, which has wheels for Linux x86-64, Apple silicon and
+Windows, and none for Intel Macs. It is the last bpy built for Python 3.11; see
+`tools/pyproject.toml` for what moving past it involves.
 
 ### The Draco decoder
 
@@ -557,8 +586,8 @@ never renders.
 The three panels are entries in `SCREENS` in `src/content.ts`. Give one an
 `image` and it renders; give it an `href` and a second click on the framed
 screen opens that URL. Geometry for all three is already measured; to re-derive
-it run `tools/.venv/bin/python tools/find_screens.py` and negate the normal it
-prints, for the reason in AGENTS.md.
+it run `uv run --project tools --group blender python tools/find_screens.py
+room-v3.blend` and negate the normal it prints, for the reason in AGENTS.md.
 
 Images are cover-fitted, never stretched: the panels are 2.4:1 and screenshots
 rarely are, so something gets cropped. Set `anchor: 'top'` for a page
@@ -781,6 +810,9 @@ src/
     player.ts           backing-track playback, autoplay policy, ducking
     track.ts            the runtime track manifest: URL and validation
 tools/
+  pyproject.toml        the Python side: Python 3.11, Ruff, bpy in the blender group
+  uv.lock               exact versions for all of it
+  .python-version       3.11, for uv
   export_glb.py         the asset pipeline
   inspect_blend.py      dependency-free .blend parser
   inspect_scene.py      bpy scene report + preview renders
@@ -809,14 +841,14 @@ tools/
 Dockerfile              two-stage build; runtime stage has no node_modules
 .dockerignore           keeps .env and the licensed media out of the context
 helm/homepage/          the Helm chart for the cluster
-.pre-commit-config.yaml gitleaks before every commit
+.pre-commit-config.yaml gitleaks and Ruff before every commit
 .oxlintrc.json          lint rules, and why the ones turned off are off
 prettier.config.js      formatting, including Tailwind class order
 vitest.config.ts        unit tests, kept apart from vite.config.ts and its .env
-.git-blame-ignore-revs  the reformat commit, which git blame skips
+.git-blame-ignore-revs  the reformat commits, which git blame skips
 .github/dependabot.yml  monthly grouped updates for npm and the actions
 .github/workflows/
-  ci.yml                secret scan, lint, format, typecheck, unit tests, both builds, chart lint
+  ci.yml                secret scan, lint, format, Ruff, typecheck, unit tests, both builds, chart lint
   image.yml             build, run and check the image, push to Docker Hub
   helm-publish.yml      package the chart to gh-pages
 ```
