@@ -12,7 +12,6 @@ not, the faces exist but point the wrong way, which this asset has form for.
 Run: uv run --group blender python diagnose_keys.py
 """
 import os
-import sys
 import tempfile
 
 import bpy

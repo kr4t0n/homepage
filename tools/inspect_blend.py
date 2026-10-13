@@ -232,7 +232,7 @@ def main(path):
 
     # ---- Images: packed or external? --------------------------------------
     im_si = b.struct_by_name.get("Image")
-    print(f"\n## IMAGES")
+    print("\n## IMAGES")
     imfo = b.field_offsets(im_si) if im_si is not None else {}
     nim = 0
     for blk in b.blocks:
@@ -263,7 +263,7 @@ def main(path):
         print("  (none)")
 
     # ---- Geometry weight --------------------------------------------------
-    print(f"\n## MESH DATA (vertex/poly counts)")
+    print("\n## MESH DATA (vertex/poly counts)")
     me_si = b.struct_by_name.get("Mesh")
     mfo = b.field_offsets(me_si) if me_si is not None else {}
     tot_v = tot_p = 0

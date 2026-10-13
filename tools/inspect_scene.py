@@ -3,7 +3,6 @@
 
 Run:  uv run --group blender python inspect_scene.py ../room.blend
 """
-import math
 import os
 import sys
 import tempfile
@@ -123,9 +122,9 @@ for im in bpy.data.images:
 print("\n## LIGHTS")
 for o in scene.objects:
     if o.type == "LIGHT":
-        l = o.data
-        print(f"  {o.name:<12} {l.type:<6} energy={l.energy:<10.1f} "
-              f"color={tuple(round(v,2) for v in l.color)} "
+        light = o.data
+        print(f"  {o.name:<12} {light.type:<6} energy={light.energy:<10.1f} "
+              f"color={tuple(round(v,2) for v in light.color)} "
               f"pos=({o.location.x:.2f},{o.location.y:.2f},{o.location.z:.2f})")
 
 # ---- renders --------------------------------------------------------------
