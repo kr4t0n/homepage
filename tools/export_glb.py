@@ -25,6 +25,9 @@ os.makedirs(os.path.dirname(DEST), exist_ok=True)
 # ---------------------------------------------------------------- regions --
 # Interactive hotspots become their own glTF node so the frontend can raycast
 # them individually. Everything else is merged into one static mesh.
+# Boxes are (xmin, xmax, ymin, ymax, zmin, zmax) in Blender space, aligned in
+# columns so neighbouring boxes can be compared; the formatter would undo that.
+# fmt: off
 REGIONS = [
     ("screens",   (-0.70, 2.90,  0.95, 2.10,  0.95, 1.90), True),
     ("desk",      (-1.05, 3.10,  0.35, 2.10, -0.05, 0.95), True),
@@ -66,6 +69,7 @@ REGIONS = [
     ("synth",        ( 3.30, 4.90, -3.40,-1.40, -0.05, 1.80), True),
     ("plants",    ( 3.30, 4.90, -1.20, 2.10, -0.05, 1.90), False),
 ]
+# fmt: on
 
 # per-mesh triangle ceiling; anything above gets a Decimate modifier
 TRI_BUDGET = {"sofa": 6000, "plants": 8000, "chair": 6000, "_default": 4000}
