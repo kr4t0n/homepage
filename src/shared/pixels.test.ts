@@ -9,10 +9,7 @@ const good = (): PixelPayload => ({
   tz: 'Asia/Shanghai',
   winners: [null, 0, 1, null],
   intensity: [0, 50, 100, 0],
-  projects: [
-    { key: 'a', wonSeconds: 10 },
-    { key: 'b', wonSeconds: 5 },
-  ],
+  projects: [{ key: 'a' }, { key: 'b' }],
   live: [0],
 })
 

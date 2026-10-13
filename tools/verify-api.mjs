@@ -81,7 +81,7 @@ const FORBIDDEN = [
   'turns',
   'cliTypes',
 ]
-const ALLOWED_PROJECT_FIELDS = ['key', 'name', 'wonSeconds', 'tokens', 'other']
+const ALLOWED_PROJECT_FIELDS = ['key', 'name', 'tokens', 'other']
 const ALLOWED_TOKEN_FIELDS = ['in', 'out', 'cached']
 
 /**

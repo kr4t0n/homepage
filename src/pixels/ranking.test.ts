@@ -8,7 +8,7 @@ import { ROWS, SEGMENTS, rankByTokens, shortTokens } from './ranking'
 // reversed one, so the arithmetic is checked here instead.
 
 const withTokens = (rows: [string, number, number][]): PixelProject[] =>
-  rows.map(([key, i, o]) => ({ key, wonSeconds: 0, tokens: { in: i, out: o, cached: 0 } }))
+  rows.map(([key, i, o]) => ({ key, tokens: { in: i, out: o, cached: 0 } }))
 
 const payload = (projects: PixelProject[]): PixelPayload => ({
   start: '2026-07-26T16:00:00.000Z',
@@ -86,18 +86,15 @@ describe('rankByTokens', () => {
   // project has tokens. An empty board is right; a board ranking everything at
   // zero is not.
   it('drops projects with no token data rather than ranking them as zero', () => {
-    const untokened = payload([
-      { key: 'x', wonSeconds: 99 },
-      { key: 'y', wonSeconds: 1 },
-    ])
+    const untokened = payload([{ key: 'x' }, { key: 'y' }])
     expect(rankByTokens(untokened)).toEqual([])
   })
 
   // `in` already includes cache reads, so adding `cached` would count them twice.
   it('counts cache reads once', () => {
     const cachedHeavy: PixelProject[] = [
-      { key: 'x', wonSeconds: 0, tokens: { in: 1000, out: 0, cached: 900 } },
-      { key: 'y', wonSeconds: 0, tokens: { in: 1100, out: 0, cached: 0 } },
+      { key: 'x', tokens: { in: 1000, out: 0, cached: 900 } },
+      { key: 'y', tokens: { in: 1100, out: 0, cached: 0 } },
     ]
     const r = rankByTokens(payload(cachedHeavy))
     expect(r.map((x) => x.project.key)).toEqual(['y', 'x'])

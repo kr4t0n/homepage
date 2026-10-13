@@ -122,7 +122,6 @@ export function publish(p: PixelPayload, meta: Record<string, ProjectMeta>): Pix
       const m = meta[project.key]
       return {
         key: project.key,
-        wonSeconds: project.wonSeconds,
         ...(m?.name ? { name: m.name } : {}),
         ...(m?.tokens ? { tokens: m.tokens } : {}),
       }

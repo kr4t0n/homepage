@@ -501,11 +501,17 @@ it ranks context replayed far more than output; ranking by `out` alone would be
 a different, equally defensible board.
 
 **Hours won and tokens count different things.** An hour on the pixel board goes
-to whichever project was busiest in it (`wonSeconds`); tokens are everything a
+to whichever project was busiest in it (`winners`); tokens are everything a
 project spent in the window, won or lost, so a project can hold two hours and
 over a billion tokens. Do not make them look reconcilable; any UI showing both
 owes the reader that sentence. Both cover the same six weeks, since
 `WINDOW_DAYS` is passed to `/me/usage/by-project` explicitly.
+
+**`projects` arrives ranked by hours won, and the order is all the site uses.**
+Argus sorts it by each project's `wonSeconds`, which is why the busiest project
+gets the palette's first colour. `publish` keeps the order and drops the figure,
+since nothing on the site reads it; showing hours won takes a line in `publish`
+first.
 
 ## Server
 

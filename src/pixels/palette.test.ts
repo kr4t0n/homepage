@@ -101,10 +101,7 @@ describe('cellAppearance', () => {
     tz: 'Asia/Shanghai',
     winners: [null, 0, 1, 1],
     intensity: [0, 50, 100, 10],
-    projects: [
-      { key: 'a', wonSeconds: 10 },
-      { key: 'b', wonSeconds: 5 },
-    ],
+    projects: [{ key: 'a' }, { key: 'b' }],
     live: [],
   }
 

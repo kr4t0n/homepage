@@ -79,7 +79,7 @@ It calls two upstream endpoints and publishes a fraction of what they return:
 
 | From | Forwarded | Withheld |
 |---|---|---|
-| `/me/pixels` | the grid, and opaque project hashes | — |
+| `/me/pixels` | the grid, and opaque project hashes in Argus's order | `wonSeconds` |
 | `/me/usage/by-project` | `name`, and `tokens` as `in`/`out`/`cached` | `workingDir`, `machineId`, `projectId`, `costUsd`, raw usage keys |
 
 `workingDir` carries an absolute path with a username in it, and `costUsd` runs
