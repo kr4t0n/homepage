@@ -1,8 +1,9 @@
-#!/usr/bin/env python3
 """Standalone .blend parser: reads the SDNA and dumps the scene inventory.
 
 No Blender required. Parses the documented .blend block format:
 header -> [block: code, size, old_ptr, sdna_idx, count, data]* -> DNA1 -> ENDB
+
+Run: uv run --project tools python tools/inspect_blend.py <file.blend>
 """
 
 import struct
@@ -12,8 +13,8 @@ from collections import defaultdict
 
 class Blend:
     def __init__(self, path):
-        self.f = open(path, "rb")
-        self.buf = self.f.read()
+        with open(path, "rb") as f:
+            self.buf = f.read()
         self._parse_header()
         self._parse_blocks()
         self._parse_dna()

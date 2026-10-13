@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Three-way render of the DJ controller, to locate where it breaks.
 
   A  the original .blend, materials as authored

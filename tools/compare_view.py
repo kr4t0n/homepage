@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Source vs export, from an arbitrary camera.
 
 Renders the same framing from room.blend at the repo root (gitignored, never

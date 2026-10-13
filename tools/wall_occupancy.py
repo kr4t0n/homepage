@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """List what is mounted on the back wall, so a sign can be placed in a gap.
 
 Reports every object sitting near the wall plane with its glTF-space extents,

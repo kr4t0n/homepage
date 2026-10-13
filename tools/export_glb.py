@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Convert the purchased .blend into a web-ready GLB.
 
   1. strip image-texture nodes whose files are missing (kills magenta)

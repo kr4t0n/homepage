@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Is the DJ controller dark because of its materials, or because of our lights?
 
 Loads the exported GLB, prints the base colours of the controller's materials,
