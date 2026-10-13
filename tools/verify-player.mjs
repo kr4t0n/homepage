@@ -452,7 +452,7 @@ await settle(page, 1.8)
 const m2 = await elapsed()
 check('turning it off halts playback', m1 === m2, `held at ${m1}s`)
 
-const pressed = await page.getAttribute('button[aria-label="Turn the music on"]', 'aria-pressed')
+const pressed = await page.getAttribute('button[aria-label^="Turn the music"]', 'aria-pressed')
 check('the sound button reports its state', pressed === 'false', `aria-pressed=${pressed}`)
 
 await page.reload({ waitUntil: 'networkidle' })
@@ -463,7 +463,13 @@ await settle(page, 1.5)
 await page.keyboard.press('Space')
 await settle(page, 2.2)
 const afterReload = await elapsed()
-check('the choice survives a reload', afterReload === 0, `elapsed=${afterReload}s after a gesture`)
+// The label flips on the element's play event, before the readout can move.
+const reloadLabel = await page.getAttribute('button[aria-label^="Turn the music"]', 'aria-label')
+check(
+  'the choice survives a reload',
+  afterReload === 0 && reloadLabel === 'Turn the music on',
+  `elapsed=${afterReload}s after a gesture, label="${reloadLabel}"`,
+)
 
 // --- 6. Turning it back on resumes -----------------------------------------
 await page.click('button[aria-label="Turn the music on"]')
@@ -509,10 +515,11 @@ await coldCtx.close()
 const { ctx: roomCtx, p: room, firstPlay: roomPlay } = await openFresh(`${BASE}/#/player`)
 await settle(room, 1.8)
 const r0 = await elapsedOn(room)
+const roomLabel = await room.getAttribute('button[aria-label^="Turn the music"]', 'aria-label')
 check(
   'room click: silent to begin with',
-  roomPlay === 'cold' && r0 === 0,
-  `first play() ${roomPlay}, elapsed=${r0}s`,
+  roomPlay === 'cold' && r0 === 0 && roomLabel === 'Turn the music on',
+  `first play() ${roomPlay}, elapsed=${r0}s, label="${roomLabel}"`,
 )
 // Well clear of the panel and of the speaker button, i.e. bare scene.
 await room.mouse.click(720, 250)
