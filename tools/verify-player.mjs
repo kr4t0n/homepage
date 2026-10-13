@@ -120,8 +120,12 @@ const check = (name, ok, detail = '') => {
 }
 
 const VIEWPORT = { width: 1440, height: 900 }
-/** Software GL under load takes minutes over what Playwright's 30 s default allows. */
-const PATIENCE = 240_000
+/**
+ * Software GL under load takes minutes to bring up a fresh page, so every wait
+ * that could only run out on a broken site gets this long rather than
+ * Playwright's 30 s.
+ */
+const PATIENCE = 600_000
 const PLAY_MARK = 'verify-player:play'
 
 /**
@@ -155,7 +159,7 @@ const openFresh = async (url, options = {}) => {
       (m) => (m.text().endsWith('false') ? 'cold' : 'activated'),
       () => 'never',
     )
-  await p.goto(url, { waitUntil: 'networkidle', timeout: 120_000 })
+  await p.goto(url, { waitUntil: 'networkidle', timeout: PATIENCE })
   const firstPlay = await first
   await p
     .waitForFunction(() => !document.querySelector('output'), null, { timeout: PATIENCE })
@@ -292,7 +296,7 @@ check('cover art is not announced twice', art.alt === '', `alt="${art.alt}"`)
 const decksWith = async () => {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
   const p = await ctx.newPage()
-  await p.goto(`${BASE}/#/player`, { waitUntil: 'domcontentloaded', timeout: 120_000 })
+  await p.goto(`${BASE}/#/player`, { waitUntil: 'domcontentloaded', timeout: PATIENCE })
   // The text is read in the same poll that sees the player settle, so a re-render
   // between two separate queries cannot turn a settled page into a timeout.
   const text = await p
@@ -305,7 +309,7 @@ const decksWith = async () => {
         return done ? d.textContent : false
       },
       null,
-      { timeout: 180_000 },
+      { timeout: PATIENCE },
     )
     .then(
       (h) => h.jsonValue(),
