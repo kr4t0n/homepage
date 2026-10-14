@@ -35,6 +35,8 @@ const PIXELS_FIXTURE = {
   winners: [null, 0, 1, null],
   intensity: [0, 50, 100, 0],
   breakdown: { 1: { 0: 415, 1: 301 } },
+  // Argus ranks projects by wonSeconds and sends it. Nothing on the site reads it,
+  // so it is not published.
   projects: [
     { key: 'hash-a', wonSeconds: 10, sneakyProjectField: '/home/kyle/secret' },
     { key: 'hash-b', wonSeconds: 5 },
@@ -97,23 +99,23 @@ describe('publish', () => {
 
   it('drops an unknown per-project field, whether or not the lookup knew the project', () => {
     const [a, b, c] = publish(upstream(), meta).projects
-    expect(Object.keys(a).sort()).toEqual(['key', 'name', 'tokens', 'wonSeconds'])
-    expect(Object.keys(b).sort()).toEqual(['key', 'wonSeconds'])
-    expect(c).toEqual({ key: 'hash-c', wonSeconds: 1 })
+    expect(Object.keys(a).sort()).toEqual(['key', 'name', 'tokens'])
+    expect(Object.keys(b)).toEqual(['key'])
+    expect(c).toEqual({ key: 'hash-c' })
     expect(publish(upstream(), {}).projects).toEqual([
-      { key: 'hash-a', wonSeconds: 10 },
-      { key: 'hash-b', wonSeconds: 5 },
-      { key: 'hash-c', wonSeconds: 1 },
+      { key: 'hash-a' },
+      { key: 'hash-b' },
+      { key: 'hash-c' },
     ])
   })
 
   it('adds a name and tokens only where the lookup found them', () => {
     const [a, b] = publish(upstream(), meta).projects
-    expect(a).toEqual({ key: 'hash-a', wonSeconds: 10, ...meta['hash-a'] })
-    expect(b).toEqual({ key: 'hash-b', wonSeconds: 5 })
+    expect(a).toEqual({ key: 'hash-a', ...meta['hash-a'] })
+    expect(b).toEqual({ key: 'hash-b' })
     expect(
       publish(upstream(), { 'hash-a': { tokens: meta['hash-a'].tokens } }).projects[0],
-    ).toEqual({ key: 'hash-a', wonSeconds: 10, tokens: meta['hash-a'].tokens })
+    ).toEqual({ key: 'hash-a', tokens: meta['hash-a'].tokens })
   })
 
   // Every key and value in a breakdown is a number. Anything else is dropped
@@ -250,9 +252,9 @@ describe('/api/pixels against a stubbed upstream', () => {
       expect(json.projects.some((p) => 'sneakyProjectField' in p)).toBe(false)
     })
 
-    it('gives projects only key, wonSeconds, name and tokens', () => {
+    it('gives projects only key, name and tokens', () => {
       const fields = new Set(json.projects.flatMap((p) => Object.keys(p)))
-      expect([...fields].sort()).toEqual(['key', 'name', 'tokens', 'wonSeconds'])
+      expect([...fields].sort()).toEqual(['key', 'name', 'tokens'])
     })
 
     it('keeps the grid intact', () => {
@@ -326,11 +328,7 @@ describe('/api/pixels against a stubbed upstream', () => {
     const body = await res.text()
     expect(FORBIDDEN.filter((f) => body.includes(f))).toEqual([])
     const json = JSON.parse(body) as PixelPayload
-    expect(json.projects).toEqual([
-      { key: 'hash-a', wonSeconds: 10 },
-      { key: 'hash-b', wonSeconds: 5 },
-      { key: 'hash-c', wonSeconds: 1 },
-    ])
+    expect(json.projects).toEqual([{ key: 'hash-a' }, { key: 'hash-b' }, { key: 'hash-c' }])
     expect(warnings[0]).toContain('names lookup failed')
   })
 

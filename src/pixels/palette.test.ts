@@ -101,10 +101,7 @@ describe('cellAppearance', () => {
     tz: 'Asia/Shanghai',
     winners: [null, 0, 1, 1],
     intensity: [0, 50, 100, 10],
-    projects: [
-      { key: 'a', wonSeconds: 10 },
-      { key: 'b', wonSeconds: 5 },
-    ],
+    projects: [{ key: 'a' }, { key: 'b' }],
     live: [],
   }
 
@@ -137,6 +134,11 @@ describe('cellAppearance', () => {
     const future = cellAppearance(p, 2, 1)
     expect(hex(future.colour)).toBe('#000000')
     expect(future.intensity).toBe(0)
+    // Argus sends an hour still to come as one in which nothing ran.
+    const asSent = { ...p, winners: [null, 0, null, null], intensity: [0, 50, 0, 0] }
+    expect(cellAppearance(asSent, 2, 1)).toEqual(future)
     expect(cellAppearance(p, 1, 1).intensity).toBeGreaterThan(0)
+    // -1 means the visitor's clock is before the grid: paint what was sent.
+    expect(hex(cellAppearance(p, 2, -1).colour)).toBe(hex(colourFor(1)))
   })
 })

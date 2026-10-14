@@ -10,7 +10,6 @@
 export interface PixelProject {
   /** Opaque hash. Deliberately carries no name or path. */
   key: string
-  wonSeconds: number
   /**
    * Bare display name, added by the proxy from /me/usage/by-project (see
    * fetchNames). Optional because that lookup may fail without taking the board

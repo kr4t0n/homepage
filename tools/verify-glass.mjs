@@ -69,7 +69,6 @@ const PIXEL_FIXTURE = (() => {
     projects: names.map((name, i) => ({
       key: `hash${i}`,
       name,
-      wonSeconds: (86 - i * 7) * 3600,
       tokens: {
         in: Math.round(5.7e9 / (i + 1)),
         out: Math.round(1.07e7 / (i + 1)),

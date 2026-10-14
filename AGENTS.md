@@ -389,8 +389,11 @@ what made a panel read as frosted, however thin, and it also cost contrast by
 pulling in bright pixels from around the glyphs; do not add it back to soften a
 panel. A white fill adds luminance outright, and even a faint one put body text
 under AA, so there is none. The supplied references are unfiltered and survive
-by placing text over dark areas, which a moving camera cannot guarantee.
-Background on the material: README, "The glass panels".
+by placing text over dark areas, which a moving camera cannot guarantee. Nor is
+there a fallback for a browser without `backdrop-filter`: every browser Tailwind
+v4 targets (Safari 16.4, Chrome 111, Firefox 128) has it, and the pane's only
+filter is `saturate(140%)`, so a fill there would make opaque what everywhere
+else is clear. Background on the material: README, "The glass panels".
 
 **Translucent panels over this room fail WCAG AA by default**, and invisibly:
 the lit monitors and the hexagon light wall are off screen while a panel is
@@ -498,11 +501,25 @@ it ranks context replayed far more than output; ranking by `out` alone would be
 a different, equally defensible board.
 
 **Hours won and tokens count different things.** An hour on the pixel board goes
-to whichever project was busiest in it (`wonSeconds`); tokens are everything a
+to whichever project was busiest in it (`winners`); tokens are everything a
 project spent in the window, won or lost, so a project can hold two hours and
 over a billion tokens. Do not make them look reconcilable; any UI showing both
 owes the reader that sentence. Both cover the same six weeks, since
 `WINDOW_DAYS` is passed to `/me/usage/by-project` explicitly.
+
+**`projects` arrives ranked by hours won, and the order is all the site uses.**
+Argus sorts it by each project's `wonSeconds`, which is why the busiest project
+gets the palette's first colour. `publish` keeps the order and drops the figure,
+since nothing on the site reads it; showing hours won takes a line in `publish`
+first.
+
+**Hours still to come look like hours in which nothing ran, by the owner's
+choice.** The grid's last column is today in the grid's `tz`, so up to 23 of its
+cells have not happened yet. `cellAppearance` paints them dark whatever the
+payload holds, exactly as it paints an idle hour, and only `PixelTooltip` tells
+the two apart ("Hasn't happened yet."). A faint glow in the board's label ink
+was built and the owner preferred them dark, so a look of their own is a design
+change for the owner, not a fix.
 
 ## Server
 

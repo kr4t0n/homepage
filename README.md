@@ -79,7 +79,7 @@ It calls two upstream endpoints and publishes a fraction of what they return:
 
 | From | Forwarded | Withheld |
 |---|---|---|
-| `/me/pixels` | the grid, and opaque project hashes | — |
+| `/me/pixels` | the grid, and opaque project hashes in Argus's order | `wonSeconds` |
 | `/me/usage/by-project` | `name`, and `tokens` as `in`/`out`/`cached` | `workingDir`, `machineId`, `projectId`, `costUsd`, raw usage keys |
 
 `workingDir` carries an absolute path with a username in it, and `costUsd` runs
@@ -488,9 +488,7 @@ the luminance text sits on and the gate charges for it, while a brighter border,
 rim and sweep cost nothing measured.
 
 Reduced transparency is honoured completely — no blur, no translucency, no sheen
-— via `prefers-reduced-transparency`. There is also a nearly-opaque fallback for
-browsers without `backdrop-filter`, because shipping a transparent panel with
-unreadable text over a moving scene is worse than shipping no glass.
+— via `prefers-reduced-transparency`.
 
 **Not verified:** the GPU cost of blurring a continuously rendering canvas. This
 box has no hardware GL, and software rasterisation gives ~6fps with no glass at

@@ -58,15 +58,6 @@
 }
 
 @layer utilities {
-  /* Small caps label. Rationed to one per three sections. */
-  .label {
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: var(--color-mute);
-  }
-
   .hairline {
     border-color: var(--color-hair);
   }
@@ -139,14 +130,6 @@
      see. These read as depth through a faint tint and a divider instead. */
   .on-glass {
     background: rgba(255, 255, 255, 0.035);
-  }
-
-  /* This material carries no fill of its own, so without backdrop-filter it
-     gets a real background rather than leaving text on the sharp lit room. */
-  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    .glass {
-      background: rgba(7, 10, 18, 0.95);
-    }
   }
 
   /* Some people get motion sickness or simply cannot parse text over texture.
