@@ -48,14 +48,15 @@ there from `.env`), and the missing `VITE_` prefix is what keeps Vite from
 inlining it: renamed `VITE_PROMETHEUS_URL`, it ships to every visitor.
 `verify-api.mjs` checks `dist/` for the value, the name, the query path and the
 server module. The proxy's 9s cache, single-flight, strict parsing, field
-reduction and server-side failure log keep that hop cheap and honest. One Hono handler is mounted twice: `@hono/vite-dev-server` in
-`pnpm run dev`, `@hono/node-server` in `src/server/serve.ts` in the container,
-so dev cannot drift from prod. `serve.ts` adds only what Vite supplies in dev
-(the static tree, a cache policy, a shutdown path): put routes in `api.ts`, or
-they exist only in production. `src/shared/pixels.ts` (payload type, validator,
-grid maths) is imported by both sides; `src/pixels/ranking.ts` is pure so it is
-unit-tested without a GPU, and so is `src/server/prometheus.ts` (the queries,
-the parser, the grid's assembly), without a server.
+reduction and server-side failure log keep that hop cheap and honest. One Hono
+handler is mounted twice: `@hono/vite-dev-server` in `pnpm run dev`,
+`@hono/node-server` in `src/server/serve.ts` in the container, so dev cannot
+drift from prod. `serve.ts` adds only what Vite supplies in dev (the static
+tree, a cache policy, a shutdown path): put routes in `api.ts`, or they exist
+only in production. `src/shared/pixels.ts` (payload type, validator, grid maths)
+is imported by both sides; `src/pixels/ranking.ts` is pure so it is unit-tested
+without a GPU, and so is `src/server/prometheus.ts` (the queries, the parser,
+the grid's assembly), without a server.
 
 ## Asset pipeline
 
@@ -485,7 +486,7 @@ read, `stellaris_turns_running` and `stellaris_turn_tokens_total`, carry
 `agent`, the citizen who ran the turn, and the owner wants a cell to stay a
 project. Each query in `src/server/prometheus.ts` is `sum by (project)` (the
 tokens' `by (project, kind)`), so no answer the proxy receives can name a
-citizen, and the parser reads `project`, `of` and `kind` alone.
+citizen, and the parser reads `project` and `kind` alone.
 `prometheus.test.ts` checks every `by` clause, `agent` is on both `FORBIDDEN`
 lists, and the stub in `api.test.ts` attaches a citizen and the scrape target's
 labels to every series it returns. A new query has to aggregate the same way.
@@ -655,13 +656,13 @@ negative control in mind for any validator.
 **A check that skips is a check that passes.** Every script that talks to a port
 first identifies what answers it: `reachProxy()` in `verify-api.mjs` asks
 `/api/health` and separates nothing there, not us, us with upstream down, us
-with an empty board, and live; the browser scripts do the same through `tools/base.mjs`. A script aimed
-at someone else's port would otherwise describe that app in this project's
-terms, and a security assertion has passed against another app that way.
-`VERIFY_STRICT=1` turns a section that could not run into a failure; use it
-wherever the result is a gate. Assertions are deliberately outside
-`try`/`catch`, so a throw crashes instead of being reported as a connection
-error.
+with an empty board, and live; the browser scripts do the same through
+`tools/base.mjs`. A script aimed at someone else's port would otherwise describe
+that app in this project's terms, and a security assertion has passed against
+another app that way. `VERIFY_STRICT=1` turns a section that could not run into
+a failure; use it wherever the result is a gate. Assertions are deliberately
+outside `try`/`catch`, so a throw crashes instead of being reported as a
+connection error.
 
 **Assert on state, not pixels, and never on chrome.** Pointer parallax moves the
 camera, so screenshots taken with the pointer in different places differ almost
@@ -739,9 +740,9 @@ sets it, and must keep it when bumping `rev` until upstream does.
   test` must pass. Whatever runs in Node without a build, a server or a browser
   is tested there, the proxy included (`api.test.ts` drives the Hono app
   in-process against a loopback stub of Prometheus and crosses the cache TTL and
-  the hour by faking `Date` alone). `tools/verify-*.mjs` keep what needs the built `dist/`,
-  a live server or Chromium; a check that can run under Vitest lives only there.
-  A stray `.only` fails in CI, where `allowOnly` is off.
+  the hour by faking `Date` alone). `tools/verify-*.mjs` keep what needs the
+  built `dist/`, a live server or Chromium; a check that can run under Vitest
+  lives only there. A stray `.only` fails in CI, where `allowOnly` is off.
 - Nothing in `tools/` writes into the checkout. Screenshots, renders and
   measurements go to a fresh directory under the system temp dir whose path the
   script prints (`captureDir()` in `tools/captures.mjs`, `tempfile.mkdtemp` in

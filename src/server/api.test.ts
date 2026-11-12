@@ -22,6 +22,7 @@ const FORBIDDEN = [
   '__name__',
   'stellaris_',
   'cache_read',
+  'cache_write',
   'sneaky',
 ]
 
