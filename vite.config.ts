@@ -6,15 +6,14 @@ import devServer from '@hono/vite-dev-server'
 // Served from the root of a domain rather than a subpath, so the base stays '/'.
 export default defineConfig(({ mode }) => {
   // Vite only injects VITE_-prefixed vars, and only into the *client*. The proxy
-  // needs ARGUS and ARGUS_KEY server-side, so load them explicitly with an empty
-  // prefix and put just those two on process.env for the dev server to read.
+  // needs PROMETHEUS_URL server-side, so load it explicitly with an empty prefix
+  // and put just that one on process.env for the dev server to read.
   //
   // Deliberately not spreading everything from .env onto process.env, and
-  // deliberately not renaming these to VITE_ARGUS_KEY: that prefix is exactly
-  // what would inline the credential into the browser bundle.
+  // deliberately not renaming it VITE_PROMETHEUS_URL: that prefix is exactly
+  // what would inline the address into the browser bundle.
   const env = loadEnv(mode, process.cwd(), '')
-  if (env.ARGUS) process.env.ARGUS = env.ARGUS
-  if (env.ARGUS_KEY) process.env.ARGUS_KEY = env.ARGUS_KEY
+  if (env.PROMETHEUS_URL) process.env.PROMETHEUS_URL = env.PROMETHEUS_URL
 
   return {
     base: '/',

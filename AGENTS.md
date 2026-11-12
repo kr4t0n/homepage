@@ -31,29 +31,31 @@ content cannot drift between them.
 The two wall boards are the only live surfaces, and they have a server:
 
 ```
-Argus /me/pixels           --+
-      /me/usage/by-project --+--> src/server/api.ts --> /api/pixels --> usePixels
-      (X-API-Key stays on the server)                                      |
+Prometheus  turns running --+
+            tokens        --+--> src/server/api.ts --> /api/pixels ---> usePixels
+            (summed by project in Prometheus)                              |
                     +--------------------------+---------------------------+
                     |                          |                           |
         three/PixelBoard.tsx        three/RankingBoard.tsx       ui/PixelTooltip.tsx
         1008 cells, hours won       5x32 LEDs, tokens            per-cell hover readout
 ```
 
-The proxy exists because `ARGUS_KEY` must never reach the browser. Only server
-code reads it, from `process.env` (`api.ts` for the upstream call, `serve.ts`
-for a startup warning; in dev `vite.config.ts` loads it there from `.env`), and
-the missing `VITE_` prefix is what keeps Vite from inlining its value: renamed
-`VITE_ARGUS_KEY`, it ships to every visitor. `verify-api.mjs` checks `dist/` for
-the value, the name and the server module. The proxy's 9s cache, single-flight,
-strict validation, field reduction and server-side failure log keep that hop
-cheap and honest. One Hono handler is mounted twice: `@hono/vite-dev-server` in
+The proxy exists because the browser must never reach Prometheus, which holds
+every series the cluster scrapes, the citizen behind each turn among them. Only
+server code reads `PROMETHEUS_URL`, from `process.env` (`api.ts` for the
+queries, `serve.ts` for a startup warning; in dev `vite.config.ts` loads it
+there from `.env`), and the missing `VITE_` prefix is what keeps Vite from
+inlining it: renamed `VITE_PROMETHEUS_URL`, it ships to every visitor.
+`verify-api.mjs` checks `dist/` for the value, the name, the query path and the
+server module. The proxy's 9s cache, single-flight, strict parsing, field
+reduction and server-side failure log keep that hop cheap and honest. One Hono handler is mounted twice: `@hono/vite-dev-server` in
 `pnpm run dev`, `@hono/node-server` in `src/server/serve.ts` in the container,
 so dev cannot drift from prod. `serve.ts` adds only what Vite supplies in dev
 (the static tree, a cache policy, a shutdown path): put routes in `api.ts`, or
 they exist only in production. `src/shared/pixels.ts` (payload type, validator,
 grid maths) is imported by both sides; `src/pixels/ranking.ts` is pure so it is
-unit-tested without a GPU.
+unit-tested without a GPU, and so is `src/server/prometheus.ts` (the queries,
+the parser, the grid's assembly), without a server.
 
 ## Asset pipeline
 
@@ -476,42 +478,82 @@ synth's duck are unrestricted. iOS Safari ignores writes to `volume` outright.
 **`play()` resolves after the click that authorised it**, which can be the click
 that turned sound off. `start()` re-reads `on` inside `.then()` and bails.
 
-## Wall boards and the Argus proxy
+## Wall boards and the Prometheus proxy
+
+**Every query sums the citizen away inside Prometheus.** Both series the boards
+read, `stellaris_turns_running` and `stellaris_turn_tokens_total`, carry
+`agent`, the citizen who ran the turn, and the owner wants a cell to stay a
+project. Each query in `src/server/prometheus.ts` is `sum by (project)` (the
+tokens' `by (project, kind)`), so no answer the proxy receives can name a
+citizen, and the parser reads `project`, `of` and `kind` alone.
+`prometheus.test.ts` checks every `by` clause, `agent` is on both `FORBIDDEN`
+lists, and the stub in `api.test.ts` attaches a citizen and the scrape target's
+labels to every series it returns. A new query has to aggregate the same way.
 
 **Everything published is built from named fields, at every level where upstream
-data can carry unknown keys.** `publish` and `fetchNames` in `src/server/api.ts`
-construct the response; `validate()` is an assertion that checks and strips
-nothing. `/me/usage/by-project` is the revealing one (absolute `workingDir`
-paths with a username in them, `machineId`, `projectId`, `costUsd`), so names
-are resolved on the server: forwarding that endpoint, or looking names up in the
-browser, would publish all of it. Scalars and arrays of scalars are safe once
-named; objects are not, so `breakdown` is rebuilt rather than copied. A new
-upstream field therefore needs a line in `publish` before it can be published,
-which is the right trade for a public endpoint. README, "Environment", has the
-field table.
+data can carry unknown keys.** `publish` in `src/server/api.ts` constructs the
+response from the assembled grid and the parsed tokens; `validate()` is an
+assertion that checks and strips nothing. The parser refuses an answer whose
+`project` label is not a project slug, so a label cannot carry a path or a
+sentence onto the page. Scalars and arrays of scalars are safe once named;
+objects are not, so `breakdown` and `tokens` are rebuilt rather than copied. A
+new field therefore needs a line in `publish` before it can be published, which
+is the right trade for a public endpoint. README, "Environment", has the query
+table.
 
-**Token counts are published; cost is not.** The proxy reduces upstream `usage`
-to `in`/`out`/`cached` instead of spreading it, because `costUsd` sits in the
-same object. The raw key names stay on the `FORBIDDEN` lists in
-`src/server/api.test.ts` and `tools/verify-api.mjs`, since they can only appear
-if someone spreads the whole object. `in` includes cache reads, ~85% of it, so a
-single summed figure overstates the work about sevenfold. `rankByTokens` still
-orders the ranking board by `in + out`, the plain meaning of "total tokens", so
-it ranks context replayed far more than output; ranking by `out` alone would be
-a different, equally defensible board.
+**The society's scope is not a project.** Turns outside any project carry
+`project="society"`, and every selector leaves them out, along with series from
+before the label existed (`project=""`). That is one place, `SCOPE`, if the
+owner ever wants them on the board.
+
+**An hour's busy time is when any of the project's turns ran, read every 30
+seconds.** `gridQuery` counts, per project and hour, the 30-second steps at
+which `sum by (project)` of the gauge was above zero, in a `[1h:30s]` subquery,
+so parallel turns do not multiply an hour and no hour exceeds 120 steps. A tie,
+common when two projects work a whole hour, goes to the one with more `turns`
+(the gauge's samples summed, read for nothing else), then to the first key. The
+contested split and the 0.7 threshold are as the boards had them from Argus.
+- The count is a fixed-step subquery summed, not raw samples and not
+  `avg_over_time`: raw samples change with the scrape interval, and an average
+  covers only the samples since a series appeared, which reads a new pair's
+  first hour high.
+- The current hour is evaluated at its end, still to come, and an instant
+  selector looks back five minutes for a sample, so without `and on ()
+  (vector(time()) <= now)` the hour gains up to ten busy steps after now (104
+  for 94 elapsed on Prometheus 3.15). Range selectors look back nothing, so
+  `turns` needs no guard.
+- Six weeks of that subquery took about 4 s on the homelab Prometheus, so the
+  proxy reads every hour but the last two only when the current hour moves on,
+  and the last two, the live set and nothing else on each 9 s refresh. The
+  tokens have their own five-minute TTL.
+- Slots are local hours of `TZ`, which has no daylight saving, from local
+  midnight 41 days back (`gridStart`).
+
+**Token counts are published; cost is not.** The proxy builds `in`/`out`/
+`cached` from the four kinds the selector names (`in` is input plus both cache
+kinds, `cached` the cache reads); a kind Stellaris adds is not counted until
+`parseTokens` places it. `cache_read` and `cache_write` stay on the `FORBIDDEN`
+lists, since they can only appear if a series' labels were passed through.
+Cache reads are the great majority of `in`, so a single summed figure overstates
+the work many times over. `rankByTokens` still orders the ranking board by `in +
+out`, the plain meaning of "total tokens", so it ranks context replayed far more
+than output; ranking by `out` alone would be a different, equally defensible
+board.
 
 **Hours won and tokens count different things.** An hour on the pixel board goes
 to whichever project was busiest in it (`winners`); tokens are everything a
 project spent in the window, won or lost, so a project can hold two hours and
 over a billion tokens. Do not make them look reconcilable; any UI showing both
-owes the reader that sentence. Both cover the same six weeks, since
-`WINDOW_DAYS` is passed to `/me/usage/by-project` explicitly.
+owes the reader that sentence. Both cover the same window: the tokens are an
+`increase()` from the grid's first hour to now, and neither reaches back further
+than Prometheus holds (README, "Environment").
 
 **`projects` arrives ranked by hours won, and the order is all the site uses.**
-Argus sorts it by each project's `wonSeconds`, which is why the busiest project
-gets the palette's first colour. `publish` keeps the order and drops the figure,
-since nothing on the site reads it; showing hours won takes a line in `publish`
-first.
+`assemble` sorts it by the seconds each project won, then by key, which is why
+the busiest project gets the palette's first colour. It lists every project that
+ran, runs now or spent tokens in the window, so the ranking board can show one
+that never won an hour. The figure itself is not in the payload; showing hours
+won takes a field in `assemble` and a line in `publish`.
 
 **Hours still to come look like hours in which nothing ran, by the owner's
 choice.** The grid's last column is today in the grid's `tz`, so up to 23 of its
@@ -566,16 +608,17 @@ where `*` stops at a path separator, so `*.mp3` matches only the context root.
 Patterns meant for any depth need `**/`.
 
 **The chart has nodex's shape and is published from this repo**: one Deployment,
-a Service, and an optional Ingress, Secret and media PVC, the same helpers,
-`existingSecret` pattern, `validate` template and `helm-publish.yml` as
-`kr4t0n/nodex`, so the homelab helmfile treats it like every first-party chart.
+a Service, and an optional Ingress and media PVC, the same helpers, `validate`
+template and `helm-publish.yml` as `kr4t0n/nodex`, so the homelab helmfile
+treats it like every first-party chart.
 `gh-pages` carries only `helm/`; the site is never served from Pages.
 
-**The chart refuses configurations the server would accept.** A URL without a
-key, a key without a URL, or a URL without a scheme start cleanly and then 502
-on every poll, which looks exactly like an Argus outage, so `homepage.validate`
-fails the install. No `argus` values at all stays legal: an unlit board is
-supported.
+**The chart refuses configurations the server would accept.** A Prometheus URL
+without a scheme starts cleanly and then 502s on every poll, which looks exactly
+like a Prometheus outage, so `homepage.validate` fails the install. So does a
+leftover `argus` block, which nothing reads any more and which would leave the
+boards dark with no error. No `prometheus.url` at all stays legal: an unlit
+board is supported.
 
 **`runAsNonRoot` cannot be enforced against a named user.** Kubelet cannot prove
 `USER node` is not root, and the pod sticks in `CreateContainerConfigError`. The
@@ -611,8 +654,8 @@ negative control in mind for any validator.
 
 **A check that skips is a check that passes.** Every script that talks to a port
 first identifies what answers it: `reachProxy()` in `verify-api.mjs` asks
-`/api/health` and separates nothing there, not us, us with upstream down, and
-live; the browser scripts do the same through `tools/base.mjs`. A script aimed
+`/api/health` and separates nothing there, not us, us with upstream down, us
+with an empty board, and live; the browser scripts do the same through `tools/base.mjs`. A script aimed
 at someone else's port would otherwise describe that app in this project's
 terms, and a security assertion has passed against another app that way.
 `VERIFY_STRICT=1` turns a section that could not run into a failure; use it
@@ -695,8 +738,8 @@ sets it, and must keep it when bumping `rev` until upstream does.
 - Unit tests are Vitest, a `*.test.ts` beside the module it covers; `pnpm run
   test` must pass. Whatever runs in Node without a build, a server or a browser
   is tested there, the proxy included (`api.test.ts` drives the Hono app
-  in-process against a loopback stub of Argus and crosses the cache TTL by
-  faking `Date` alone). `tools/verify-*.mjs` keep what needs the built `dist/`,
+  in-process against a loopback stub of Prometheus and crosses the cache TTL and
+  the hour by faking `Date` alone). `tools/verify-*.mjs` keep what needs the built `dist/`,
   a live server or Chromium; a check that can run under Vitest lives only there.
   A stray `.only` fails in CI, where `allowOnly` is off.
 - Nothing in `tools/` writes into the checkout. Screenshots, renders and

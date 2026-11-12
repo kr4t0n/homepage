@@ -42,9 +42,9 @@ USER node
 EXPOSE 8080
 
 # Uses the liveness route the API already exposes, which deliberately does not
-# touch Argus: an upstream outage must not make this container look dead. Node
-# rather than wget or curl, so the check does not depend on which of those the
-# base image happens to include.
+# touch Prometheus: an upstream outage must not make this container look dead.
+# Node rather than wget or curl, so the check does not depend on which of those
+# the base image happens to include.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||8080)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 

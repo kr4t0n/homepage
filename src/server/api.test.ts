@@ -5,86 +5,124 @@ import type { Hono } from 'hono'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PixelPayload } from '../shared/pixels'
 import { publish } from './api'
+import { LIVE_QUERY, gridQuery, gridStart, slotEnd, tokensQuery } from './prometheus'
 
 /**
- * Everything that must never reach a visitor. `sneakyTopLevel` and
- * `sneakyProjectField` exist only here and stand in for whatever Argus adds next.
+ * Everything that must never reach a visitor: the labels and citizens the stub
+ * attaches to every series, and fields that stand in for whatever Prometheus
+ * adds next. The fixtures plant each one by construction, so the sweep would
+ * fail if any of them were passed through.
  */
 const FORBIDDEN = [
-  'workingDir',
-  'machineId',
-  'projectId',
-  'costUsd',
-  'inputTokens',
-  'outputTokens',
-  'cacheReadTokens',
-  'turns',
-  'cliTypes',
-  'sneakyTopLevel',
-  'sneakyProjectField',
+  'agent',
+  'eng-1',
+  'eng-2',
+  'instance',
+  'pod',
+  '__name__',
+  'stellaris_',
+  'cache_read',
+  'sneaky',
 ]
 
-// The fixtures carry every forbidden field by construction. Asserting redaction
-// against live data would only prove we stripped whatever Argus sent that day;
-// if it stopped sending `costUsd`, the check would pass with the reduction broken.
-const PIXELS_FIXTURE = {
-  start: '2026-07-26T16:00:00.000Z',
-  slotMinutes: 60,
-  slotCount: 4,
-  tz: 'Asia/Shanghai',
-  winners: [null, 0, 1, null],
-  intensity: [0, 50, 100, 0],
-  breakdown: { 1: { 0: 415, 1: 301 } },
-  // Argus ranks projects by wonSeconds and sends it. Nothing on the site reads it,
-  // so it is not published.
-  projects: [
-    { key: 'hash-a', wonSeconds: 10, sneakyProjectField: '/home/kyle/secret' },
-    { key: 'hash-b', wonSeconds: 5 },
-    // Unknown to the names lookup, so nothing from it can add the fields back.
-    { key: 'hash-c', wonSeconds: 1, sneakyProjectField: '/home/kyle/other' },
-  ],
-  live: [0],
-  sneakyTopLevel: { machineId: 'box-1', costUsd: 12345.67 },
+/** 13:00:30 in Shanghai: the current hour is slot 997, 30 seconds old. */
+const NOW = Date.parse('2026-11-12T05:00:30Z')
+const START = gridStart(NOW)
+const CUR = 997
+
+/** Readings per slot: steps busy, and turns summed over the hour's samples. */
+const GRID: Record<number, Record<string, [number, number]>> = {
+  [CUR]: { demo: [1, 1] },
+  // Contested: demo held 80 of the 120 steps, under 70% of what ran.
+  [CUR - 1]: { demo: [80, 80], 'web-app': [40, 40] },
+  990: { 'web-app': [120, 240] },
+  500: { docs: [30, 30] },
 }
 
-const NAMES_FIXTURE = {
-  projects: [
-    {
-      key: 'hash-a',
-      name: 'fluvio',
-      workingDir: '/home/kyle/projects/fluvio',
-      machineId: 'box-1',
-      projectId: 'proj-1',
-      usage: {
-        inputTokens: 100,
-        outputTokens: 20,
-        cacheReadTokens: 850,
-        cacheWriteTokens: 30,
-        costUsd: 12345.67,
-        turns: 42,
-      },
-    },
-    {
-      key: 'hash-b',
-      name: null,
-      workingDir: '/home/kyle/projects/harbor/',
-      usage: { inputTokens: 5, outputTokens: 1, cacheReadTokens: 0, costUsd: 0.5 },
-    },
-  ],
+const TOKENS: Record<string, Record<string, number>> = {
+  demo: { input: 100, output: 20, cache_read: 850, cache_write: 30 },
+  'web-app': { input: 5, output: 1, cache_read: 0, cache_write: 0 },
+  // Spent tokens in the window without winning an hour.
+  archive: { input: 7, output: 3 },
 }
+
+/** What Prometheus attaches to a series beyond the labels asked for. */
+const planted = (agent: string) => ({
+  agent,
+  instance: '10.0.0.7:4701',
+  pod: 'server-0',
+  __name__: 'stellaris_turns_running',
+})
+
+const answer = (resultType: string, result: unknown[]) => ({
+  status: 'success',
+  data: { resultType, result, sneakyData: 1 },
+  infos: ['sneaky info'],
+})
+
+function gridAnswer(start: number, end: number, step: number) {
+  const result: unknown[] = []
+  for (const of of ['steps', 'turns'] as const) {
+    const byProject: Record<string, [number, string][]> = {}
+    for (let at = start; at <= end; at += step) {
+      const slot = (at - START / 1000) / 3600 - 1
+      for (const [project, [steps, turns]] of Object.entries(GRID[slot] ?? {})) {
+        ;(byProject[project] ??= []).push([at, String(of === 'steps' ? steps : turns)])
+      }
+    }
+    for (const [project, values] of Object.entries(byProject)) {
+      result.push({ metric: { project, of, ...planted('eng-1') }, values })
+    }
+  }
+  return answer('matrix', result)
+}
+
+const tokensAnswer = () =>
+  answer(
+    'vector',
+    Object.entries(TOKENS).flatMap(([project, kinds]) =>
+      Object.entries(kinds).map(([kind, n]) => ({
+        metric: { project, kind, ...planted('eng-2') },
+        value: [NOW / 1000, String(n)],
+      })),
+    ),
+  )
+
+const liveAnswer = () =>
+  answer('vector', [{ metric: { project: 'demo', ...planted('eng-1') }, value: [NOW / 1000, '2'] }])
 
 describe('publish', () => {
-  const meta = { 'hash-a': { name: 'fluvio', tokens: { in: 980, out: 20, cached: 850 } } }
-  const upstream = () => structuredClone(PIXELS_FIXTURE) as unknown as PixelPayload
-
-  it('keeps the grid', () => {
-    const out = publish(upstream(), meta)
-    const { start, slotMinutes, slotCount, tz, winners, intensity, live } = PIXELS_FIXTURE
-    expect(out).toMatchObject({ start, slotMinutes, slotCount, tz, winners, intensity, live })
+  const spent = { demo: { in: 980, out: 20, cached: 850 } }
+  const assembled = (): PixelPayload => ({
+    start: '2026-07-26T16:00:00.000Z',
+    slotMinutes: 60,
+    slotCount: 4,
+    tz: 'Asia/Shanghai',
+    winners: [null, 0, 1, null],
+    intensity: [0, 50, 100, 0],
+    breakdown: { 1: { 0: 415, 1: 301 } },
+    projects: [{ key: 'demo' }, { key: 'web-app' }],
+    live: [0],
   })
 
-  it('drops an unknown top-level field', () => {
-    expect(Object.keys(publish(upstream(), meta)).sort()).toEqual([
+  it('keeps the grid', () => {
+    const { start, slotMinutes, slotCount, tz, winners, intensity, live } = assembled()
+    expect(publish(assembled(), spent)).toMatchObject({
+      start,
+      slotMinutes,
+      slotCount,
+      tz,
+      winners,
+      intensity,
+      live,
+    })
+  })
+
+  it('drops an unknown top-level or per-project field', () => {
+    const p = Object.assign(assembled(), { sneakyTopLevel: 1 })
+    Object.assign(p.projects[0], { sneakyProjectField: 1, name: 'x' })
+    const out = publish(p, spent)
+    expect(Object.keys(out).sort()).toEqual([
       'breakdown',
       'intensity',
       'live',
@@ -95,103 +133,93 @@ describe('publish', () => {
       'tz',
       'winners',
     ])
+    expect(out.projects).toEqual([{ key: 'demo', tokens: spent.demo }, { key: 'web-app' }])
   })
 
-  it('drops an unknown per-project field, whether or not the lookup knew the project', () => {
-    const [a, b, c] = publish(upstream(), meta).projects
-    expect(Object.keys(a).sort()).toEqual(['key', 'name', 'tokens'])
-    expect(Object.keys(b)).toEqual(['key'])
-    expect(c).toEqual({ key: 'hash-c' })
-    expect(publish(upstream(), {}).projects).toEqual([
-      { key: 'hash-a' },
-      { key: 'hash-b' },
-      { key: 'hash-c' },
-    ])
-  })
-
-  it('adds a name and tokens only where the lookup found them', () => {
-    const [a, b] = publish(upstream(), meta).projects
-    expect(a).toEqual({ key: 'hash-a', ...meta['hash-a'] })
-    expect(b).toEqual({ key: 'hash-b' })
-    expect(
-      publish(upstream(), { 'hash-a': { tokens: meta['hash-a'].tokens } }).projects[0],
-    ).toEqual({ key: 'hash-a', tokens: meta['hash-a'].tokens })
+  it('copies token counts field by field', () => {
+    const out = publish(assembled(), { demo: { ...spent.demo, sneaky: 1 } as never })
+    expect(out.projects[0].tokens).toEqual(spent.demo)
+    expect(out.projects[0].tokens).not.toBe(spent.demo)
   })
 
   // Every key and value in a breakdown is a number. Anything else is dropped
   // rather than passed on, so nothing nested can ride through unexamined.
   it('rebuilds the breakdown from numbers alone', () => {
-    const p = upstream()
+    const p = assembled()
     Object.assign(p, {
       breakdown: {
-        1: { 0: 415, 1: '301', 2: Number.NaN, 3: Infinity, 4: { costUsd: 1 } },
+        1: { 0: 415, 1: '301', 2: Number.NaN, 3: Infinity, 4: { agent: 1 } },
         2: { 0: 'x' },
         3: 'not a cell',
         4: null,
       },
     })
-    const out = publish(p, meta)
+    const out = publish(p, spent)
     expect(out.breakdown).toEqual({ 1: { 0: 415 } })
     expect(out.breakdown).not.toBe(p.breakdown)
-  })
-
-  it('adds no breakdown when upstream sent none', () => {
-    const p = upstream()
-    delete p.breakdown
-    expect('breakdown' in publish(p, meta)).toBe(false)
   })
 })
 
 // The real Hono app, driven in-process through `api.fetch`, against a
-// throwaway HTTP server that stands in for Argus. It needs no credential and no
-// network beyond loopback.
-describe('/api/pixels against a stubbed upstream', () => {
-  const KEY = 'test-key-not-a-real-credential'
+// throwaway HTTP server that stands in for Prometheus. It needs no network
+// beyond loopback. Date is frozen at NOW, so the grid's slots are fixed.
+describe('/api/pixels against a stubbed Prometheus', () => {
   const servers: ReturnType<typeof createServer>[] = []
   let errors: string[]
   let warnings: string[]
 
+  type Kind = 'history' | 'recent' | 'live' | 'tokens'
   interface Behaviour {
-    pixelsStatus?: number
-    pixelsBody?: unknown
-    namesStatus?: number
+    status?: Partial<Record<Kind, number>>
+    body?: Partial<Record<Kind, unknown>>
+  }
+  interface Asked {
+    kind: Kind
+    path: string
+    params: Record<string, string>
   }
 
-  async function startUpstream(behaviour: Behaviour = {}) {
-    const seen = { keys: [] as (string | string[] | undefined)[], paths: [] as string[] }
+  async function startPrometheus(behaviour: Behaviour = {}) {
+    const asked: Asked[] = []
     const server = createServer((req, res) => {
-      const url = new URL(req.url ?? '/', 'http://upstream')
-      seen.paths.push(url.pathname + url.search)
-      seen.keys.push(req.headers['x-api-key'])
+      const url = new URL(req.url ?? '/', 'http://prometheus')
+      const params = Object.fromEntries(url.searchParams)
       const send = (code: number, body: unknown) => {
         res.writeHead(code, { 'content-type': 'application/json' })
         res.end(JSON.stringify(body))
       }
-      if (url.pathname === '/me/pixels') {
-        if (behaviour.pixelsStatus) send(behaviour.pixelsStatus, { error: 'nope' })
-        else send(200, behaviour.pixelsBody ?? PIXELS_FIXTURE)
-      } else if (url.pathname === '/me/usage/by-project') {
-        if (behaviour.namesStatus) send(behaviour.namesStatus, { error: 'nope' })
-        else send(200, NAMES_FIXTURE)
+      let kind: Kind
+      let body: () => unknown
+      if (url.pathname.endsWith('/api/v1/query_range')) {
+        const [start, end, step] = [params.start, params.end, params.step].map(Number)
+        kind = (end - start) / step + 1 > 2 ? 'history' : 'recent'
+        body = () => gridAnswer(start, end, step)
+      } else if (url.pathname.endsWith('/api/v1/query')) {
+        kind = params.query.includes('increase(') ? 'tokens' : 'live'
+        body = kind === 'tokens' ? tokensAnswer : liveAnswer
       } else {
-        send(404, { error: 'unknown path' })
+        send(404, { status: 'error', error: 'unknown path' })
+        return
       }
+      asked.push({ kind, path: url.pathname, params })
+      const status = behaviour.status?.[kind]
+      if (status) send(status, { status: 'error', error: `stub ${kind} failed` })
+      else send(200, behaviour.body?.[kind] ?? body())
     })
     servers.push(server)
     server.listen(0, '127.0.0.1')
     await once(server, 'listening')
     const { port } = server.address() as AddressInfo
-    return { server, seen, base: `http://127.0.0.1:${port}` }
+    const count = (kind: Kind) => asked.filter((a) => a.kind === kind).length
+    return { server, asked, count, base: `http://127.0.0.1:${port}` }
   }
 
   /**
-   * A fresh copy of the proxy. Its cache and resolved names live at module
-   * scope, which is right in production and would otherwise hand one scenario
-   * the previous scenario's answer.
+   * A fresh copy of the proxy. Its caches live at module scope, which is right
+   * in production and would otherwise hand one scenario the previous scenario's answer.
    */
-  async function freshProxy(base: string, key: string | null = KEY): Promise<Hono> {
-    vi.stubEnv('ARGUS', base)
-    vi.stubEnv('ARGUS_KEY', key ?? undefined)
+  async function freshProxy(url: string | null): Promise<Hono> {
+    vi.stubEnv('PROMETHEUS_URL', url ?? undefined)
     vi.resetModules()
     return (await import('./api')).api
   }
@@ -200,10 +228,12 @@ describe('/api/pixels against a stubbed upstream', () => {
     await app.fetch(new Request(`http://proxy${path}`))
 
   // The proxy logs every failure server-side. Captured rather than printed, so
-  // the scenarios can check what was said and that the key was not in it.
+  // the scenarios can check what was said.
   beforeEach(() => {
     errors = []
     warnings = []
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(NOW)
     vi.spyOn(console, 'error').mockImplementation((...args) => void errors.push(args.join(' ')))
     vi.spyOn(console, 'warn').mockImplementation((...args) => void warnings.push(args.join(' ')))
   })
@@ -219,18 +249,22 @@ describe('/api/pixels against a stubbed upstream', () => {
     )
   })
 
-  describe('with a healthy upstream', () => {
+  describe('with a healthy Prometheus', () => {
     let res: Response
     let body: string
     let json: PixelPayload
-    let seen: Awaited<ReturnType<typeof startUpstream>>['seen']
+    let asked: Asked[]
+    const index = (key: string) => json.projects.findIndex((p) => p.key === key)
 
     beforeAll(async () => {
-      const up = await startUpstream()
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(NOW)
+      const up = await startPrometheus()
       res = await get(await freshProxy(up.base))
       body = await res.text()
       json = JSON.parse(body) as PixelPayload
-      seen = up.seen
+      asked = up.asked
+      vi.useRealTimers()
     })
 
     it('serves 200', () => {
@@ -238,138 +272,168 @@ describe('/api/pixels against a stubbed upstream', () => {
       expect(res.headers.get('cache-control')).toBe('no-store')
     })
 
-    it('lets no forbidden field into the response', () => {
+    it('lets no citizen, label or unknown field into the response', () => {
       expect(FORBIDDEN.filter((f) => body.includes(f))).toEqual([])
     })
 
-    // Stated apart from the sweep above, so a regression names the actual
-    // problem rather than "something leaked".
-    it('drops an unknown top-level upstream field', () => {
-      expect(Object.keys(json)).not.toContain('sneakyTopLevel')
-    })
-
-    it('drops an unknown per-project upstream field', () => {
-      expect(json.projects.some((p) => 'sneakyProjectField' in p)).toBe(false)
-    })
-
-    it('gives projects only key, name and tokens', () => {
+    it('gives projects only a key and tokens', () => {
       const fields = new Set(json.projects.flatMap((p) => Object.keys(p)))
-      expect([...fields].sort()).toEqual(['key', 'name', 'tokens'])
+      expect([...fields].sort()).toEqual(['key', 'tokens'])
     })
 
-    it('keeps the grid intact', () => {
-      expect(json.slotCount).toBe(4)
-      expect(json.winners).toEqual([null, 0, 1, null])
+    it('ranks projects by the time they won, then by key', () => {
+      // web-app won 3600s, demo 30s + 2400s, docs 900s; archive only spent tokens.
+      expect(json.projects.map((p) => p.key)).toEqual(['web-app', 'demo', 'docs', 'archive'])
     })
 
-    it('keeps the breakdown, rebuilt', () => {
-      expect(json.breakdown).toEqual({ 1: { 0: 415, 1: 301 } })
+    it('starts the grid at Shanghai midnight 41 days back', () => {
+      expect(json.start).toBe('2026-10-01T16:00:00.000Z')
+      expect(json.slotCount).toBe(1008)
+      expect(json.tz).toBe('Asia/Shanghai')
     })
 
-    // The names lookup reads the most revealing endpoint upstream. Both halves
-    // matter: the name arrives, and the rest of that payload does not.
-    it('resolves hashes to names', () => {
-      expect(json.projects[0].name).toBe('fluvio')
+    it('lights the hours that ran, from both the history and the recent query', () => {
+      const lit = Object.fromEntries(
+        json.winners.flatMap((w, slot) => (w === null ? [] : [[slot, json.projects[w].key]])),
+      )
+      expect(lit).toEqual({ 500: 'docs', 990: 'web-app', 996: 'demo', 997: 'demo' })
     })
 
-    it('falls back to the directory basename when a name is null', () => {
-      expect(json.projects[1].name).toBe('harbor')
+    it('scales brightness against the busiest hour', () => {
+      expect([json.intensity[990], json.intensity[996], json.intensity[500]]).toEqual([
+        100, 100, 25,
+      ])
+      expect(json.intensity[997]).toBe(1)
     })
 
-    // `in` counts cache reads and writes, so cached can equal it but never pass it.
-    it('renames tokens to in/out/cached', () => {
-      expect(json.projects[0].tokens).toEqual({ in: 980, out: 20, cached: 850 })
-      expect(json.projects[1].tokens).toEqual({ in: 5, out: 1, cached: 0 })
+    it('splits only the contested hour, in seconds', () => {
+      expect(json.breakdown).toEqual({
+        996: { [index('demo')]: 2400, [index('web-app')]: 1200 },
+      })
     })
 
-    // The one positive assertion about the credential: it has to go upstream, or
-    // the proxy is not doing its job.
-    it('sends the API key upstream on both calls', () => {
-      expect(seen.keys).toEqual([KEY, KEY])
+    it('blinks for the project running now', () => {
+      expect(json.live).toEqual([index('demo')])
     })
 
-    it('asks both upstream calls for the same 42-day window', () => {
-      expect(seen.paths).toHaveLength(2)
-      expect(seen.paths.every((p) => p.includes('days=42'))).toBe(true)
+    // `in` counts both cache kinds, so cached can equal it but never pass it.
+    it('counts tokens as in/out/cached', () => {
+      expect(json.projects[index('demo')].tokens).toEqual({ in: 980, out: 20, cached: 850 })
+      expect(json.projects[index('web-app')].tokens).toEqual({ in: 5, out: 1, cached: 0 })
+      expect(json.projects[index('archive')].tokens).toEqual({ in: 7, out: 3, cached: 0 })
+      expect(json.projects[index('docs')].tokens).toBeUndefined()
+    })
+
+    it('sends only the fixed queries', () => {
+      const nowSec = NOW / 1000
+      expect(new Set(asked.map((a) => a.params.query))).toEqual(
+        new Set([gridQuery(nowSec), LIVE_QUERY, tokensQuery(nowSec - START / 1000)]),
+      )
+      expect(asked.filter((a) => a.params.time).every((a) => a.params.time === `${nowSec}`)).toBe(
+        true,
+      )
+    })
+
+    it('asks for every hour of the window, the last two apart', () => {
+      const range = (kind: Kind) => {
+        const a = asked.find((x) => x.kind === kind)!.params
+        return [a.start, a.end, a.step].map(Number)
+      }
+      expect(range('history')).toEqual([slotEnd(START, 0), slotEnd(START, CUR - 2), 3600])
+      expect(range('recent')).toEqual([slotEnd(START, CUR - 1), slotEnd(START, CUR), 3600])
     })
   })
 
-  it('turns an upstream 503 into a 502 that says nothing about why', async () => {
-    const up = await startUpstream({ pixelsStatus: 503 })
+  it('serves an unlit board while Prometheus has no series yet', async () => {
+    const empty = answer('vector', [])
+    const up = await startPrometheus({
+      body: {
+        history: answer('matrix', []),
+        recent: answer('matrix', []),
+        live: empty,
+        tokens: empty,
+      },
+    })
+    const res = await get(await freshProxy(up.base))
+    expect(res.status).toBe(200)
+    const json = (await res.json()) as PixelPayload
+    expect(json.winners.every((w) => w === null)).toBe(true)
+    expect(json.intensity.every((v) => v === 0)).toBe(true)
+    expect(json.projects).toEqual([])
+    expect(json.live).toEqual([])
+  })
+
+  it('turns a Prometheus 503 into a 502 that says nothing about why', async () => {
+    const up = await startPrometheus({ status: { recent: 503 } })
     const res = await get(await freshProxy(up.base))
     expect(res.status).toBe(502)
     expect(res.headers.get('cache-control')).toBe('no-store')
     expect(await res.json()).toEqual({ error: 'upstream unavailable' })
-    // The cause stays in the server log, and the key stays out of it.
+    // The cause stays in the server log.
     expect(errors).toHaveLength(1)
-    expect(errors[0]).toContain('argus responded 503')
-    expect(errors[0]).not.toContain(KEY)
+    expect(errors[0]).toContain('prometheus query_range responded 503: stub recent failed')
   })
 
-  // winners[1] indexes a project that does not exist. An out-of-range index
-  // paints the wrong project's colour rather than failing, so such a payload
-  // must never be served or cached.
-  it('neither serves nor caches a payload the validator rejects', async () => {
-    const bad = { ...PIXELS_FIXTURE, winners: [null, 9, 1, null] }
-    const up = await startUpstream({ pixelsBody: bad })
+  // A label that is no project slug could carry anything into a public page,
+  // so such an answer must never be served or cached.
+  it('neither serves nor caches an answer the parser refuses', async () => {
+    const bad = gridAnswer(slotEnd(START, CUR - 1), slotEnd(START, CUR), 3600)
+    Object.assign((bad.data.result[0] as { metric: object }).metric, { project: '/home/eng-1' })
+    const up = await startPrometheus({ body: { recent: bad } })
     const app = await freshProxy(up.base)
     expect((await get(app)).status).toBe(502)
-    expect(errors[0]).toContain('winners[1] = 9 does not index')
+    expect(errors[0]).toContain('is not a project slug')
     expect((await get(app)).status).toBe(502)
-    expect(up.seen.paths.filter((p) => p.startsWith('/me/pixels'))).toHaveLength(2)
+    expect(up.count('recent')).toBe(2)
   })
 
-  // Names are a nicety. Losing them must cost the names, not the board, and
-  // must not let a project out unreduced.
-  it('serves the board with hashes when the names lookup fails', async () => {
-    const up = await startUpstream({ namesStatus: 500 })
+  // Tokens are a nicety. Losing them must cost the ranking, not the grid.
+  it('serves the grid without tokens when the token query fails', async () => {
+    const up = await startPrometheus({ status: { tokens: 500 } })
     const res = await get(await freshProxy(up.base))
     expect(res.status).toBe(200)
     const body = await res.text()
     expect(FORBIDDEN.filter((f) => body.includes(f))).toEqual([])
     const json = JSON.parse(body) as PixelPayload
-    expect(json.projects).toEqual([{ key: 'hash-a' }, { key: 'hash-b' }, { key: 'hash-c' }])
-    expect(warnings[0]).toContain('names lookup failed')
+    expect(json.projects).toEqual([{ key: 'web-app' }, { key: 'demo' }, { key: 'docs' }])
+    expect(warnings[0]).toContain('token lookup failed')
   })
 
-  it('makes one upstream request for concurrent misses', async () => {
-    const up = await startUpstream()
+  it('makes one round of queries for concurrent misses', async () => {
+    const up = await startPrometheus()
     const app = await freshProxy(up.base)
     const all = await Promise.all([get(app), get(app), get(app)])
     expect(all.map((r) => r.status)).toEqual([200, 200, 200])
-    expect(up.seen.paths.filter((p) => p.startsWith('/me/pixels'))).toHaveLength(1)
+    expect(up.asked.map((a) => a.kind).sort()).toEqual(['history', 'live', 'recent', 'tokens'])
   })
 
   // The cache is keyed on Date.now(), so faking Date alone crosses the 9s TTL
   // while sockets and fetch keep real timers. The stale request must land past
   // the TTL, or the fresh cache answers it and the test proves nothing.
-  it('caches for 9s, then serves a stale payload once the upstream is gone', async () => {
-    vi.useFakeTimers({ toFake: ['Date'] })
-    const t0 = Date.now()
-    const up = await startUpstream()
+  it('caches for 9s, then serves a stale payload once Prometheus is gone', async () => {
+    const up = await startPrometheus()
     const app = await freshProxy(up.base)
-    const calls = (path: string) => up.seen.paths.filter((p) => p.startsWith(path)).length
 
     const first = await get(app)
     expect(first.status).toBe(200)
     expect(first.headers.get('x-pixels-age')).toBe('0')
     const payload = await first.text()
-    const callsAfterFirst = up.seen.paths.length
+    const askedAfterFirst = up.asked.length
 
-    vi.setSystemTime(t0 + 8_999)
-    const second = await get(app)
-    expect(second.status).toBe(200)
-    expect(up.seen.paths).toHaveLength(callsAfterFirst)
-
-    // The pixels refresh; the names, on their own five-minute TTL, do not.
-    vi.setSystemTime(t0 + 9_000)
+    vi.setSystemTime(NOW + 8_999)
     expect((await get(app)).status).toBe(200)
-    expect(calls('/me/pixels')).toBe(2)
-    expect(calls('/me/usage/by-project')).toBe(1)
+    expect(up.asked).toHaveLength(askedAfterFirst)
+
+    // The recent hours and the live set refresh; the history and the tokens,
+    // on their own clocks, do not.
+    vi.setSystemTime(NOW + 9_000)
+    expect((await get(app)).status).toBe(200)
+    expect([up.count('recent'), up.count('live')]).toEqual([2, 2])
+    expect([up.count('history'), up.count('tokens')]).toEqual([1, 1])
 
     up.server.close()
     await once(up.server, 'close')
-    vi.setSystemTime(t0 + 18_500)
+    vi.setSystemTime(NOW + 18_500)
     const stale = await get(app)
     expect(stale.status).toBe(200)
     expect(stale.headers.get('x-pixels-stale')).toBe('9500')
@@ -378,42 +442,65 @@ describe('/api/pixels against a stubbed upstream', () => {
     expect(errors[0]).toContain('serving a payload 10s old')
   })
 
-  it('refreshes names after five minutes, and keeps the last good ones if that fails', async () => {
-    vi.useFakeTimers({ toFake: ['Date'] })
-    const t0 = Date.now()
-    const behaviour: Behaviour = {}
-    const up = await startUpstream(behaviour)
+  it('reads the history again once the current hour moves on', async () => {
+    const up = await startPrometheus()
     const app = await freshProxy(up.base)
-    const namesCalls = () => up.seen.paths.filter((p) => p.startsWith('/me/usage')).length
-    const firstName = async () => ((await (await get(app)).json()) as PixelPayload).projects[0].name
+    await get(app)
+    // 13:59:50, then 14:00:00: ten seconds apart, past the response cache.
+    vi.setSystemTime(NOW + 3_560_000)
+    await get(app)
+    expect(up.count('history')).toBe(1)
 
-    expect(await firstName()).toBe('fluvio')
-    vi.setSystemTime(t0 + 5 * 60_000)
-    expect(await firstName()).toBe('fluvio')
-    expect(namesCalls()).toBe(1)
-
-    // Past both TTLs: the pixels refresh, and the names are due again.
-    behaviour.namesStatus = 500
-    vi.setSystemTime(t0 + 5 * 60_000 + 9_000)
-    expect(await firstName()).toBe('fluvio')
-    expect(namesCalls()).toBe(2)
-    expect(warnings[0]).toContain('names lookup failed')
+    vi.setSystemTime(NOW + 3_570_000)
+    await get(app)
+    expect(up.count('history')).toBe(2)
+    const last = up.asked.filter((a) => a.kind === 'history').at(-1)!.params
+    expect(Number(last.end)).toBe(slotEnd(START, CUR - 1))
   })
 
-  it('answers 502 without calling upstream when no key is configured', async () => {
-    const up = await startUpstream()
-    const res = await get(await freshProxy(up.base, null))
-    expect(process.env.ARGUS_KEY).toBeUndefined()
+  it('refreshes tokens after five minutes, and keeps the last good ones if that fails', async () => {
+    const behaviour: Behaviour = {}
+    const up = await startPrometheus(behaviour)
+    const app = await freshProxy(up.base)
+    const demoTokens = async () =>
+      ((await (await get(app)).json()) as PixelPayload).projects.find((p) => p.key === 'demo')
+        ?.tokens
+
+    expect(await demoTokens()).toEqual({ in: 980, out: 20, cached: 850 })
+    vi.setSystemTime(NOW + 5 * 60_000)
+    expect(await demoTokens()).toEqual({ in: 980, out: 20, cached: 850 })
+    expect(up.count('tokens')).toBe(1)
+
+    // Past both TTLs: the grid refreshes, and the tokens are due again.
+    behaviour.status = { tokens: 500 }
+    vi.setSystemTime(NOW + 5 * 60_000 + 9_000)
+    expect(await demoTokens()).toEqual({ in: 980, out: 20, cached: 850 })
+    expect(up.count('tokens')).toBe(2)
+    expect(warnings[0]).toContain('token lookup failed')
+  })
+
+  it('reaches a Prometheus served under a path prefix', async () => {
+    const up = await startPrometheus()
+    expect((await get(await freshProxy(`${up.base}/prometheus`))).status).toBe(200)
+    expect(up.asked.every((a) => a.path.startsWith('/prometheus/api/v1/'))).toBe(true)
+  })
+
+  it.each([
+    ['no URL is configured', null, 'PROMETHEUS_URL must be set'],
+    ['the URL has no scheme', 'prometheus.monitoring:9090', 'must start with http://'],
+  ])('answers 502 without calling Prometheus when %s', async (_, url, why) => {
+    const up = await startPrometheus()
+    const res = await get(await freshProxy(url))
     expect(res.status).toBe(502)
-    expect(up.seen.paths).toEqual([])
-    expect(errors[0]).toContain('ARGUS and ARGUS_KEY must be set')
+    expect(up.asked).toEqual([])
+    expect(errors[0]).toContain(why)
   })
 
-  it('answers health without calling upstream', async () => {
-    const up = await startUpstream()
+  it('answers health without calling Prometheus', async () => {
+    const up = await startPrometheus()
     const res = await get(await freshProxy(up.base), '/api/health')
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ ok: true })
-    expect(up.seen.paths).toEqual([])
+    expect(up.asked).toEqual([])
   })
 })

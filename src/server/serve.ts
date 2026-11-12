@@ -1,7 +1,7 @@
 /**
  * Production entry: the built site and `api` from one origin, so there is no
- * CORS and ARGUS_KEY stays in this process. Adds only what Vite provides in dev
- * (static files, cache policy, shutdown); routes belong in api.ts.
+ * CORS and only this process talks to Prometheus. Adds only what Vite provides
+ * in dev (static files, cache policy, shutdown); routes belong in api.ts.
  */
 
 import { serve } from '@hono/node-server'
@@ -82,9 +82,9 @@ const server = serve({ fetch: app.fetch, port: PORT, hostname: HOST }, (info) =>
   console.log(`[serve] listening on ${HOST}:${info.port}, serving ${DIST}`)
   // Not fatal, since unlit boards are a supported state, but one line here beats
   // diagnosing it from 502s later.
-  if (!process.env.ARGUS || !process.env.ARGUS_KEY) {
+  if (!process.env.PROMETHEUS_URL) {
     console.warn(
-      '[serve] ARGUS and ARGUS_KEY are not both set; /api/pixels will 502 and the wall boards stay unlit',
+      '[serve] PROMETHEUS_URL is not set; /api/pixels will 502 and the wall boards stay unlit',
     )
   }
 })

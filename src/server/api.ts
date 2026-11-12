@@ -1,31 +1,40 @@
 import { Hono } from 'hono'
 import { validate } from '../shared/pixels'
 import type { PixelPayload } from '../shared/pixels'
+import {
+  LIVE_QUERY,
+  SLOT_SECONDS,
+  assemble,
+  currentSlot,
+  gridQuery,
+  gridStart,
+  parseGrid,
+  parseLive,
+  parseTokens,
+  slotEnd,
+  tokensQuery,
+} from './prometheus'
+import type { Hours, Tokens } from './prometheus'
 
 /**
- * The `/api/pixels` proxy, which exists so ARGUS_KEY never reaches the browser.
- * `@hono/vite-dev-server` and serve.ts both mount it, so routes belong here.
+ * The `/api/pixels` proxy, which exists so the browser never reaches
+ * Prometheus: the proxy sends fixed queries and publishes a project's figures
+ * only. `@hono/vite-dev-server` and serve.ts both mount it, so routes belong here.
  */
 
-/**
- * Six weeks, the board's 42 columns. Passed explicitly to both upstream calls,
- * even where it is upstream's default, so the hours and the token counts shown
- * beside them describe the same window.
- */
-const WINDOW_DAYS = 42
-
-/** Slot 0 of the grid; must stay in step with the board's 24x42 geometry. */
-const QUERY = `tz=Asia/Shanghai&days=${WINDOW_DAYS}&slotMinutes=60&clampMinutes=60&breakdown=1`
-
-/** Names change far more slowly than activity, so they get a much longer TTL. */
-const NAMES_TTL_MS = 5 * 60_000
+/** Tokens change far more slowly than the live hour, so they get a much longer TTL. */
+const TOKENS_TTL_MS = 5 * 60_000
 
 /**
- * The client polls every ~10s; the cache makes that one upstream call per 10s in
- * total rather than per visitor. Just under the poll interval so a caller rarely
- * waits on a refresh.
+ * The client polls every ~10s; the cache makes that one upstream refresh per 10s
+ * in total rather than per visitor. Just under the poll interval so a caller
+ * rarely waits on a refresh.
  */
 const TTL_MS = 9_000
+
+/** Six weeks of hours is the slow query: seconds on the cluster's Prometheus. */
+const HISTORY_TIMEOUT_MS = 30_000
+const TIMEOUT_MS = 15_000
 
 interface Cached {
   body: string
@@ -35,58 +44,18 @@ let cache: Cached | null = null
 /** Collapses concurrent misses into a single upstream request. */
 let inflight: Promise<Cached> | null = null
 
-/** What the proxy is willing to say about a project, beyond its hash. */
-interface ProjectMeta {
-  name?: string
-  tokens: { in: number; out: number; cached: number }
-}
-
-let names: { map: Record<string, ProjectMeta>; at: number } | null = null
-
 /**
- * Map each project hash to a name and token counts, and discard the rest. These
- * rows also carry workingDir, machineId, projectId and costUsd, so the output is
- * built field by field and `usage`, which holds costUsd, is never spread. A null
- * `name` falls back to the directory's basename, never the path.
+ * Every hour but the current one and the one before, which the refresh reads
+ * itself. Fetched again once the current hour moves on, since nothing older changes.
  */
-async function fetchNames(base: string, key: string): Promise<Record<string, ProjectMeta>> {
-  const res = await fetch(`${base}/me/usage/by-project?days=${WINDOW_DAYS}`, {
-    headers: { 'X-API-Key': key },
-    signal: AbortSignal.timeout(15_000),
-  })
-  if (!res.ok) throw new Error(`argus by-project responded ${res.status}`)
-  const json = (await res.json()) as {
-    projects?: {
-      key?: string
-      name?: string | null
-      workingDir?: string
-      usage?: Record<string, number>
-    }[]
-  }
-  const map: Record<string, ProjectMeta> = {}
-  for (const p of json.projects ?? []) {
-    if (!p.key) continue
-    const fromDir = p.workingDir?.replace(/\/+$/, '').split('/').pop()
-    const name = p.name?.trim() || fromDir?.trim()
-    const u = p.usage ?? {}
-    // `in` includes cache reads, which dominate it; `cached` is kept apart so the
-    // UI can show the split rather than one inflated total.
-    map[p.key] = {
-      ...(name ? { name } : {}),
-      tokens: {
-        in: (u.inputTokens ?? 0) + (u.cacheReadTokens ?? 0) + (u.cacheWriteTokens ?? 0),
-        out: u.outputTokens ?? 0,
-        cached: u.cacheReadTokens ?? 0,
-      },
-    }
-  }
-  return map
-}
+let history: { through: number; hours: Hours } | null = null
+
+let tokens: { map: Record<string, Tokens>; at: number } | null = null
 
 /**
  * Rebuild the sparse breakdown (slot index -> project index -> seconds) from
- * finite numbers only, rather than copying it, so no nested upstream value can
- * ride through. Anything else is dropped.
+ * finite numbers only, rather than copying it, so no nested value can ride
+ * through. Anything else is dropped.
  */
 function republishBreakdown(
   raw: Record<string, Record<string, number>>,
@@ -105,9 +74,9 @@ function republishBreakdown(
 
 /**
  * Build the public payload from named fields, so nothing reaches a visitor just
- * because upstream sent it. A new upstream field needs a line here to be published.
+ * because it was in hand. A new field needs a line here to be published.
  */
-export function publish(p: PixelPayload, meta: Record<string, ProjectMeta>): PixelPayload {
+export function publish(p: PixelPayload, spent: Record<string, Tokens>): PixelPayload {
   return {
     start: p.start,
     slotMinutes: p.slotMinutes,
@@ -119,11 +88,10 @@ export function publish(p: PixelPayload, meta: Record<string, ProjectMeta>): Pix
     live: p.live,
     ...(p.breakdown ? { breakdown: republishBreakdown(p.breakdown) } : {}),
     projects: p.projects.map((project) => {
-      const m = meta[project.key]
+      const t = spent[project.key]
       return {
         key: project.key,
-        ...(m?.name ? { name: m.name } : {}),
-        ...(m?.tokens ? { tokens: m.tokens } : {}),
+        ...(t ? { tokens: { in: t.in, out: t.out, cached: t.cached } } : {}),
       }
     }),
   }
@@ -144,42 +112,93 @@ const describe = (err: unknown): string => {
 }
 
 const env = (k: string): string | undefined =>
-  // Server-only. The secret has no VITE_ prefix, which keeps it out of the
-  // client bundle.
+  // Server-only, with no VITE_ prefix, which keeps it out of the client bundle.
   typeof process !== 'undefined' ? process.env[k] : undefined
 
-async function fetchUpstream(): Promise<Cached> {
-  const base = env('ARGUS')
-  const key = env('ARGUS_KEY')
-  if (!base || !key) {
-    throw new Error('ARGUS and ARGUS_KEY must be set; see .env.example')
+/** The base URL, with a trailing slash so the API path resolves under any prefix. */
+function prometheusBase(): URL {
+  const raw = env('PROMETHEUS_URL')
+  if (!raw) throw new Error('PROMETHEUS_URL must be set; see .env.example')
+  if (!/^https?:\/\//.test(raw)) {
+    throw new Error('PROMETHEUS_URL must start with http:// or https://')
   }
+  return new URL(raw.endsWith('/') ? raw : `${raw}/`)
+}
 
-  const res = await fetch(`${base}/me/pixels?${QUERY}`, {
-    headers: { 'X-API-Key': key },
-    signal: AbortSignal.timeout(15_000),
-  })
+async function ask(
+  base: URL,
+  api: 'query' | 'query_range',
+  params: Record<string, string | number>,
+  timeout = TIMEOUT_MS,
+): Promise<unknown> {
+  const url = new URL(`api/v1/${api}`, base)
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, String(v))
+  const res = await fetch(url, { signal: AbortSignal.timeout(timeout) })
   if (!res.ok) {
-    throw new Error(`argus responded ${res.status}`)
+    // Prometheus says why in `error`, e.g. a query it could not parse.
+    const why = await res
+      .json()
+      .then((b: { error?: unknown }) => String(b?.error ?? '').slice(0, 200))
+      .catch(() => '')
+    throw new Error(`prometheus ${api} responded ${res.status}${why ? `: ${why}` : ''}`)
   }
+  return res.json()
+}
 
-  const json = await res.json()
-  // Throws on anything we cannot render truthfully. Deliberately before the
-  // cache write, so a bad payload is never served and never stored, and before
-  // enrichment so validation only ever sees Argus's own shape.
-  validate(json)
+/** The grid query over the hours ending at slots `from` to `to`, inclusive. */
+async function hoursOf(base: URL, start: number, from: number, to: number, nowSec: number) {
+  const ends = Array.from({ length: to - from + 1 }, (_, i) => slotEnd(start, from + i))
+  const json = await ask(
+    base,
+    'query_range',
+    { query: gridQuery(nowSec), start: ends[0], end: ends[ends.length - 1], step: SLOT_SECONDS },
+    to - from > 1 ? HISTORY_TIMEOUT_MS : TIMEOUT_MS,
+  )
+  return parseGrid(json, ends)
+}
 
-  // Names are optional: if the lookup fails, the board shows hashes rather than
-  // the request failing.
-  if (!names || Date.now() - names.at > NAMES_TTL_MS) {
-    try {
-      names = { map: await fetchNames(base, key), at: Date.now() }
-    } catch (err) {
-      console.warn(`[pixels] project names lookup failed, the board shows hashes: ${describe(err)}`)
-      names ??= { map: {}, at: Date.now() }
-    }
+/**
+ * Tokens are optional: if the lookup fails, the ranking keeps the last good
+ * counts, or stays empty, rather than the request failing. Never throws.
+ */
+async function refreshTokens(base: URL, start: number, nowSec: number): Promise<void> {
+  try {
+    const json = await ask(base, 'query', {
+      query: tokensQuery(nowSec - start / 1000),
+      time: nowSec,
+    })
+    tokens = { map: parseTokens(json), at: Date.now() }
+  } catch (err) {
+    console.warn(`[pixels] token lookup failed, the ranking keeps what it had: ${describe(err)}`)
+    tokens ??= { map: {}, at: Date.now() }
   }
-  return { body: JSON.stringify(publish(json, names.map)), at: Date.now() }
+}
+
+async function fetchUpstream(): Promise<Cached> {
+  const base = prometheusBase()
+  const now = Date.now()
+  const nowSec = Math.floor(now / 1000)
+  const start = gridStart(now)
+  const cur = currentSlot(start, now)
+  const through = slotEnd(start, cur - 2)
+
+  // Each answer is read strictly before anything is cached, so a misread grid
+  // is never served and never stored.
+  const [recent, live, older] = await Promise.all([
+    hoursOf(base, start, Math.max(0, cur - 1), cur, nowSec),
+    ask(base, 'query', { query: LIVE_QUERY, time: nowSec }).then(parseLive),
+    history?.through === through || cur < 2
+      ? (history?.hours ?? new Map())
+      : hoursOf(base, start, 0, cur - 2, nowSec),
+    !tokens || now - tokens.at > TOKENS_TTL_MS ? refreshTokens(base, start, nowSec) : null,
+  ])
+  history = { through, hours: older }
+  const spent = tokens?.map ?? {}
+
+  const payload = assemble(start, new Map([...older, ...recent]), live, Object.keys(spent))
+  // Throws on anything we cannot render truthfully, before the cache write.
+  validate(payload)
+  return { body: JSON.stringify(publish(payload, spent)), at: Date.now() }
 }
 
 export const api = new Hono()
@@ -194,8 +213,8 @@ api.get('/api/pixels', async (c) => {
       cache = await inflight
     } catch (err) {
       // The cause goes to the server log only: the browser treats every failure
-      // alike, so the public body stays generic. No message carries the key, and
-      // single-flight plus the TTL keep an outage to about one line per refresh.
+      // alike, so the public body stays generic. Single-flight plus the TTL keep
+      // an outage to about one line per refresh.
       const outcome = cache
         ? `serving a payload ${Math.round((Date.now() - cache.at) / 1000)}s old`
         : 'nothing cached, answering 502'
@@ -223,7 +242,7 @@ api.get('/api/pixels', async (c) => {
   })
 })
 
-/** Liveness for the cluster. Deliberately does not touch Argus. */
+/** Liveness for the cluster. Deliberately does not touch Prometheus. */
 api.get('/api/health', (c) => c.json({ ok: true }))
 
 /** For `@hono/vite-dev-server`, which expects a default export; the same `api`. */

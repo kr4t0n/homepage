@@ -1,13 +1,14 @@
 /**
- * API checks that need a build or a running server: secret containment in the
- * built client, and what the live proxy discloses.
+ * API checks that need a build or a running server: that the built client holds
+ * no trace of the upstream, and what the live proxy discloses.
  *
- * Only the missing VITE_ prefix keeps ARGUS_KEY's value out of the bundle:
- * renamed VITE_ARGUS_KEY, it ships to every visitor with no warning from any
- * tool but the secrets section, which also fails if the server module is bundled.
+ * Only the missing VITE_ prefix keeps PROMETHEUS_URL's value out of the bundle:
+ * renamed VITE_PROMETHEUS_URL, it ships to every visitor with no warning from
+ * any tool but the containment section, which also fails if the server module
+ * is bundled.
  *
  * The payload validator, the grid and ranking maths, and the proxy against a
- * stubbed upstream are unit tests beside the code: `pnpm run test`.
+ * stubbed Prometheus are unit tests beside the code: `pnpm run test`.
  *
  * Run: pnpm run build && node tools/verify-api.mjs [base-url]
  *
@@ -27,7 +28,7 @@ const check = (name, ok, detail = '') => {
   if (!ok) fails.push(name)
 }
 
-// ---------------------------------------------------------------- secrets --
+// ------------------------------------------------------------ containment --
 const walk = (dir) =>
   readdirSync(dir).flatMap((f) => {
     const p = join(dir, f)
@@ -43,46 +44,40 @@ if (!existsSync('dist')) {
     .map((f) => readFileSync(f, 'utf8'))
     .join('\n')
 
-  // Read the real secret if present, so this catches an actual leak rather than
-  // just the literal string "ARGUS_KEY".
-  let key = null
+  // Read the real address if present, so this catches an actual leak rather than
+  // just the literal string "PROMETHEUS_URL".
+  let url = null
   if (existsSync('.env')) {
-    const m = readFileSync('.env', 'utf8').match(/^\s*ARGUS_KEY\s*=\s*(.+)$/m)
-    if (m) key = m[1].trim().replace(/^["']|["']$/g, '')
+    const m = readFileSync('.env', 'utf8').match(/^\s*PROMETHEUS_URL\s*=\s*(.+)$/m)
+    if (m) url = m[1].trim().replace(/^["']|["']$/g, '')
   }
   check(
-    'the real ARGUS_KEY value is not in dist/',
-    key ? !text.includes(key) : true,
-    key ? `checked ${files.length} files` : '(no .env; skipped the literal check)',
+    'the real PROMETHEUS_URL value is not in dist/',
+    url ? !text.includes(url) : true,
+    url ? `checked ${files.length} files` : '(no .env; skipped the literal check)',
   )
-  check('no bundled file names ARGUS_KEY', !text.includes('ARGUS_KEY'))
+  check('no bundled file names PROMETHEUS_URL', !text.includes('PROMETHEUS_URL'))
   check(
-    'the upstream path /me/pixels stays server-side',
-    !text.includes('me/pixels'),
+    "Prometheus's query API stays server-side",
+    !text.includes('api/v1/query'),
     'client should only ever know /api/pixels',
   )
-  check('the server module is not bundled into the client', !text.includes('X-API-Key'))
+  check(
+    'the server module is not bundled into the client',
+    !text.includes('stellaris_turns_running'),
+  )
 }
 
 // ------------------------------------------------ what the proxy discloses --
-// /me/usage/by-project carries absolute workingDir paths, machineId, projectId
-// and costUsd; the proxy publishes only a name and token counts per project.
-// The raw usage names stay forbidden although tokens are published: they appear
-// only if `usage` is spread whole, costUsd with it, and the in/out/cached rename
-// keeps that leak from passing as the intended feature.
-const FORBIDDEN = [
-  'workingDir',
-  'machineId',
-  'projectId',
-  'costUsd',
-  'inputTokens',
-  'outputTokens',
-  'cacheReadTokens',
-  'turns',
-  'cliTypes',
-]
+// Prometheus's series carry the citizen who ran each turn (`agent`) and the
+// scrape target's labels; the proxy publishes a project slug and token counts
+// per project. The names below can only appear if a series' labels were passed
+// through. Not `cli` or `kind`, which are substrings of ordinary project names.
+const FORBIDDEN = ['agent', 'instance', '__name__', 'stellaris_', 'cache_read', 'cache_write']
 const ALLOWED_PROJECT_FIELDS = ['key', 'name', 'tokens', 'other']
 const ALLOWED_TOKEN_FIELDS = ['in', 'out', 'cached']
+/** A project slug, as Stellaris allows them. `society` is its own scope, not a project. */
+const SLUG = /^[a-z0-9][a-z0-9-]{0,31}$/
 
 /**
  * Work out what is answering at BASE before asserting anything against it, so
@@ -104,7 +99,7 @@ async function reachProxy() {
   if (!res.ok) {
     return {
       state: 'unlit',
-      why: `our proxy is up but /api/pixels answered ${res.status}; ARGUS and ARGUS_KEY are probably unset`,
+      why: `our proxy is up but /api/pixels answered ${res.status}; PROMETHEUS_URL is probably unset or unreachable`,
     }
   }
 
@@ -118,6 +113,10 @@ async function reachProxy() {
   // rather than crashing an assertion.
   if (!Array.isArray(json?.projects)) {
     return { state: 'malformed', why: '/api/pixels returned JSON with no projects array' }
+  }
+  // A valid board with nothing on it: no check below would have anything to read.
+  if (json.projects.length === 0) {
+    return { state: 'unlit', why: 'our proxy answered, but Prometheus has no project series yet' }
   }
   return { state: 'live', body, json }
 }
@@ -139,11 +138,7 @@ if (proxy.state !== 'live') {
   // read as an unreachable server.
   const { body, json } = proxy
   const leaked = FORBIDDEN.filter((f) => body.includes(f))
-  check(
-    'the proxy discloses no path, machine or cost fields',
-    leaked.length === 0,
-    leaked.join(', '),
-  )
+  check('the proxy discloses no citizen or series label', leaked.length === 0, leaked.join(', '))
 
   const extra = [...new Set(json.projects.flatMap(Object.keys))].filter(
     (f) => !ALLOWED_PROJECT_FIELDS.includes(f),
@@ -163,8 +158,12 @@ if (proxy.state !== 'live') {
     extraTokens.length ? `unexpected: ${extraTokens.join(', ')}` : '',
   )
 
-  const named = json.projects.filter((p) => p.name).length
-  check('hashes resolve to names', named > 0, `${named}/${json.projects.length} named`)
+  const odd = json.projects.filter((p) => !SLUG.test(p.key) || p.key === 'society')
+  check(
+    'every key is a project slug, and none is the society scope',
+    odd.length === 0,
+    odd.map((p) => JSON.stringify(p.key)).join(', '),
+  )
 
   const withTokens = json.projects.filter((p) => p.tokens)
   check(

@@ -1,29 +1,28 @@
 /**
- * Shape of the Argus pixel payload, and the validation that decides whether we
- * are willing to serve it.
+ * Shape of the `/api/pixels` payload, and the validation that decides whether
+ * we are willing to serve it.
  *
- * Argus sends no per-project `hue` and no collapsed `other` tail; colour and the
- * tail are decided in src/pixels/palette.ts. Either field is tolerated, not
+ * The proxy sends no per-project `hue` and no collapsed `other` tail; colour and
+ * the tail are decided in src/pixels/palette.ts. Either field is tolerated, not
  * rejected, if it appears.
  */
 
 export interface PixelProject {
-  /** Opaque hash. Deliberately carries no name or path. */
+  /** The project's name, as Stellaris labels it: a slug, never a path. */
   key: string
   /**
-   * Bare display name, added by the proxy from /me/usage/by-project (see
-   * fetchNames). Optional because that lookup may fail without taking the board
-   * down; the UI then shows the hash.
+   * A display name apart from the key. Prometheus labels a project by its name,
+   * so the proxy sends none and the boards show `key`.
    */
   name?: string
   /**
-   * Every token spent in the grid's window, from the same lookup as `name`. It
-   * counts all of a project's tokens, hours won or not, so it does not reconcile
-   * with hours won. `in` includes cache reads and `cached` is the part of `in`
-   * they make up. Cost is never carried.
+   * Every token spent in the grid's window. It counts all of a project's
+   * tokens, hours won or not, so it does not reconcile with hours won. `in`
+   * includes cache reads and writes, and `cached` is the part of `in` cache
+   * reads make up. Cost is never carried. Absent when that lookup failed.
    */
   tokens?: { in: number; out: number; cached: number }
-  /** Not sent by Argus; tolerated by validate and dropped by publish. */
+  /** Never sent; tolerated by validate and dropped by publish. */
   other?: boolean
 }
 
@@ -142,7 +141,7 @@ export function slotLabel(p: PixelPayload, slot: number): string {
   return `${day}, ${hour}`
 }
 
-/** A slot's contested split, if Argus sent one. Sparse: most slots have none. */
+/** A slot's contested split, if the proxy sent one. Sparse: most slots have none. */
 export interface SlotShare {
   projectIndex: number
   seconds: number
@@ -151,9 +150,9 @@ export interface SlotShare {
 /**
  * Who worked a slot and for how long, busiest first.
  *
- * Argus sends `breakdown` only where the winner held under ~70% of the slot.
- * Elsewhere the winner is credited with the whole slot and no more, since Argus
- * clamps concurrent work to the slot's length.
+ * The proxy sends `breakdown` only where the winner held under 70% of the busy
+ * time in the slot. Elsewhere the payload carries no seconds, and the winner is
+ * credited with the whole slot.
  */
 export function slotShares(p: PixelPayload, slot: number): SlotShare[] {
   const raw = p.breakdown?.[String(slot)]
