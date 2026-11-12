@@ -57,9 +57,10 @@ if (!existsSync('dist')) {
     url ? `checked ${files.length} files` : '(no .env; skipped the literal check)',
   )
   check('no bundled file names PROMETHEUS_URL', !text.includes('PROMETHEUS_URL'))
+  // `api/v1/` rather than a whole path: the proxy builds each path from a template.
   check(
-    "Prometheus's query API stays server-side",
-    !text.includes('api/v1/query'),
+    "Prometheus's API stays server-side",
+    !text.includes('api/v1/'),
     'client should only ever know /api/pixels',
   )
   check(
