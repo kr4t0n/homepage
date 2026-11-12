@@ -506,22 +506,22 @@ table.
 before the label existed (`project=""`). That is one place, `SCOPE`, if the
 owner ever wants them on the board.
 
-**An hour's busy time is when any of the project's turns ran, read every 30
-seconds.** `gridQuery` counts, per project and hour, the 30-second steps at
-which `sum by (project)` of the gauge was above zero, in a `[1h:30s]` subquery,
-so parallel turns do not multiply an hour and no hour exceeds 120 steps. A tie,
-common when two projects work a whole hour, goes to the one with more `turns`
-(the gauge's samples summed, read for nothing else), then to the first key. The
-contested split and the 0.7 threshold are as the boards had them from Argus.
-- The count is a fixed-step subquery summed, not raw samples and not
-  `avg_over_time`: raw samples change with the scrape interval, and an average
-  covers only the samples since a series appeared, which reads a new pair's
-  first hour high.
+**An hour's busy time is its turns' time, summed, as Argus summed it.** Argus
+added each turn's minutes per project and slot, capping each turn at 60 minutes
+(`clampMinutes`) but never the slot, so overlapping turns counted once each.
+`gridQuery` gives the same from the gauge: `sum by (project)` of the turns
+running at each 30-second step of a `[1h:30s]` subquery, summed, so three turns
+for a whole hour read 360 turn-steps, 3 h in a one-hour cell. The per-turn cap
+has no counterpart: the gauge counts only turns the board has begun and not
+ended, and Stellaris ends a turn it has lost. Ties go to the first key, as
+Argus broke them; the contested split and its 0.7 threshold are Argus's too.
+- The sum is a fixed-step subquery, not raw samples and not `avg_over_time`:
+  raw samples change with the scrape interval, and an average covers only the
+  samples since a series appeared, which reads a new pair's first hour high.
 - The current hour is evaluated at its end, still to come, and an instant
   selector looks back five minutes for a sample, so without `and on ()
-  (vector(time()) <= now)` the hour gains up to ten busy steps after now (104
-  for 94 elapsed on Prometheus 3.15). Range selectors look back nothing, so
-  `turns` needs no guard.
+  (vector(time()) <= now)` the hour gains up to ten steps after now that repeat
+  the last sample (104 for 94 elapsed on Prometheus 3.15).
 - Six weeks of that subquery took about 4 s on the homelab Prometheus, so the
   proxy reads every hour but the last two only when the current hour moves on,
   and the last two, the live set and nothing else on each 9 s refresh. The

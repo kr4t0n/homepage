@@ -30,13 +30,14 @@ const NOW = Date.parse('2026-11-12T05:00:30Z')
 const START = gridStart(NOW)
 const CUR = 997
 
-/** Readings per slot: steps busy, and turns summed over the hour's samples. */
-const GRID: Record<number, Record<string, [number, number]>> = {
-  [CUR]: { demo: [1, 1] },
-  // Contested: demo held 80 of the 120 steps, under 70% of what ran.
-  [CUR - 1]: { demo: [80, 80], 'web-app': [40, 40] },
-  990: { 'web-app': [120, 240] },
-  500: { docs: [30, 30] },
+/** Turn-steps per slot: the turns running, summed over the hour's 30-second steps. */
+const GRID: Record<number, Record<string, number>> = {
+  [CUR]: { demo: 1 },
+  // Contested: demo held 80 of the 120 turn-steps, under 70% of what ran.
+  [CUR - 1]: { demo: 80, 'web-app': 40 },
+  // Two turns for the whole hour: 7200 s in a one-hour cell, as Argus summed them.
+  990: { 'web-app': 240 },
+  500: { docs: 30 },
 }
 
 const TOKENS: Record<string, Record<string, number>> = {
@@ -61,20 +62,20 @@ const answer = (resultType: string, result: unknown[]) => ({
 })
 
 function gridAnswer(start: number, end: number, step: number) {
-  const result: unknown[] = []
-  for (const of of ['steps', 'turns'] as const) {
-    const byProject: Record<string, [number, string][]> = {}
-    for (let at = start; at <= end; at += step) {
-      const slot = (at - START / 1000) / 3600 - 1
-      for (const [project, [steps, turns]] of Object.entries(GRID[slot] ?? {})) {
-        ;(byProject[project] ??= []).push([at, String(of === 'steps' ? steps : turns)])
-      }
-    }
-    for (const [project, values] of Object.entries(byProject)) {
-      result.push({ metric: { project, of, ...planted('eng-1') }, values })
+  const byProject: Record<string, [number, string][]> = {}
+  for (let at = start; at <= end; at += step) {
+    const slot = (at - START / 1000) / 3600 - 1
+    for (const [project, steps] of Object.entries(GRID[slot] ?? {})) {
+      ;(byProject[project] ??= []).push([at, String(steps)])
     }
   }
-  return answer('matrix', result)
+  return answer(
+    'matrix',
+    Object.entries(byProject).map(([project, values]) => ({
+      metric: { project, ...planted('eng-1') },
+      values,
+    })),
+  )
 }
 
 const tokensAnswer = () =>
@@ -282,7 +283,7 @@ describe('/api/pixels against a stubbed Prometheus', () => {
     })
 
     it('ranks projects by the time they won, then by key', () => {
-      // web-app won 3600s, demo 30s + 2400s, docs 900s; archive only spent tokens.
+      // web-app won 7200s, demo 30s + 2400s, docs 900s; archive only spent tokens.
       expect(json.projects.map((p) => p.key)).toEqual(['web-app', 'demo', 'docs', 'archive'])
     })
 
@@ -300,10 +301,10 @@ describe('/api/pixels against a stubbed Prometheus', () => {
     })
 
     it('scales brightness against the busiest hour', () => {
-      expect([json.intensity[990], json.intensity[996], json.intensity[500]]).toEqual([
-        100, 100, 25,
-      ])
-      expect(json.intensity[997]).toBe(1)
+      expect([json.intensity[990], json.intensity[996], json.intensity[500]]).toEqual([100, 50, 13])
+      // One turn-step against 240 rounds to dark, though demo owns the hour.
+      expect(json.intensity[997]).toBe(0)
+      expect(json.winners[997]).toBe(index('demo'))
     })
 
     it('splits only the contested hour, in seconds', () => {

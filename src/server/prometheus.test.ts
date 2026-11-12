@@ -76,28 +76,41 @@ describe('the queries', () => {
   it('stop counting at now, so the current hour reads no samples it has not had', () => {
     expect(gridQuery(1_794_462_433)).toContain('vector(time()) <= 1794462433')
   })
+
+  // Two turns at once count twice, as Argus summed its turns' minutes: no `> bool 0`.
+  it('sum the turns running at each step, rather than counting busy steps', () => {
+    expect(gridQuery(0)).toMatch(/^sum_over_time\(\(sum by \(project\) \(stellaris_turns_running/)
+    expect(gridQuery(0)).not.toContain('bool')
+    expect(gridQuery(0)).toContain('[60m:30s]')
+  })
 })
 
 describe('parseGrid', () => {
   const ends = [100_800, 104_400]
-  const series = (of: string, values: unknown[], project: unknown = 'demo') => ({
-    metric: { project, of },
+  const series = (values: unknown[], project: unknown = 'demo') => ({
+    metric: { project },
     values,
   })
 
-  it('reads steps and turns per hour and project', () => {
+  // Three turns all hour are 360 turn-steps: nothing caps an hour.
+  it('reads turn-steps per hour and project', () => {
     const hours = parseGrid(
       matrix([
-        series('steps', [
-          [100_800, '120'],
+        series([
+          [100_800, '360'],
           [104_400, '3'],
         ]),
-        series('turns', [[100_800, '240']]),
+        series([[100_800, '0']], 'web-app'),
       ]),
       ends,
     )
-    expect(hours.get(100_800)?.get('demo')).toEqual({ steps: 120, turns: 240 })
-    expect(hours.get(104_400)?.get('demo')).toEqual({ steps: 3, turns: 0 })
+    expect(hours.get(100_800)).toEqual(
+      new Map([
+        ['demo', 360],
+        ['web-app', 0],
+      ]),
+    )
+    expect(hours.get(104_400)).toEqual(new Map([['demo', 3]]))
   })
 
   it('reads an empty answer as nothing ran', () => {
@@ -107,15 +120,15 @@ describe('parseGrid', () => {
   it.each([
     ['an error status', { status: 'error', error: 'bad query' }],
     ['a vector', vector([])],
-    ['a label that is no project slug', matrix([series('steps', [[100_800, '1']], '../etc')])],
-    ['no project label', matrix([{ metric: { of: 'steps' }, values: [[100_800, '1']] }])],
-    ['an unknown series', matrix([{ metric: { project: 'demo' }, values: [[100_800, '1']] }])],
-    ['an hour not asked for', matrix([series('steps', [[100_801, '1']])])],
-    ['more steps than an hour holds', matrix([series('steps', [[100_800, '121']])])],
-    ['a fraction of a step', matrix([series('steps', [[100_800, '1.5']])])],
-    ['a negative value', matrix([series('turns', [[100_800, '-1']])])],
-    ['NaN', matrix([series('turns', [[100_800, 'NaN']])])],
-    ['a number where Prometheus sends a string', matrix([series('steps', [[100_800, 1]])])],
+    ['a label that is no project slug', matrix([series([[100_800, '1']], '../etc')])],
+    ['no project label', matrix([{ metric: {}, values: [[100_800, '1']] }])],
+    ['a project twice in one hour', matrix([series([[100_800, '1']]), series([[100_800, '2']])])],
+    ['an hour not asked for', matrix([series([[100_801, '1']])])],
+    ['a fraction of a step', matrix([series([[100_800, '1.5']])])],
+    ['a negative value', matrix([series([[100_800, '-1']])])],
+    ['NaN', matrix([series([[100_800, 'NaN']])])],
+    ['a number where Prometheus sends a string', matrix([series([[100_800, 1]])])],
+    ['no values', matrix([{ metric: { project: 'demo' } }])],
   ])('refuses %s', (_, json) => {
     expect(() => parseGrid(json, ends)).toThrow(/malformed prometheus answer/)
   })
@@ -166,46 +179,43 @@ describe('parseTokens', () => {
 
 describe('assemble', () => {
   const at = (slot: number) => slotEnd(START, slot)
-  const hours = (byEnd: Record<number, Record<string, [number, number?]>>): Hours =>
+  /** Turn-steps per hour end and project. */
+  const hours = (byEnd: Record<number, Record<string, number>>): Hours =>
     new Map(
       Object.entries(byEnd).map(([end, byProject]) => [
         Number(end),
-        new Map(
-          Object.entries(byProject).map(([p, [steps, turns]]) => [
-            p,
-            { steps, turns: turns ?? steps },
-          ]),
-        ),
+        new Map(Object.entries(byProject)),
       ]),
     )
 
-  it('gives each hour to the project busy for most of it', () => {
-    const p = assemble(START, hours({ [at(3)]: { demo: [30], 'web-app': [90] } }), new Set(), [])
+  it('gives each hour to the project with the most turn-time in it', () => {
+    const p = assemble(START, hours({ [at(3)]: { demo: 30, 'web-app': 90 } }), new Set(), [])
     expect(p.projects).toEqual([{ key: 'web-app' }, { key: 'demo' }])
     expect(p.winners[3]).toBe(0)
     expect(p.winners.filter((w) => w !== null)).toHaveLength(1)
   })
 
-  // Union time ties at a full hour whenever two projects worked all of it.
-  it('breaks a tie on busy time by turns running, then by key', () => {
+  // Summed, as Argus summed its turns: three turns for the whole hour beat one.
+  it('counts parallel turns, and breaks an exact tie by key', () => {
     const p = assemble(
       START,
       hours({
-        [at(1)]: { demo: [120, 120], 'web-app': [120, 360] },
-        [at(2)]: { demo: [120, 360], 'web-app': [120, 120] },
-        [at(4)]: { zeta: [6, 6], alpha: [6, 6] },
+        [at(1)]: { demo: 120, 'web-app': 360 },
+        [at(4)]: { zeta: 6, alpha: 6 },
       }),
       new Set(),
       [],
     )
     const key = (slot: number) => p.projects[p.winners[slot]!].key
-    expect([key(1), key(2), key(4)]).toEqual(['web-app', 'demo', 'alpha'])
+    expect([key(1), key(4)]).toEqual(['web-app', 'alpha'])
+    // 10800 of 14400 turn-seconds is 75%: the hour is not contested.
+    expect(p.breakdown?.[1]).toBeUndefined()
   })
 
-  it('scales brightness by all the busy time in an hour, against the busiest hour', () => {
+  it('scales brightness by all the turn-time in an hour, against the busiest hour', () => {
     const p = assemble(
       START,
-      hours({ [at(0)]: { demo: [120], 'web-app': [120] }, [at(1)]: { demo: [60] } }),
+      hours({ [at(0)]: { demo: 120, 'web-app': 120 }, [at(1)]: { demo: 60 } }),
       new Set(),
       [],
     )
@@ -216,9 +226,9 @@ describe('assemble', () => {
     const p = assemble(
       START,
       hours({
-        [at(0)]: { demo: [69], 'web-app': [31] },
-        [at(1)]: { demo: [70], 'web-app': [30] },
-        [at(2)]: { demo: [120] },
+        [at(0)]: { demo: 69, 'web-app': 31 },
+        [at(1)]: { demo: 70, 'web-app': 30 },
+        [at(2)]: { demo: 120 },
       }),
       new Set(),
       [],
@@ -230,8 +240,8 @@ describe('assemble', () => {
     const p = assemble(
       START,
       hours({
-        [at(0)]: { demo: [100], 'web-app': [50] },
-        [at(1)]: { docs: [10] },
+        [at(0)]: { demo: 100, 'web-app': 50 },
+        [at(1)]: { docs: 10 },
       }),
       new Set(['live-only', 'docs']),
       ['tokens-only', 'demo'],
@@ -249,11 +259,7 @@ describe('assemble', () => {
   it('skips hours outside the grid, and an hour where nothing ran', () => {
     const p = assemble(
       START,
-      hours({
-        [at(-1)]: { demo: [120] },
-        [at(SLOT_COUNT)]: { demo: [120] },
-        [at(5)]: { demo: [0] },
-      }),
+      hours({ [at(-1)]: { demo: 120 }, [at(SLOT_COUNT)]: { demo: 120 }, [at(5)]: { demo: 0 } }),
       new Set(),
       [],
     )
@@ -262,7 +268,7 @@ describe('assemble', () => {
   })
 
   it('builds a payload the validator accepts, empty or full', () => {
-    const full = assemble(START, hours({ [at(7)]: { demo: [1] } }), new Set(['demo']), ['x'])
+    const full = assemble(START, hours({ [at(7)]: { demo: 1 } }), new Set(['demo']), ['x'])
     for (const p of [assemble(START, new Map(), new Set(), []), full]) {
       expect(() => validate(p)).not.toThrow()
       expect(p.slotCount).toBe(1008)

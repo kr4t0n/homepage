@@ -18,7 +18,6 @@ export const SLOT_SECONDS = SLOT_MINUTES * 60
 
 /** The Stellaris server's scrape interval: one reading of the gauge per step. */
 export const STEP_SECONDS = 30
-const STEPS_PER_SLOT = SLOT_SECONDS / STEP_SECONDS
 
 /** Winner share below which an hour is contested and gets a `breakdown`, as Argus had it. */
 const CONTESTED = 0.7
@@ -35,16 +34,14 @@ const TOKENS = `stellaris_turn_tokens_total{${SCOPE},kind=~"input|output|cache_r
 const SLUG = /^[a-z0-9][a-z0-9-]{0,31}$/
 
 /**
- * Per project and hour: `steps`, the 30-second steps at which any of its turns
- * was running, and `turns`, its turns summed over the hour's samples, which
- * only breaks ties. The guard stops the current hour's later steps from reading
- * the last sample through Prometheus's five-minute lookback.
+ * Per project and hour, its turns running, summed over the hour's 30-second
+ * steps: turn-steps, so two turns at once count twice, as Argus summed its turns'
+ * minutes. The guard stops the current hour's later steps from reading the last
+ * sample through Prometheus's five-minute lookback.
  */
 export function gridQuery(nowSec: number): string {
-  const busy = `(sum by (project) (${RUNNING}) > bool 0) and on () (vector(time()) <= ${nowSec})`
-  const steps = `sum_over_time((${busy})[${SLOT_MINUTES}m:${STEP_SECONDS}s])`
-  const turns = `sum by (project) (sum_over_time(${RUNNING}[${SLOT_MINUTES}m]))`
-  return `label_replace(${steps}, "of", "steps", "", "") or label_replace(${turns}, "of", "turns", "", "")`
+  const running = `sum by (project) (${RUNNING}) and on () (vector(time()) <= ${nowSec})`
+  return `sum_over_time((${running})[${SLOT_MINUTES}m:${STEP_SECONDS}s])`
 }
 
 /** Projects with a turn running now. */
@@ -61,8 +58,8 @@ export interface Tokens {
   cached: number
 }
 
-/** Hour end (unix seconds) to project to its readings. */
-export type Hours = Map<number, Map<string, { steps: number; turns: number }>>
+/** Hour end (unix seconds) to project to its turn-steps in that hour. */
+export type Hours = Map<number, Map<string, number>>
 
 /** UTC instant (ms) of slot 0: local midnight, `WINDOW_DAYS - 1` days back. */
 export function gridStart(now: number): number {
@@ -139,23 +136,19 @@ export function parseGrid(json: unknown, ends: number[]): Hours {
   const hours: Hours = new Map()
   for (const s of results(json, 'matrix')) {
     const project = s.metric.project as string
-    const of = s.metric.of
-    if (of !== 'steps' && of !== 'turns') malformed(`series of ${JSON.stringify(of)}`)
     if (!Array.isArray(s.values)) malformed(`no values for ${project}`)
     for (const v of s.values as unknown[]) {
       const at = Array.isArray(v) ? v[0] : undefined
       if (typeof at !== 'number' || !expected.has(at)) {
         malformed(`${project} at ${String(at)} is no hour end asked for`)
       }
-      const n = sample(v, `${of} of ${project}`)
-      if (of === 'steps' && (!Number.isInteger(n) || n > STEPS_PER_SLOT)) {
-        malformed(`${n} steps of ${project} in one hour`)
-      }
+      // Whole turns at whole steps: a fraction means the answer is not this query's.
+      const n = sample(v, `turn-steps of ${project}`)
+      if (!Number.isInteger(n)) malformed(`${n} turn-steps of ${project}`)
+      if (hours.get(at)?.has(project)) malformed(`${project} twice at ${at}`)
       let hour = hours.get(at)
       if (!hour) hours.set(at, (hour = new Map()))
-      const reading = hour.get(project) ?? { steps: 0, turns: 0 }
-      reading[of] = n
-      hour.set(project, reading)
+      hour.set(project, n)
     }
   }
   return hours
@@ -201,9 +194,9 @@ export function parseTokens(json: unknown): Record<string, Tokens> {
 
 /**
  * Build the grid from readings. Each hour goes to the project with the most
- * busy steps, then the most turns, then the first key. Brightness is the hour's
- * busy time over all projects, against the busiest hour. `projects` is every
- * project that ran, runs now or spent tokens, ranked by the time it won.
+ * turn-time in it, then the first key. Brightness is the hour's turn-time over
+ * all projects, against the busiest hour. `projects` is every project that ran,
+ * runs now or spent tokens, ranked by the time it won.
  */
 export function assemble(
   startMs: number,
@@ -211,41 +204,39 @@ export function assemble(
   live: Set<string>,
   spent: Iterable<string>,
 ): PixelPayload {
-  const slots: { slot: number; ran: [string, { steps: number; turns: number }][] }[] = []
+  const slots: { slot: number; ran: [string, number][] }[] = []
   for (const [at, byProject] of hours) {
     const slot = Math.round((at - startMs / 1000) / SLOT_SECONDS) - 1
     if (slot < 0 || slot >= SLOT_COUNT) continue
-    const ran = [...byProject].filter(([, r]) => r.steps > 0)
+    // Seconds, busiest first; ties go to the first key, as Argus broke them.
+    const ran = [...byProject]
+      .filter(([, steps]) => steps > 0)
+      .map(([p, steps]): [string, number] => [p, steps * STEP_SECONDS])
+      .sort(([a, x], [b, y]) => y - x || a.localeCompare(b))
     if (ran.length) slots.push({ slot, ran })
   }
 
   const won = new Map<string, number>()
   for (const p of [...live, ...spent]) won.set(p, 0)
-  const winnerOf = new Map<number, string>()
-  for (const { slot, ran } of slots) {
-    ran.sort(([a, ra], [b, rb]) => rb.steps - ra.steps || rb.turns - ra.turns || a.localeCompare(b))
-    const [winner, r] = ran[0]
-    winnerOf.set(slot, winner)
+  for (const { ran } of slots) {
     for (const [p] of ran) won.set(p, won.get(p) ?? 0)
-    won.set(winner, won.get(winner)! + r.steps * STEP_SECONDS)
+    won.set(ran[0][0], won.get(ran[0][0])! + ran[0][1])
   }
 
   const ranked = [...won].sort(([a, x], [b, y]) => y - x || a.localeCompare(b)).map(([p]) => p)
   const indexOf = new Map(ranked.map((p, i) => [p, i]))
 
-  const total = (ran: [string, { steps: number }][]) => ran.reduce((n, [, r]) => n + r.steps, 0)
+  const total = (ran: [string, number][]) => ran.reduce((n, [, seconds]) => n + seconds, 0)
   const busiest = Math.max(0, ...slots.map(({ ran }) => total(ran)))
   const winners: (number | null)[] = new Array(SLOT_COUNT).fill(null)
   const intensity: number[] = new Array(SLOT_COUNT).fill(0)
   const breakdown: Record<string, Record<string, number>> = {}
   for (const { slot, ran } of slots) {
     const sum = total(ran)
-    winners[slot] = indexOf.get(winnerOf.get(slot)!)!
+    winners[slot] = indexOf.get(ran[0][0])!
     intensity[slot] = Math.round((sum / busiest) * 100)
-    if (ran[0][1].steps / sum < CONTESTED) {
-      breakdown[slot] = Object.fromEntries(
-        ran.map(([p, r]) => [indexOf.get(p)!, r.steps * STEP_SECONDS]),
-      )
+    if (ran[0][1] / sum < CONTESTED) {
+      breakdown[slot] = Object.fromEntries(ran.map(([p, seconds]) => [indexOf.get(p)!, seconds]))
     }
   }
 

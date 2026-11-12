@@ -67,7 +67,7 @@ by project inside Prometheus, so no answer it receives can name a citizen:
 
 | Query | Published | Withheld |
 |---|---|---|
-| `stellaris_turns_running`, per hour of the window | the grid: each hour's winner, brightness and contested split, by project | the citizen and the scrape target's labels; turns per hour, which only break ties |
+| `stellaris_turns_running`, per hour of the window | the grid: each hour's winner, brightness and contested split, by project | the citizen and the scrape target's labels |
 | `stellaris_turns_running`, now | which projects blink | the count of turns |
 | `stellaris_turn_tokens_total`, over the window | `tokens` per project, as `in`/`out`/`cached` | the citizen, CLI and model labels |
 
@@ -332,10 +332,10 @@ rather than the 4.4 it needed while sharing the frame with a panel, so the hour
 and week labels, the rank rows and the token totals are all legible.
 
 An hour on the heatmap goes to whichever project was busiest in it, so a project
-can burn tokens all week and win almost no cells. Busiest means busy for the
-most of the hour: the 30-second steps at which any of its turns was running, so
-three turns at once count as one busy project. When two projects worked the
-whole hour, it goes to the one with more turns running, then to the first name.
+can burn tokens all week and win almost no cells. Busiest means the most
+turn-time: every turn's time in the hour, summed, so three turns running at once
+count three times, as Argus summed its turns' minutes. That is why a project's
+share of one hour can read longer than the hour.
 
 **Both are lit by writing emissive on named materials, never by adding
 geometry.** The pixel board finds 1008 `Pixel Light R# C#`; the ranking board
