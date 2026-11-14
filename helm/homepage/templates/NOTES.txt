@@ -15,20 +15,16 @@ No Ingress. To look at it locally:
   kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "homepage.fullname" . }} 8080:{{ .Values.service.port }}
   open http://localhost:8080
 {{- end }}
-{{- if include "homepage.argusConfigured" . }}
+{{- if .Values.prometheus.url }}
 
-The wall boards read from {{ .Values.argus.url | trimSuffix "/" }}.
-The key comes from Secret {{ include "homepage.secretName" . }}{{ if .Values.argus.existingSecret }}, which this chart does not
-manage: roll the Deployment yourself after rotating it{{ end }}.
-
+The wall boards read from Prometheus at {{ .Values.prometheus.url }}.
 Upstream failures are logged server-side and never reach the browser:
 
   kubectl logs -n {{ .Release.Namespace }} deploy/{{ include "homepage.fullname" . }} | grep pixels
 {{- else }}
 
-Running WITHOUT Argus, which is a supported mode: the room renders normally
-and the two wall boards stay unlit. Set argus.url plus argus.apiKey or
-argus.existingSecret to light them.
+Running WITHOUT Prometheus, which is a supported mode: the room renders
+normally and the two wall boards stay unlit. Set prometheus.url to light them.
 {{- end }}
 {{- if .Values.persistence.enabled }}
 

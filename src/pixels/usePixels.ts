@@ -10,8 +10,8 @@ import { validate, liveSlot, type PixelPayload } from '../shared/pixels'
 
 /**
  * Often enough that the live cell's blink tracks what is running now, and just
- * over the proxy's 9s cache, so Argus sees about one call per interval however
- * many visitors are polling.
+ * over the proxy's 9s cache, so Prometheus sees about one refresh per interval
+ * however many visitors are polling.
  */
 const POLL_MS = 10_000
 

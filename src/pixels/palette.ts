@@ -4,8 +4,8 @@ import type { PixelPayload } from '../shared/pixels'
 /**
  * Turning activity data into lit pixels.
  *
- * Argus sends no per-project colour and no collapsed tail, so the palette and
- * the cut-off for how many projects get their own colour both live here.
+ * The proxy sends no per-project colour and no collapsed tail, so the palette
+ * and the cut-off for how many projects get their own colour both live here.
  */
 
 /**

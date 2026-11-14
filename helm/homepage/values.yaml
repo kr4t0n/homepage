@@ -35,23 +35,15 @@ image:
 imagePullSecrets: []
 # - name: my-registry-creds
 
-# ─── Argus: entirely optional ────────────────────────────────────────
-# Feeds the two wall boards. Leave all of it empty and the site runs with
-# the boards unlit; /api/pixels answers 502 and the page treats that as
-# "stay dark". Set url and a key together, or neither.
-argus:
-  # Base URL of the Argus API. Prefer in-cluster service DNS so the
-  # request never leaves the cluster, e.g.
-  #   http://argus-server.argus.svc.cluster.local:4000
-  # Not a secret, so it is a plain env var rather than a Secret key.
+# ─── Prometheus: entirely optional ───────────────────────────────────
+# Feeds the two wall boards from Stellaris's turn gauge and token counter.
+# Leave it empty and the site runs with the boards unlit; /api/pixels
+# answers 502 and the page treats that as "stay dark".
+prometheus:
+  # Base URL of Prometheus's HTTP API, which takes no key. Use the
+  # in-cluster service, which the browser can never reach, e.g.
+  #   http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090
   url: ""
-  # Sent upstream as X-API-Key and never to the browser. Either set it
-  # here and the chart puts it in a generated Secret...
-  apiKey: ""
-  # ...or point at a Secret you manage elsewhere (external-secrets,
-  # sealed-secrets, vault) and the chart references it directly.
-  existingSecret: ""
-  existingSecretKey: ARGUS_KEY
 
 # ─── Persistence: the backing track ──────────────────────────────────
 # The audio, its cover and the track.json describing them live on a
@@ -77,7 +69,7 @@ persistence:
   annotations: {}
 
 # Literal env vars appended after the chart's own. Use for anything the
-# chart does not model; ARGUS and ARGUS_KEY belong in `argus` above.
+# chart does not model; PROMETHEUS_URL belongs in `prometheus` above.
 extraEnv: []
 # - name: FOO
 #   value: "bar"
@@ -127,9 +119,9 @@ securityContext:
   capabilities:
     drop: ["ALL"]
 
-# Both probe /api/health, which deliberately does not touch Argus: an
-# upstream outage must not get a healthy pod restarted or pulled out of
-# rotation. The server is listening within a second of start.
+# Both probe /api/health, which deliberately does not touch Prometheus:
+# an upstream outage must not get a healthy pod restarted or pulled out
+# of rotation. The server is listening within a second of start.
 livenessProbe:
   enabled: true
   initialDelaySeconds: 5

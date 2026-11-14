@@ -2,11 +2,11 @@ apiVersion: v2
 name: homepage
 description: |
   kr4t0n's homepage — an explorable 3D room. One container serves the built
-  site and the /api/pixels proxy that lights the two wall boards from Argus.
-  An optional volume supplies the backing track at runtime.
+  site and the /api/pixels proxy that lights the two wall boards from
+  Prometheus. An optional volume supplies the backing track at runtime.
 
-  Argus is NOT required. Without it the room renders normally and the boards
-  stay unlit, which is a supported state rather than a failure.
+  Prometheus is NOT required. Without it the room renders normally and the
+  boards stay unlit, which is a supported state rather than a failure.
 type: application
 
 # Chart version is independent of the app it ships. Bump on chart changes.

@@ -1,11 +1,11 @@
 # What never enters the build context.
 #
 # This is not only a size list. `COPY . .` in the build stage would otherwise
-# pull .env — which holds ARGUS_KEY — into an image layer. The runtime stage
-# copies only dist/ and dist-server/, so it would not reach the published image,
-# but the build stage is still a layer that can be tagged, cached and pushed.
-# Keep the secret out of the context entirely rather than relying on which stage
-# gets published.
+# pull .env — local settings, and whatever credential lands there next — into
+# an image layer. The runtime stage copies only dist/ and dist-server/, so it
+# would not reach the published image, but the build stage is still a layer
+# that can be tagged, cached and pushed. Keep it out of the context entirely
+# rather than relying on which stage gets published.
 .env
 .env.*
 !.env.example

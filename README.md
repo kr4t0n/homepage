@@ -48,47 +48,48 @@ GitHub's blame view reads `.git-blame-ignore-revs` on its own.
 
 ## Environment
 
-Copy `.env.example` to `.env`. Both variables are read only by
-`src/server/api.ts`, and neither is prefixed `VITE_` — that prefix is what would
-inline the credential into the client bundle.
+Copy `.env.example` to `.env`. The variable is read only by
+`src/server/api.ts`, and it is not prefixed `VITE_` — that prefix is what would
+inline it into the client bundle.
 
 | Variable | Purpose |
 |---|---|
-| `ARGUS` | Base URL of the upstream that feeds the pixel board |
-| `ARGUS_KEY` | Sent as `X-API-Key`. Server-side only |
+| `PROMETHEUS_URL` | Base URL of the Prometheus that feeds both wall boards. It takes no key. Server-side only |
 
-Without them the site runs fine and the board stays unlit; only `/api/pixels`
+Without it the site runs fine and the boards stay unlit; only `/api/pixels`
 fails. Every failed refresh is logged server-side with its cause, while the
-public response body says only `upstream unavailable`. In the cluster they come
-from a Secret.
+public response body says only `upstream unavailable`.
+
+**The browser never reaches Prometheus.** It holds every series the cluster
+scrapes, and the two the boards read carry the citizen who ran each turn
+(`agent`) beside the project. The proxy sends three fixed queries, each summed
+by project inside Prometheus, so no answer it receives can name a citizen:
+
+| Query | Published | Withheld |
+|---|---|---|
+| `stellaris_turns_running`, per hour of the window | the grid: each hour's winner, brightness and contested split, by project | the citizen and the scrape target's labels |
+| `stellaris_turns_running`, now | which projects blink | the count of turns |
+| `stellaris_turn_tokens_total`, over the window | `tokens` per project, as `in`/`out`/`cached` | the citizen, CLI and model labels |
+
+Turns in Stellaris's own `society` scope, outside any project, are left out of
+both boards by the queries' selector.
 
 **What the proxy publishes is built, not forwarded.** `publish` in
 `src/server/api.ts` constructs the response out of named fields, so nothing
-reaches a visitor because it happened to arrive from upstream. Adding a field to
-the public payload takes an edit there.
+reaches a visitor because it happened to arrive from upstream, and the parser in
+`src/server/prometheus.ts` refuses an answer whose `project` label is not a
+project slug. Adding a field to the public payload takes an edit there. The unit
+tests in `src/server/api.test.ts` assert that it stays that way against a
+stubbed Prometheus that attaches a citizen and the target's labels to every
+series, and `node tools/verify-api.mjs` asserts the same against the live
+response.
 
-That was not always true, and the asymmetry is worth knowing about. `fetchNames`
-always constructed its output, which is why `costUsd` sitting in the same
-upstream object as the token counts could never leak. The pixel payload was the
-opposite: `JSON.stringify` of whatever Argus returned, so a field added upstream
-would have been published silently with no change on our side. Two invented
-fields planted in a stubbed upstream arrived intact in the response, which is how
-this got found.
-
-It calls two upstream endpoints and publishes a fraction of what they return:
-
-| From | Forwarded | Withheld |
-|---|---|---|
-| `/me/pixels` | the grid, and opaque project hashes in Argus's order | `wonSeconds` |
-| `/me/usage/by-project` | `name`, and `tokens` as `in`/`out`/`cached` | `workingDir`, `machineId`, `projectId`, `costUsd`, raw usage keys |
-
-`workingDir` carries an absolute path with a username in it, and `costUsd` runs
-to five figures. Neither belongs on a public page, so the reduction happens in
-the proxy rather than the browser — passing the endpoint through, or doing the
-name lookup client-side, would publish all of it. The unit tests in
-`src/server/api.test.ts` assert that it stays that way against a stubbed
-upstream that sends every withheld field, and `node tools/verify-api.mjs`
-asserts the same against the live response.
+**The boards cover what Prometheus holds.** The gauge has no past before the
+Stellaris release that added it, and Prometheus drops samples older than its
+retention, so until both reach six weeks the grid's earlier columns stay dark.
+The tokens follow the same span: the counter is seeded from Stellaris's whole
+log at each start, so a series' first sample holds every token it ever counted,
+and `increase()` counts only what it grew by after that.
 
 Those disclosure checks need this project's own server answering, and the script
 takes the base URL as an argument or in `VERIFY_BASE`, defaulting to
@@ -101,9 +102,9 @@ section that could not run is a note and the script still exits 0 — convenient
 locally, useless as a gate. See "A check that skips is a check that passes" in
 AGENTS.md.
 
-Note that project *names* are public by design here: the board says `fluvio`,
-`harbor`, `homepage` rather than hashes. If a name should not be, the place to
-fix it is an alias map in `fetchNames`.
+Note that project *names* are public by design here: the boards show each
+project's slug as Stellaris labels it. If one should not be, leave it out where
+`society` is, in the queries' selector (`SCOPE` in `src/server/prometheus.ts`).
 
 ## Scripts
 
@@ -119,8 +120,8 @@ fix it is an alias map in `fetchNames`.
 | `pnpm run format` | Prettier, rewriting files in place, Tailwind classes sorted |
 | `pnpm run format:check` | Prettier, listing the files it would change and failing if there are any |
 | `pnpm run typecheck` | `tsc --noEmit` |
-| `pnpm run test` | Vitest unit tests, the proxy against a stubbed upstream among them. No credential needed |
-| `pnpm run verify:api` | Secret containment in the built `dist/`, and what the live proxy discloses |
+| `pnpm run test` | Vitest unit tests, the proxy against a stubbed Prometheus among them. No network needed |
+| `pnpm run verify:api` | That the built `dist/` holds no trace of the upstream, and what the live proxy discloses |
 | `pnpm run room` | Re-export `room.glb` and the manifests from `room-v3.blend` |
 | `pnpm run draco` | Copy the Draco decoder out of `three` into `public/draco/` |
 
@@ -144,11 +145,12 @@ build, a server or a browser:
 | `src/pixels/palette.test.ts` | project colours, material names, cell indexing and appearance |
 | `src/audio/track.test.ts` | which track manifests `parseTrack` accepts and refuses |
 | `src/content.test.ts` | that the signals hotspot covers and frames both wall boards |
-| `src/server/api.test.ts` | `publish`, and `/api/pixels` in-process against a stubbed upstream |
+| `src/server/prometheus.test.ts` | the fixed queries, reading Prometheus's answers, the grid's start, and how hours become winners |
+| `src/server/api.test.ts` | `publish`, and `/api/pixels` in-process against a stubbed Prometheus |
 
-The proxy tests start a throwaway HTTP server on loopback in place of Argus, so
-they need no credential and no network. `vitest.config.ts` is kept apart from
-`vite.config.ts` because the latter copies `ARGUS` and `ARGUS_KEY` from `.env`
+The proxy tests start a throwaway HTTP server on loopback in place of
+Prometheus, so they need no network beyond it. `vitest.config.ts` is kept apart
+from `vite.config.ts` because the latter copies `PROMETHEUS_URL` from `.env`
 onto `process.env`.
 
 What needs more than Node stays in `tools/`: `verify-api.mjs` reads the built
@@ -330,8 +332,10 @@ rather than the 4.4 it needed while sharing the frame with a panel, so the hour
 and week labels, the rank rows and the token totals are all legible.
 
 An hour on the heatmap goes to whichever project was busiest in it, so a project
-can burn tokens all week and win almost no cells. `researchers` ranks third by
-tokens while holding a single hour on the board beside it.
+can burn tokens all week and win almost no cells. Busiest means the most
+turn-time: every turn's time in the hour, summed, so three turns running at once
+count three times, as Argus summed its turns' minutes. That is why a project's
+share of one hour can read longer than the hour.
 
 **Both are lit by writing emissive on named materials, never by adding
 geometry.** The pixel board finds 1008 `Pixel Light R# C#`; the ranking board
@@ -634,9 +638,9 @@ keyboard index, and focusing it lights the sign.
 ## Deployment
 
 Deployed into a Kubernetes cluster and exposed through an ingress, alongside the
-Argus API it reads from. A single container serves the built `dist/` and the
-`/api/pixels` endpoint from one origin, so there is no CORS and no credential in
-the browser.
+Prometheus it reads from. A single container serves the built `dist/` and the
+`/api/pixels` endpoint from one origin, so there is no CORS, and only the server
+talks to Prometheus.
 
 That container is built by this repo. `src/server/serve.ts` is the whole of it:
 it mounts the same Hono app `pnpm run dev` runs, puts a static tree in front of
@@ -655,8 +659,8 @@ pnpm run start                     # http://localhost:8080
 | `DIST_DIR` | `dist` | Where the built site is. Resolved to an absolute path before use |
 
 It exits non-zero at startup if there is no build at `DIST_DIR`, rather than
-serving 404s and looking like a routing fault. If `ARGUS`/`ARGUS_KEY` are absent
-it logs one line and runs anyway, because an unlit board is a supported state.
+serving 404s and looking like a routing fault. If `PROMETHEUS_URL` is absent it
+logs one line and runs anyway, because an unlit board is a supported state.
 
 **Cache policy is split three ways**, and the split is what keeps a redeploy from
 serving a half-stale page. Vite content-hashes `/assets/*`, so those are
@@ -739,7 +743,7 @@ Add both back once the domain is settled.
 ### The Helm chart
 
 `helm/homepage` deploys the image: a Deployment, a Service, an optional
-Ingress, and an optional Secret for `ARGUS_KEY`. It is published to
+Ingress and an optional media volume. It is published to
 `https://kr4t0n.github.io/homepage/helm` by `.github/workflows/helm-publish.yml`
 whenever `helm/**` changes on `main`.
 
@@ -747,8 +751,7 @@ whenever `helm/**` changes on `main`.
 helm repo add homepage https://kr4t0n.github.io/homepage/helm
 helm install homepage homepage/homepage \
   --namespace homepage --create-namespace \
-  --set argus.url=http://argus-server.argus.svc.cluster.local:4000 \
-  --set argus.existingSecret=homepage-secret
+  --set prometheus.url=http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090
 ```
 
 Each chart version runs the image released with it: `appVersion` equals
@@ -762,11 +765,11 @@ steps, and both are needed:
 
 Until step 2, the new chart points at an image that does not exist yet.
 
-Argus is optional here as everywhere else: leave `argus` empty and the boards
-stay unlit. So is the backing track: `persistence.enabled` adds a volume mounted
-read-only over `dist/media`, and what is on it is what plays (see "The backing
-track"). Both probes hit `/api/health`, which deliberately does not touch
-Argus, so an upstream outage cannot make the pod look dead and get it
+Prometheus is optional here as everywhere else: leave `prometheus.url` empty
+and the boards stay unlit. So is the backing track: `persistence.enabled` adds a
+volume mounted read-only over `dist/media`, and what is on it is what plays (see
+"The backing track"). Both probes hit `/api/health`, which deliberately does not
+touch Prometheus, so an upstream outage cannot make the pod look dead and get it
 restarted. The pod runs as uid 1000 on a read-only root filesystem with every
 capability dropped. `helm/homepage/README.md` covers the values.
 
@@ -784,7 +787,8 @@ src/
   ranking-anchors.json  generated: where the ranking board's live text goes
   store.ts              focus/hover state, hash routing
   server/
-    api.ts              the /api/pixels proxy; the only holder of ARGUS_KEY
+    api.ts              the /api/pixels proxy; the only code that talks to Prometheus
+    prometheus.ts       its fixed queries, reading their answers, building the grid
     serve.ts            production entry: static tree + api, one origin
   shared/
     pixels.ts           payload type, validator and grid maths, both sides
@@ -871,12 +875,13 @@ vitest.config.ts        unit tests, kept apart from vite.config.ts and its .env
   had a signals section to begin with. That is the deliberate trade for boards
   that are legible enough not to need restating — but if that data should be
   reachable without WebGL, a `Fallback2D` section is the place, not the panel.
-- One bar full and four stubs is what the data looks like. The leader is ~3.5x
-  the runner-up and ~12x fifth place, so a linear bar normalised to the leader
-  leaves the lower rows at 3-9 segments of 32. That is honest and it is also
-  hard to read. A log scale would flatter the lower rows and misrepresent the
-  gap; the alternative worth considering is ranking by output tokens alone,
-  which is a less skewed distribution and arguably a better proxy for work.
+- One bar full and four stubs is what the data looked like when the boards read
+  Argus: the leader was ~3.5x the runner-up and ~12x fifth place, so a linear
+  bar normalised to the leader left the lower rows at 3-9 segments of 32. That
+  is honest and it is also hard to read. A log scale would flatter the lower
+  rows and misrepresent the gap; the alternative worth considering is ranking
+  by output tokens alone, which was a less skewed distribution there and is
+  arguably a better proxy for work.
 - The right-hand monitor is wired and empty. Adding an `image` and `href` to the
   `right` entry in `SCREENS` is all it needs.
 - Writing, CV and the stats board are marked placeholders in the UI rather than

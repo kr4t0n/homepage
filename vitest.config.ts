@@ -1,8 +1,8 @@
 import { defineConfig } from 'vitest/config'
 
-// Kept apart from vite.config.ts, which copies ARGUS and ARGUS_KEY from .env
-// onto process.env. The proxy's tests must only ever reach the stub upstream
-// they start themselves, never a real credential.
+// Kept apart from vite.config.ts, which copies PROMETHEUS_URL from .env onto
+// process.env. The proxy's tests must only ever reach the stub upstream they
+// start themselves, never a real Prometheus.
 export default defineConfig({
   test: {
     include: ['src/**/*.test.ts'],

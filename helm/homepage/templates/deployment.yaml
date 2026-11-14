@@ -18,21 +18,9 @@ spec:
     metadata:
       labels:
         {{- include "homepage.labels" . | nindent 8 }}
-      {{- $checksum := and .Values.argus.apiKey (not .Values.argus.existingSecret) }}
-      {{- if or $checksum .Values.podAnnotations }}
+      {{- with .Values.podAnnotations }}
       annotations:
-        {{- /*
-          Rolls the pods when the generated Secret changes. Without it, a
-          `helm upgrade` that only rotates the key updates the Secret and leaves
-          the running pods holding the old value. A Secret managed elsewhere is
-          not tracked; roll the Deployment yourself after rotating it.
-        */}}
-        {{- if $checksum }}
-        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
-        {{- end }}
-        {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
-        {{- end }}
       {{- end }}
     spec:
       {{- with .Values.imagePullSecrets }}
@@ -57,17 +45,11 @@ spec:
             - name: http
               containerPort: 8080
               protocol: TCP
-          {{- if or (include "homepage.argusConfigured" .) .Values.extraEnv }}
+          {{- if or .Values.prometheus.url .Values.extraEnv }}
           env:
-            {{- if include "homepage.argusConfigured" . }}
-            {{- /* The server appends `/me/pixels`, so a trailing slash would request `//me/pixels`. */}}
-            - name: ARGUS
-              value: {{ .Values.argus.url | trimSuffix "/" | quote }}
-            - name: ARGUS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "homepage.secretName" . }}
-                  key: {{ include "homepage.secretKey" . }}
+            {{- with .Values.prometheus.url }}
+            - name: PROMETHEUS_URL
+              value: {{ . | quote }}
             {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}

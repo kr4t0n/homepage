@@ -40,7 +40,7 @@ const TYPES = {
 /**
  * Stands in for the pixel proxy, so the wall boards render lit, as they ship,
  * wherever they fall behind a panel. A fixture rather than a live call, so the
- * verdict is the same with or without ARGUS_KEY and does not depend on recent
+ * verdict is the same with or without Prometheus and does not depend on recent
  * activity. Values are the widest realistic case: long names, billions of tokens.
  */
 const PIXEL_FIXTURE = (() => {

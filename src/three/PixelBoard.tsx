@@ -5,7 +5,7 @@ import { usePixels } from '../pixels/usePixels'
 import { cellAppearance, indexCells } from '../pixels/palette'
 
 /**
- * Lights the pixel board (`hot_pixelboard`) from live Argus activity. Renders
+ * Lights the pixel board (`hot_pixelboard`) from live agent activity. Renders
  * nothing: it writes emissive on the 1008 pixel materials in Room's cloned
  * scene, since those are the instances the room actually draws.
  */

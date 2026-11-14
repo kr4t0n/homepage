@@ -71,7 +71,7 @@ export function PixelTooltip() {
                   style={{ background: colourFor(s.projectIndex).getStyle() }}
                 />
                 <span className="truncate text-[11px] text-body">
-                  {/* The proxy's name where it resolved one, else the hash. */}
+                  {/* The proxy sends the project's name as its key. */}
                   {data.projects[s.projectIndex]?.name ??
                     data.projects[s.projectIndex]?.key ??
                     'unknown'}

@@ -38,7 +38,7 @@ export const describe = (err) => {
 /**
  * Work out what is answering at `base`.
  *
- * `/api/health` is the probe because it does not touch Argus, so "our server is
+ * `/api/health` is the probe because it does not touch Prometheus, so "our server is
  * not there" stays distinct from "our server is there and the upstream is down".
  *
  * Returns one of:

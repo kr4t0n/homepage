@@ -1,7 +1,7 @@
 # homepage Helm chart
 
 Deploys the homepage: one container serving the built site and the
-`/api/pixels` proxy that lights the two wall boards from Argus.
+`/api/pixels` proxy that lights the two wall boards from Prometheus.
 
 ```bash
 helm repo add homepage https://kr4t0n.github.io/homepage/helm
@@ -9,27 +9,25 @@ helm repo update
 helm install homepage homepage/homepage
 ```
 
-## Argus is optional
+## Prometheus is optional
 
 Without it the room renders normally and the wall boards stay unlit. To light
-them, give the chart the Argus API base URL and a key, inline or by reference:
+them, give the chart the base URL of a Prometheus that scrapes the Stellaris
+server. It takes no key, so the chart makes no Secret:
 
 ```bash
 helm install homepage homepage/homepage \
-  --set argus.url=http://argus-server.argus.svc.cluster.local:4000 \
-  --set argus.existingSecret=homepage-secret   # carries ARGUS_KEY
+  --set prometheus.url=http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090
 ```
 
-`argus.apiKey` instead of `existingSecret` puts the key in a chart-generated
-Secret, and a change to it rolls the pods. A Secret managed elsewhere is not
-tracked: roll the Deployment yourself after rotating the key.
+Use the in-cluster service address. The browser never reaches Prometheus: the
+server sends it a fixed set of queries and publishes per-project figures only.
 
-The chart refuses a URL without a key, a key without a URL, and a URL without
-a scheme. Each of those installs and runs, then answers 502 on every poll in
-a way that is indistinguishable from an Argus outage.
-
-Prefer the in-cluster service address over the public ingress, so the request
-never leaves the cluster.
+The chart refuses a URL without a scheme, which installs and runs, then answers
+502 on every poll in a way that is indistinguishable from a Prometheus outage.
+It also refuses the `argus` values block that chart 0.1.4 and earlier took:
+nothing reads it any more, so left in place it would leave the boards dark
+with no error. Move to `prometheus.url` and delete the old Secret.
 
 ## Media: the backing track
 
@@ -86,8 +84,8 @@ The backing track is never in the image; it comes from the media volume above.
 - **Locked-down pod.** Non-root as uid 1000, read-only root filesystem, every
   capability dropped, `RuntimeDefault` seccomp. Verified against the published
   image with `docker run --read-only --user 1000:1000 --cap-drop ALL`.
-- **Probes on `/api/health`**, which never touches Argus, so an upstream outage
-  cannot restart a healthy pod.
+- **Probes on `/api/health`**, which never touches Prometheus, so an upstream
+  outage cannot restart a healthy pod.
 - **A 5 second `preStop` sleep** (`shutdownDelaySeconds`), so the ingress
   controller stops routing to a terminating pod before the server stops
   accepting. Uses the native `sleep` action, hence `kubeVersion >= 1.30`.
@@ -97,7 +95,7 @@ The backing track is never in the image; it comes from the media volume above.
 ## Values
 
 See `values.yaml`, which is commented. The ones that matter most are
-`argus`, `persistence` and `ingress`.
+`prometheus`, `persistence` and `ingress`.
 
 ## Releasing
 
