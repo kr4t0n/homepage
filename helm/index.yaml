@@ -3,7 +3,7 @@ entries:
   homepage:
   - apiVersion: v2
     appVersion: 0.1.4
-    created: "2026-10-28T07:34:53.821950305Z"
+    created: "2026-11-14T15:52:28.875933822Z"
     description: 'kr4t0n''s homepage — an explorable 3D room. One container serves
       the built site and the /api/pixels proxy that lights the two wall boards from
       Argus. An optional volume supplies the backing track at runtime.  Argus is NOT
@@ -28,7 +28,7 @@ entries:
     version: 0.1.4
   - apiVersion: v2
     appVersion: 0.1.3
-    created: "2026-10-28T07:34:53.82145334Z"
+    created: "2026-11-14T15:52:28.875507203Z"
     description: 'kr4t0n''s homepage — an explorable 3D room. One container serves
       the built site and the /api/pixels proxy that lights the two wall boards from
       Argus. An optional volume supplies the backing track at runtime.  Argus is NOT
@@ -53,7 +53,7 @@ entries:
     version: 0.1.3
   - apiVersion: v2
     appVersion: 0.1.2
-    created: "2026-10-28T07:34:53.820920262Z"
+    created: "2026-11-14T15:52:28.875063278Z"
     description: 'kr4t0n''s homepage — an explorable 3D room. One container serves
       the built site and the /api/pixels proxy that lights the two wall boards from
       Argus. An optional volume supplies the backing track at runtime.  Argus is NOT
@@ -78,7 +78,7 @@ entries:
     version: 0.1.2
   - apiVersion: v2
     appVersion: 0.1.1
-    created: "2026-10-28T07:34:53.820380623Z"
+    created: "2026-11-14T15:52:28.874595677Z"
     description: 'kr4t0n''s homepage — an explorable 3D room. One container serves
       the built site and the /api/pixels proxy that lights the two wall boards from
       Argus.  Argus is NOT required. Without it the room renders normally and the
@@ -102,7 +102,7 @@ entries:
     version: 0.1.1
   - apiVersion: v2
     appVersion: latest
-    created: "2026-10-28T07:34:53.819905972Z"
+    created: "2026-11-14T15:52:28.874125353Z"
     description: 'kr4t0n''s homepage — an explorable 3D room. One container serves
       the built site and the /api/pixels proxy that lights the two wall boards from
       Argus.  Argus is NOT required. Without it the room renders normally and the
@@ -124,4 +124,4 @@ entries:
     urls:
     - https://kr4t0n.github.io/homepage/helm/homepage-0.1.0.tgz
     version: 0.1.0
-generated: "2026-10-28T07:34:53.81927728Z"
+generated: "2026-11-14T15:52:28.872797914Z"
